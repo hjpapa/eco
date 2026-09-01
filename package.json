@@ -2,34 +2,36 @@
   "name": "unicorn-city",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "description": "유니콘 시티 — 학생용 회사 경영 & 주식 투자 교육 게임",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@react-three/drei": "^9.114.0",
-    "@react-three/fiber": "^8.17.10",
+    "@react-three/drei": "^10.7.8",
+    "@react-three/fiber": "^9.7.0",
     "@types/three": "^0.169.0",
-    "next": "14.2.5",
-    "react": "18.3.1",
-    "react-dom": "18.3.1",
-    "recharts": "2.12.7",
+    "next": "^16.3.4",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "recharts": "2.15.4",
     "three": "^0.169.0",
-    "zustand": "4.5.4"
+    "zustand": "^5.0.15"
   },
   "devDependencies": {
     "@types/node": "20.14.10",
-    "@types/react": "18.3.3",
-    "@types/react-dom": "18.3.0",
-    "autoprefixer": "10.4.19",
-    "postcss": "8.4.39",
-    "tailwindcss": "3.4.6",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "autoprefixer": "10.5.4",
+    "postcss": "8.5.26",
+    "tailwindcss": "3.4.19",
     "typescript": "5.5.3",
-    "vitest": "2.0.3"
+    "vitest": "^4.1.11"
   }
 }
