@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useGameStore } from "@/store/gameStore";
-import { ROLE_LABELS } from "@/lib/engine";
+import { getCampaignGrowthMultiplier, ROLE_LABELS } from "@/lib/engine";
 import type { Character, Company, GameState } from "@/lib/engine";
 import { formatMoney } from "@/lib/format";
 import { TALENT_IMGS, idToIndex, BUILDING_IMG } from "@/lib/assetMap";
@@ -100,10 +100,12 @@ function ReflexBar({ onScore }: { onScore: (n: number) => void }) {
 // ── Salary negotiation modal ────────────────────────────────────────────────
 function SalaryModal({
   ch,
+  growthMultiplier,
   onClose,
   onConfirm,
 }: {
   ch: Character;
+  growthMultiplier: number;
   onClose: () => void;
   onConfirm: (newSalary: number, bonus: number) => void;
 }) {
@@ -112,8 +114,12 @@ function SalaryModal({
 
   const newSalary = Math.round(ch.salary * pct / 100);
   const ratio = (newSalary - ch.salary) / ch.salary;
-  const loyaltyGain = Math.round(Math.min(30, ratio * 60)) + (bonus ?? 0);
-  const newLoyalty  = Math.min(100, Math.round(ch.loyalty ?? 70) + loyaltyGain);
+  const baseLoyalty = ch.loyalty ?? 70;
+  const unscaledGain = Math.round(Math.min(30, ratio * 60)) + (bonus ?? 0);
+  const unscaledLoyalty = Math.min(100, baseLoyalty + unscaledGain);
+  const scaledLoyalty = Math.min(100, baseLoyalty + (unscaledLoyalty - baseLoyalty) * growthMultiplier);
+  const loyaltyGain = Math.round(scaledLoyalty - baseLoyalty);
+  const newLoyalty = Math.round(scaledLoyalty);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -501,30 +507,41 @@ export function TalentMarket({ game, company }: { game: GameState; company: Comp
                         {ch.role ? ROLE_LABELS[ch.role] : "미배치"}
                       </span>
                     </div>
-                    <div className="text-xs text-slate-500">
-                      {ch.traitName} · <span className={loyaltyColor}>충성도 {loyalty}</span>
+                    <div className="mt-1 rounded-lg bg-amber-50 px-2 py-1.5 text-xs font-semibold text-amber-700">
+                      ✨ 대표 효과: {ch.traitName} — {ch.traitDesc}
                     </div>
-                    <div className="mt-2 flex gap-1.5">
-                      <button
-                        className="btn-ghost !px-2 !py-1 text-xs"
-                        onClick={() => setSalaryTarget(ch)}
-                      >
-                        연봉 협상
-                      </button>
-                      <button
-                        className="btn-ghost shrink-0 !px-2 !py-1 text-xs !text-bear"
-                        onClick={() => {
-                          if (window.confirm(`${ch.name}을(를) 해고할까요?\n퇴직금 ${formatMoney(ch.salary)} 지출 · 사기·평판 소폭 하락`))
-                            fire(ch.id);
-                        }}
-                      >
-                        해고
-                      </button>
-                    </div>
-                  </div>
-                  <div className="text-right text-xs text-slate-400">
-                    연봉<br />
-                    <b className="text-slate-600">{formatMoney(ch.salary)}</b>
+                    <details className="group mt-2">
+                      <summary className="cursor-pointer list-none text-xs font-bold text-slate-500">
+                        연봉·충성도·능력 자세히
+                        <span className="ml-1 inline-block transition group-open:rotate-180">⌄</span>
+                      </summary>
+                      <div className="mt-2 rounded-lg bg-white p-2 ring-1 ring-slate-200">
+                        <div className="flex flex-wrap gap-1 text-xs">
+                          <span className={`pill bg-slate-100 ${loyaltyColor}`}>충성도 {loyalty}</span>
+                          <span className="pill bg-slate-100 text-slate-600">연봉 {formatMoney(ch.salary)}</span>
+                          {topStats(ch).map(([key, value]) => (
+                            <span key={key} className="pill bg-slate-100 text-slate-600">{STAT_LABEL[key]} {value}</span>
+                          ))}
+                        </div>
+                        <div className="mt-2 flex gap-1.5">
+                          <button
+                            className="btn-ghost !px-2 !py-1 text-xs"
+                            onClick={() => setSalaryTarget(ch)}
+                          >
+                            연봉 협상
+                          </button>
+                          <button
+                            className="btn-ghost shrink-0 !px-2 !py-1 text-xs !text-bear"
+                            onClick={() => {
+                              if (window.confirm(`${ch.name}을(를) 해고할까요?\n퇴직금 ${formatMoney(ch.salary)} 지출 · 사기·평판 소폭 하락`))
+                                fire(ch.id);
+                            }}
+                          >
+                            해고
+                          </button>
+                        </div>
+                      </div>
+                    </details>
                   </div>
                 </div>
               );
@@ -535,8 +552,12 @@ export function TalentMarket({ game, company }: { game: GameState; company: Comp
 
       {/* ── Competitor scout ── */}
       {rivals.length > 0 && (
-        <div className="card p-4">
-          <h3 className="mb-3 text-base font-bold text-slate-800">경쟁사 인재 스카우트</h3>
+        <details className="card group p-4">
+          <summary className="cursor-pointer list-none text-base font-bold text-slate-800">
+            더 많은 인재 활동: 경쟁사 스카우트
+            <span className="float-right text-slate-400 transition group-open:rotate-180">⌄</span>
+          </summary>
+          <div className="mt-3">
           {/* Company tabs */}
           <div className="mb-3 flex flex-wrap gap-1">
             {rivals.map((r) => (
@@ -604,7 +625,8 @@ export function TalentMarket({ game, company }: { game: GameState; company: Comp
               })}
             </div>
           )}
-        </div>
+          </div>
+        </details>
       )}
 
       {/* ── Talent pool ── */}
@@ -639,6 +661,7 @@ export function TalentMarket({ game, company }: { game: GameState; company: Comp
       {salaryTarget && (
         <SalaryModal
           ch={salaryTarget}
+          growthMultiplier={getCampaignGrowthMultiplier(game)}
           onClose={() => setSalaryTarget(null)}
           onConfirm={(newSalary, bonus) => {
             negotiateSalary(salaryTarget.id, newSalary, bonus);
@@ -709,16 +732,23 @@ function TalentCard({
           <div className="text-xs text-slate-500">{ROLE_LABELS[ch.preferredRole]}</div>
         </div>
       </div>
+      <div className="mt-2 rounded-lg bg-amber-50 px-2 py-1.5 text-xs font-semibold text-amber-700">
+        ✨ 대표 효과: {ch.traitName} — {ch.traitDesc}
+      </div>
       {detailed && (
-        <div className="mt-2 flex flex-wrap gap-1">
-          {top.map(([k, v]) => (
-            <span key={k} className="pill bg-slate-100 text-slate-600">
-              {STAT_LABEL[k]} {v}
-            </span>
-          ))}
-        </div>
+        <details className="group mt-2">
+          <summary className="cursor-pointer list-none text-xs font-bold text-slate-500">
+            세부 능력치 보기 <span className="inline-block transition group-open:rotate-180">⌄</span>
+          </summary>
+          <div className="mt-2 flex flex-wrap gap-1">
+            {top.map(([k, v]) => (
+              <span key={k} className="pill bg-slate-100 text-slate-600">
+                {STAT_LABEL[k]} {v}
+              </span>
+            ))}
+          </div>
+        </details>
       )}
-      <div className="mt-2 text-xs text-amber-700">✨ {ch.traitName}: {ch.traitDesc}</div>
       <div className="mt-2 flex items-center justify-between">
         <span className="text-xs text-slate-500">영입비 {formatMoney(ch.salary)}</span>
         <button className="btn-primary !px-3 !py-1.5 text-xs" disabled={!affordable} onClick={onHire}>

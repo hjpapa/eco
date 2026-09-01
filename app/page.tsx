@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { LEVEL_CONFIGS } from "@/lib/engine";
 import type { Level } from "@/lib/engine";
 import { useGameStore } from "@/store/gameStore";
@@ -57,8 +58,14 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-gradient-to-b from-slate-900 via-indigo-950 to-slate-900 text-white">
       {/* Author bar */}
-      <div className="w-full bg-slate-950/80 py-1.5 text-center text-xs text-slate-400">
-        제작 by <span className="font-semibold text-slate-300">Dustin</span> · Teacher · Data Analytics · App Developer
+      <div className="flex w-full items-center justify-center bg-slate-950/80 px-3 py-1.5 text-center text-xs text-slate-400">
+        <span>제작 by <span className="font-semibold text-slate-300">Dustin</span> · Teacher · Data Analytics · App Developer</span>
+        <Link
+          href="/learn"
+          className="absolute right-3 rounded-full bg-blue-600 px-3 py-1 text-sm font-bold text-white shadow-lg transition hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+        >
+          📘 배우기
+        </Link>
       </div>
       {/* Full-bleed hero */}
       <img

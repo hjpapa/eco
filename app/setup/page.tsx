@@ -1,13 +1,14 @@
 "use client";
 
 import { Suspense, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { INDUSTRIES } from "@/lib/data/industries";
 import { COUNTRIES } from "@/lib/data/countries";
 import { COMPANY_PRESETS } from "@/lib/data/companyPresets";
 import { STORY } from "@/lib/data/story";
 import { LEVEL_CONFIGS } from "@/lib/engine";
-import type { Level } from "@/lib/engine";
+import type { GameLength, Level, RevealMode } from "@/lib/engine";
 import { useGameStore } from "@/store/gameStore";
 import { playSfx } from "@/lib/audio";
 import { formatMoney } from "@/lib/format";
@@ -21,6 +22,7 @@ const WIZARD_STEPS = [
   { id: "type",   label: "유형 선택" },
   { id: "detail", label: "회사 설정" },
   { id: "campus", label: "캠퍼스" },
+  { id: "campaign", label: "게임 방식" },
   { id: "start",  label: "시작" },
 ] as const;
 type WizardStep = typeof WIZARD_STEPS[number]["id"];
@@ -44,6 +46,8 @@ function SetupInner() {
   const [basedOn, setBasedOn] = useState<string | undefined>(undefined);
   const [filterCountry, setFilterCountry] = useState<string>("all");
   const [campusSize, setCampusSize] = useState<"small" | "medium" | "large">("medium");
+  const [gameLength, setGameLength] = useState<GameLength>(level === "elementary" ? 50 : 100);
+  const [revealMode, setRevealMode] = useState<RevealMode>(level === "elementary" ? "guided" : "all");
 
   const filteredPresets = useMemo(
     () => COMPANY_PRESETS.filter((p) => filterCountry === "all" || p.countryId === filterCountry),
@@ -75,6 +79,8 @@ function SetupInner() {
       logoColor: color,
       basedOn: tab === "preset" ? basedOn : undefined,
       mapSize: CAMPUS_SIZE_MAP[campusSize],
+      gameLength,
+      revealMode,
     });
     router.push("/play");
   };
@@ -97,7 +103,7 @@ function SetupInner() {
   if (phase === "story") {
     const scene = scenes[sceneIdx];
     return (
-      <Shell>
+      <Shell returnPath={`/setup?level=${level}`}>
         <div className="card mx-auto max-w-xl animate-popin p-8 text-center">
           <div className="text-6xl">{scene.emoji}</div>
           <h2 className="mt-4 text-2xl font-black text-slate-800">{scene.title}</h2>
@@ -138,7 +144,7 @@ function SetupInner() {
   const selectedPreset = COMPANY_PRESETS.find((p) => p.id === basedOn);
 
   return (
-    <Shell>
+    <Shell returnPath={`/setup?level=${level}`}>
       <div className="mx-auto max-w-2xl space-y-5">
         <h2 className="text-center text-2xl font-black text-white">회사를 만들어요</h2>
 
@@ -348,6 +354,77 @@ function SetupInner() {
         )}
 
         {/* ── Step 4: summary & start ───────────────────────────────── */}
+        {wizardStep === "campaign" && (
+          <div className="animate-popin space-y-4">
+            <div>
+              <h3 className="text-center text-lg font-black text-white">얼마나 길게 경영할까요?</h3>
+              <p className="mt-1 text-center text-sm text-slate-300">
+                {level === "elementary"
+                  ? "처음이라면 기본 50분기를 추천해요. 짧은 게임일수록 품질·평판·인재가 더 빠르게 성장합니다."
+                  : "기존 난이도는 장기 100분기와 전체 기능 공개가 기본이며, 원하면 더 짧게 바꿀 수 있어요."}
+              </p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-3">
+              {([
+                { value: 20 as const, emoji: "⚡", label: "빠른 20분기", desc: "한 수업 안에 빠르게", badge: "품질·평판·인재 2.0배" },
+                { value: 50 as const, emoji: "🎯", label: "기본 50분기", desc: "처음 플레이 추천", badge: "품질·평판·인재 1.4배" },
+                { value: 100 as const, emoji: "🌳", label: "장기 100분기", desc: "천천히 깊이 있게", badge: "기본 성장" },
+              ]).map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => { setGameLength(option.value); playSfx("click"); }}
+                  className={`rounded-2xl p-4 text-left ring-2 transition ${
+                    gameLength === option.value
+                      ? "bg-brand-600/20 ring-brand-400"
+                      : "bg-slate-800/60 ring-slate-700 hover:ring-slate-500"
+                  }`}
+                  aria-pressed={gameLength === option.value}
+                >
+                  <div className="text-3xl">{option.emoji}</div>
+                  <div className="mt-2 font-bold text-white">{option.label}</div>
+                  <div className="mt-1 text-xs text-slate-300">{option.desc}</div>
+                  <span className="mt-3 inline-block rounded-full bg-white/10 px-2 py-1 text-xs font-bold text-brand-200">
+                    {option.badge}
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            <div className="rounded-2xl bg-slate-800/70 p-4 ring-1 ring-slate-700">
+              <div className="flex items-start gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="font-bold text-white">기능을 여는 방법</div>
+                  <p className="mt-1 text-sm text-slate-300">
+                    단계별 배우기에서는 회사 운영부터 시작해 투자와 인재 기능이 차례로 열려요.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={revealMode === "all"}
+                  onClick={() => setRevealMode((mode) => mode === "guided" ? "all" : "guided")}
+                  className={`relative h-7 w-12 shrink-0 rounded-full transition ${
+                    revealMode === "all" ? "bg-brand-500" : "bg-slate-600"
+                  }`}
+                  title="전체 기능 바로 열기"
+                >
+                  <span className={`absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow transition ${
+                    revealMode === "all" ? "translate-x-5" : "translate-x-0"
+                  }`} />
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={() => setRevealMode((mode) => mode === "guided" ? "all" : "guided")}
+                className="mt-3 text-left text-sm font-semibold text-brand-200 hover:text-white"
+              >
+                {revealMode === "all" ? "✅ 전체 기능 바로 열기 (숙련자용)" : "🪜 단계별로 하나씩 열기 (추천)"}
+              </button>
+            </div>
+          </div>
+        )}
+
         {wizardStep === "start" && (
           <div className="animate-popin space-y-4">
             <div className="card p-5">
@@ -357,11 +434,15 @@ function SetupInner() {
                 {selectedIndustry && <SummaryRow label="업종" value={`${selectedIndustry.emoji} ${selectedIndustry.name}`} />}
                 {selectedCountry && <SummaryRow label="국가" value={`${selectedCountry.flag} ${selectedCountry.name}`} />}
                 <SummaryRow label="캠퍼스 크기" value={`${CAMPUS_SIZE_MAP[campusSize]}×${CAMPUS_SIZE_MAP[campusSize]} (${campusSize === "small" ? "작게" : campusSize === "medium" ? "중간" : "크게"})`} />
+                <SummaryRow label="게임 길이" value={`${gameLength}분기${gameLength === 50 ? " (추천)" : ""}`} />
+                <SummaryRow label="기능 공개" value={revealMode === "guided" ? "단계별로 하나씩" : "처음부터 모두"} />
                 <SummaryRow label="시작 자금" value={formatMoney(levelCfg.startingCash)} />
                 <SummaryRow label="난이도" value={`${levelEmoji[level]} ${levelCfg.label}`} />
               </div>
               <div className="mt-4 rounded-xl bg-brand-50 p-3 text-sm text-brand-700">
-                💡 <b>팁:</b> 처음에는 기본 상품(p1)만 판매하고 R&D에 투자해 품질을 높이면 더 비싼 상품을 판매할 수 있습니다!
+                💡 <b>팁:</b> {revealMode === "guided"
+                  ? "처음에는 가격과 생산량을 맞추는 데 집중하세요. 건물과 연구는 알맞은 분기에 차례로 열립니다!"
+                  : "기본 상품부터 판매하고 R&D에 투자해 품질을 높이면 더 비싼 상품을 판매할 수 있습니다!"}
               </div>
             </div>
 
@@ -427,9 +508,15 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-function Shell({ children }: { children: React.ReactNode }) {
+function Shell({ children, returnPath = "/setup" }: { children: React.ReactNode; returnPath?: string }) {
   return (
     <main className="min-h-screen bg-gradient-to-b from-slate-900 via-indigo-950 to-slate-900 px-4 py-10">
+      <Link
+        href={`/learn?return=${encodeURIComponent(returnPath)}`}
+        className="fixed right-4 top-4 z-30 rounded-full bg-white px-4 py-2 text-sm font-bold text-brand-700 shadow-lg transition hover:-translate-y-0.5 hover:bg-brand-50"
+      >
+        📘 배우기
+      </Link>
       {children}
     </main>
   );

@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import type { Company, GameState } from "@/lib/engine";
-import { playerRank } from "@/lib/engine";
+import { isFeatureUnlocked, playerRank } from "@/lib/engine";
 import { getIndustry } from "@/lib/data/industries";
 import { getIndustryProducts } from "@/lib/data/products";
 import { formatMoney } from "@/lib/format";
@@ -13,6 +13,8 @@ function buildItems(game: GameState, company: Company): Item[] {
   const industry = getIndustry(company.industryId);
   const productDefs = getIndustryProducts(company.industryId);
   const items: Item[] = [];
+  const rankingNewsUnlocked = isFeatureUnlocked(game, "talentNewsRanking");
+  const advancedInfoUnlocked = isFeatureUnlocked(game, "visitsPartnershipsAdvanced");
 
   // ── 1. 품질 ──────────────────────────────────────────────────────────────
   const q = Math.round(company.quality);
@@ -81,13 +83,13 @@ function buildItems(game: GameState, company: Company): Item[] {
     stagflation: { text: "🌫️ 스태그플레이션 — 원가 상승 + 수요 위축 이중고, 비용 절감이 최우선", tone: "neg" },
     normal:      { text: "📊 경기 안정기 — 지속적인 성장과 효율화로 경쟁력을 다질 시기", tone: "neu" },
   };
-  if (phaseHints[game.macro.phase]) items.push(phaseHints[game.macro.phase]);
+  if (advancedInfoUnlocked && phaseHints[game.macro.phase]) items.push(phaseHints[game.macro.phase]);
 
   // ── 8. 금리 ──────────────────────────────────────────────────────────────
   const rate = game.macro.interestRate;
-  if (rate > 5) {
+  if (advancedInfoUnlocked && rate > 5) {
     items.push({ text: `🏦 기준금리 ${rate.toFixed(1)}% — 부채 비용 증가, 성장주 밸류에이션 압박`, tone: "neg" });
-  } else if (rate < 2) {
+  } else if (advancedInfoUnlocked && rate < 2) {
     items.push({ text: `🏦 저금리 환경 (${rate.toFixed(1)}%) — 설비 투자·확장의 유리한 타이밍`, tone: "pos" });
   }
 
@@ -102,18 +104,20 @@ function buildItems(game: GameState, company: Company): Item[] {
   }
 
   // ── 10. 순위 힌트 ────────────────────────────────────────────────────────
-  const rank = playerRank(game);
-  const total = game.companies.length;
-  if (rank === 1) {
-    items.push({ text: `🏆 현재 순위 1위 — 선두를 유지하려면 지속적인 투자와 혁신이 필요합니다`, tone: "pos" });
-  } else if (rank > total * 0.7) {
-    items.push({ text: `📊 순위 ${rank}위/${total} — 경쟁사와의 격차를 줄이기 위한 전략 변화가 필요합니다`, tone: "neg" });
-  } else {
-    items.push({ text: `📊 순위 ${rank}위/${total} — 꾸준한 성과로 상위권 진입을 노려보세요`, tone: "neu" });
+  if (rankingNewsUnlocked) {
+    const rank = playerRank(game);
+    const total = game.companies.length;
+    if (rank === 1) {
+      items.push({ text: `🏆 현재 순위 1위 — 선두를 유지하려면 지속적인 투자와 혁신이 필요합니다`, tone: "pos" });
+    } else if (rank > total * 0.7) {
+      items.push({ text: `📊 순위 ${rank}위/${total} — 경쟁사와의 격차를 줄이기 위한 전략 변화가 필요합니다`, tone: "neg" });
+    } else {
+      items.push({ text: `📊 순위 ${rank}위/${total} — 꾸준한 성과로 상위권 진입을 노려보세요`, tone: "neu" });
+    }
   }
 
   // ── 11. 최근 뉴스 (관련 항목) ────────────────────────────────────────────
-  const relatedNews = game.news
+  const relatedNews = rankingNewsUnlocked ? game.news
     .filter(n =>
       n.tags.some(t =>
         t === company.id || t === company.industryId ||
@@ -122,7 +126,7 @@ function buildItems(game: GameState, company: Company): Item[] {
     )
     .slice(-8)
     .reverse()
-    .slice(0, 5);
+    .slice(0, 5) : [];
   for (const n of relatedNews) {
     items.push({ text: `${n.emoji} ${n.title}`, tone: n.tone === "positive" ? "pos" : n.tone === "negative" ? "neg" : "neu" });
   }

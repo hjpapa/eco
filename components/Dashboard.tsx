@@ -5,6 +5,8 @@ import {
   playerRank,
   portfolioValue,
   fundamentalValue,
+  getFeatureUnlockTurn,
+  isFeatureUnlocked,
   stockMetrics,
   type GameState,
 } from "@/lib/engine";
@@ -25,6 +27,8 @@ export function Dashboard({ game }: { game: GameState }) {
   const ctry = getCountry(p.countryId);
   const hist = p.netWorthHistory;
   const nwChange = changePct(nw, hist[hist.length - 2] ?? nw);
+  const rankingUnlocked = isFeatureUnlocked(game, "talentNewsRanking");
+  const advancedInfoUnlocked = isFeatureUnlocked(game, "visitsPartnershipsAdvanced");
 
   return (
     <div className="space-y-4">
@@ -43,7 +47,7 @@ export function Dashboard({ game }: { game: GameState }) {
             <span className="pill bg-white/20">{ctry.flag} {ind.emoji} {ind.name}</span>
             {p.basedOn && <span className="pill bg-white/20">모티브</span>}
           </div>
-          <div className="mt-3 text-xs uppercase tracking-wide opacity-80">총 <Term term="순자산" /></div>
+          <div className="mt-3 text-xs uppercase tracking-wide opacity-80">내 총재산 (<Term term="순자산" />)</div>
           <div className="flex items-end gap-3">
             <div className="text-4xl font-black">{formatMoney(nw)}</div>
             <div className={`mb-1 text-sm font-bold ${nwChange >= 0 ? "text-green-200" : "text-red-200"}`}>
@@ -55,15 +59,20 @@ export function Dashboard({ game }: { game: GameState }) {
           </div>
         </div>
         <div className="grid grid-cols-2 divide-x divide-slate-100 sm:grid-cols-4">
-          <Cell label={<Term term="순위" />} value={`${rank}위 / ${game.companies.length}`} />
-          <Cell icon={FINANCE_ICONS.cash}         label={<Term term="현금" />}    value={formatMoney(p.cash)} />
-          <Cell icon={FINANCE_ICONS.companyValue} label={<Term term="기업가치" />} value={formatMoney(fundamentalValue(p))} />
-          <Cell icon={FINANCE_ICONS.portfolio}    label={<Term term="투자자산" />} value={formatMoney(portfolioValue(p, game))} />
+          <Cell label={<>내 순위 (<Term term="순위" />)</>} value={rankingUnlocked ? `${rank}위 / ${game.companies.length}` : "🔒 아직 비공개"} />
+          <Cell icon={FINANCE_ICONS.cash}         label={<>쓸 수 있는 돈 (<Term term="현금" />)</>} value={formatMoney(p.cash)} />
+          <Cell icon={FINANCE_ICONS.companyValue} label={<>회사 가치 (<Term term="기업가치" />)</>} value={formatMoney(fundamentalValue(p))} />
+          <Cell icon={FINANCE_ICONS.portfolio}    label={<>투자한 돈 (<Term term="투자자산" />)</>} value={formatMoney(portfolioValue(p, game))} />
         </div>
       </div>
 
       {/* Our stock */}
-      <OurStock game={game} />
+      <OurStock game={game} showExpert={advancedInfoUnlocked} />
+      {!advancedInfoUnlocked && (
+        <div className="rounded-xl bg-amber-50 px-4 py-3 text-xs text-amber-700 ring-1 ring-amber-200">
+          🔒 전문가용 회사 정보는 {getFeatureUnlockTurn(game.gameLength, "visitsPartnershipsAdvanced")}분기에 열려요.
+        </div>
+      )}
 
       {/* Living campus overview */}
       <div className="card p-3">
@@ -85,7 +94,7 @@ export function Dashboard({ game }: { game: GameState }) {
   );
 }
 
-function OurStock({ game }: { game: GameState }) {
+function OurStock({ game, showExpert }: { game: GameState; showExpert: boolean }) {
   const p = game.companies.find((c) => c.id === game.playerCompanyId)!;
   const stock = game.stocks[p.id];
   if (!stock) return null;
@@ -105,24 +114,32 @@ function OurStock({ game }: { game: GameState }) {
         </div>
       </div>
       <Sparkline data={stock.history.slice(-24)} width={280} height={36} />
-      <div className="mt-2 grid grid-cols-2 gap-2 text-center text-xs">
-        <div className="rounded-lg bg-slate-50 p-2">
-          <div className="text-slate-500"><Term term="시가총액">시가총액</Term></div>
-          <div className="font-bold text-slate-800">{formatMoney(cap)}</div>
-        </div>
-        <div className="rounded-lg bg-slate-50 p-2">
-          <div className="text-slate-500"><Term term="PER" /></div>
-          <div className="font-bold text-slate-800">{m.per != null ? m.per.toFixed(1) : "—"}</div>
-        </div>
-        <div className="rounded-lg bg-slate-50 p-2">
-          <div className="text-slate-500"><Term term="PBR" /></div>
-          <div className="font-bold text-slate-800">{m.pbr != null ? m.pbr.toFixed(2) : "—"}</div>
-        </div>
-        <div className="rounded-lg bg-slate-50 p-2">
-          <div className="text-slate-500"><Term term="ROE" /></div>
-          <div className="font-bold text-slate-800">{m.roe != null ? m.roe.toFixed(1) + "%" : "—"}</div>
-        </div>
-      </div>
+      {showExpert && (
+        <details className="group mt-3 rounded-xl bg-slate-50 p-3">
+          <summary className="cursor-pointer list-none text-xs font-bold text-slate-600">
+            전문가 회사 정보 보기 (PER·PBR·ROE)
+            <span className="float-right transition group-open:rotate-180">⌄</span>
+          </summary>
+          <div className="mt-3 grid grid-cols-2 gap-2 text-center text-xs">
+            <div className="rounded-lg bg-white p-2">
+              <div className="text-slate-500"><Term term="시가총액">시가총액</Term></div>
+              <div className="font-bold text-slate-800">{formatMoney(cap)}</div>
+            </div>
+            <div className="rounded-lg bg-white p-2">
+              <div className="text-slate-500"><Term term="PER" /></div>
+              <div className="font-bold text-slate-800">{m.per != null ? m.per.toFixed(1) : "—"}</div>
+            </div>
+            <div className="rounded-lg bg-white p-2">
+              <div className="text-slate-500"><Term term="PBR" /></div>
+              <div className="font-bold text-slate-800">{m.pbr != null ? m.pbr.toFixed(2) : "—"}</div>
+            </div>
+            <div className="rounded-lg bg-white p-2">
+              <div className="text-slate-500"><Term term="ROE" /></div>
+              <div className="font-bold text-slate-800">{m.roe != null ? m.roe.toFixed(1) + "%" : "—"}</div>
+            </div>
+          </div>
+        </details>
+      )}
     </div>
   );
 }

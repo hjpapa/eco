@@ -1,6 +1,6 @@
 "use client";
 
-import type { Company, GameState } from "@/lib/engine";
+import { isFeatureUnlocked, type Company, type GameState } from "@/lib/engine";
 import { getIndustry } from "@/lib/data/industries";
 import { formatMoney } from "@/lib/format";
 import { Bar } from "./Sparkline";
@@ -10,6 +10,7 @@ import { useState } from "react";
 export function CompanyStatusCard({ game, company }: { game: GameState; company: Company }) {
   const [open, setOpen] = useState(true);
   const industry = getIndustry(company.industryId);
+  const advancedInfoUnlocked = isFeatureUnlocked(game, "visitsPartnershipsAdvanced");
 
   return (
     <div className="card overflow-hidden">
@@ -41,7 +42,10 @@ export function CompanyStatusCard({ game, company }: { game: GameState; company:
             warn={company.safety < 40 ? "⚠ 낮음" : undefined} />
           <div className="mt-2 flex justify-between text-[10px] text-slate-400">
             <span>재고 {company.inventory.toLocaleString()}개</span>
-            <span>부채 {formatMoney(company.debt)}</span>
+            {advancedInfoUnlocked
+              ? <span>부채 {formatMoney(company.debt)}</span>
+              : <span>🔒 고급 정보</span>
+            }
           </div>
         </div>
       )}

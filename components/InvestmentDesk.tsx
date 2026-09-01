@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useGameStore } from "@/store/gameStore";
-import { avgCost, portfolioValue, stockMetrics, STOCK_KIND_LABELS } from "@/lib/engine";
+import { avgCost, getFeatureUnlockTurn, isFeatureUnlocked, portfolioValue, stockMetrics, STOCK_KIND_LABELS } from "@/lib/engine";
 import type { AssetClass, Company, GameState, StockKind } from "@/lib/engine";
 import { getIndustry } from "@/lib/data/industries";
 import { formatMoney, formatNum, changePct } from "@/lib/format";
@@ -51,10 +51,13 @@ export function InvestmentDesk() {
   const [scope, setScope] = useState<"all" | "held" | "rivals">("all");
   const [sortBy, setSortBy] = useState<SortKey>("cap");
   const [sortAsc, setSortAsc] = useState(false);
+  const [view, setView] = useState<"simple" | "expert">("simple");
 
   if (!storeGame) return null;
   const game = storeGame;
   const company = game.companies.find((c) => c.id === game.playerCompanyId)!;
+  const advancedInfoUnlocked = isFeatureUnlocked(game, "visitsPartnershipsAdvanced");
+  const newsUnlocked = isFeatureUnlocked(game, "talentNewsRanking");
 
   const companyById = new Map(game.companies.map((c) => [c.id, c]));
   const pv = portfolioValue(company, game);
@@ -169,6 +172,40 @@ export function InvestmentDesk() {
         <div>
           {/* ── Portfolio ── */}
           <PortfolioBar game={game} company={company} companyById={companyById} onPick={(id) => setSel({ kind: "stock", id })} />
+
+          <div className="flex items-center justify-between gap-3 border-b border-slate-800/60 bg-slate-950/40 px-3 py-3">
+            <div>
+              <div className="text-sm font-bold text-slate-200">주식 고르기</div>
+              <div className="text-xs text-slate-500">위험도를 먼저 보고 천천히 선택해 보세요.</div>
+            </div>
+            <div className="flex rounded-lg bg-slate-900 p-1 ring-1 ring-slate-800" role="group" aria-label="투자 화면 방식">
+              <button
+                type="button"
+                onClick={() => setView("simple")}
+                className={`rounded-md px-2.5 py-1.5 text-xs font-bold ${view === "simple" ? "bg-blue-600 text-white" : "text-slate-500"}`}
+              >
+                쉬운 보기
+              </button>
+              <button
+                type="button"
+                onClick={() => advancedInfoUnlocked && setView("expert")}
+                disabled={!advancedInfoUnlocked}
+                title={!advancedInfoUnlocked ? `${getFeatureUnlockTurn(game.gameLength, "visitsPartnershipsAdvanced")}분기에 열려요` : undefined}
+                className={`rounded-md px-2.5 py-1.5 text-xs font-bold ${view === "expert" ? "bg-blue-600 text-white" : advancedInfoUnlocked ? "text-slate-500" : "cursor-not-allowed text-slate-700"}`}
+              >
+                {advancedInfoUnlocked ? "전문가 보기" : "🔒 전문가 보기"}
+              </button>
+            </div>
+          </div>
+
+          {view === "simple" ? (
+            <SimpleRiskCards
+              listings={allListings}
+              holdings={company.portfolio.stocks}
+              onPick={(id) => setSel({ kind: "stock", id })}
+            />
+          ) : (
+            <>
 
           {/* ── Filter row ── */}
           <div
@@ -312,6 +349,8 @@ export function InvestmentDesk() {
               </tbody>
             </table>
           </div>
+            </>
+          )}
         </div>
       ) : (
         /* ── Asset list ── */
@@ -364,6 +403,8 @@ export function InvestmentDesk() {
           sel={sel}
           qty={qty}
           setQty={setQty}
+          showMetrics={view === "expert" && advancedInfoUnlocked}
+          showNews={newsUnlocked}
           onClose={() => setSel(null)}
           onTrade={(side) => {
             const ok = sel.kind === "stock"
@@ -378,6 +419,75 @@ export function InvestmentDesk() {
 }
 
 // ── Ticker Bar ─────────────────────────────────────────────────────────────────
+
+function SimpleRiskCards({
+  listings,
+  holdings,
+  onPick,
+}: {
+  listings: Listing[];
+  holdings: Record<string, number>;
+  onPick: (id: string) => void;
+}) {
+  const cards = [...listings].sort((a, b) => b.cap - a.cap);
+  return (
+    <div className="p-3">
+      <div className="mb-3 grid grid-cols-3 gap-2 text-center text-[11px]">
+        <div className="rounded-lg bg-emerald-500/10 p-2 text-emerald-300">🛡️ 안정적<br /><span className="text-emerald-500/80">변화가 비교적 작아요</span></div>
+        <div className="rounded-lg bg-amber-500/10 p-2 text-amber-300">⚖️ 보통<br /><span className="text-amber-500/80">수익과 위험이 중간</span></div>
+        <div className="rounded-lg bg-rose-500/10 p-2 text-rose-300">🎢 도전적<br /><span className="text-rose-500/80">크게 오르내릴 수 있어요</span></div>
+      </div>
+      <div className="grid max-h-[54vh] gap-2 overflow-y-auto pr-1 scroll-thin sm:grid-cols-2">
+        {cards.map((listing) => {
+          const held = holdings[listing.id] ?? 0;
+          const risk = listing.kind === "dividend"
+            ? { label: "안정적", emoji: "🛡️", cls: "bg-emerald-500/10 text-emerald-300 ring-emerald-500/20" }
+            : listing.kind === "growth" || Math.abs(listing.change) >= 4
+              ? { label: "도전적", emoji: "🎢", cls: "bg-rose-500/10 text-rose-300 ring-rose-500/20" }
+              : { label: "보통", emoji: "⚖️", cls: "bg-amber-500/10 text-amber-300 ring-amber-500/20" };
+          const industry = getIndustry(listing.industryId);
+          return (
+            <button
+              key={listing.id}
+              type="button"
+              onClick={() => onPick(listing.id)}
+              className="rounded-xl bg-white/[0.035] p-3 text-left ring-1 ring-white/[0.06] transition hover:bg-white/[0.07] hover:ring-blue-500/40"
+            >
+              <div className="flex items-start gap-3">
+                <CompanyMark
+                  color={listing.logoColor}
+                  mark={PRESET_MAP[listing.id]?.mark ?? industry.emoji}
+                  name={listing.name}
+                  size="sm"
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-bold text-slate-100">{listing.name}</div>
+                  <div className="text-xs text-slate-600">{industry.name}{held > 0 ? ` · ${formatNum(held)}주 보유` : ""}</div>
+                </div>
+                <span className={`rounded-full px-2 py-1 text-[10px] font-bold ring-1 ${risk.cls}`}>
+                  {risk.emoji} {risk.label}
+                </span>
+              </div>
+              <div className="mt-3 flex items-end justify-between">
+                <div>
+                  <div className="text-[10px] text-slate-600">한 주 가격</div>
+                  <div className="font-mono text-base font-black text-white">{formatNum(Math.round(listing.price))}</div>
+                </div>
+                <div className={`text-sm font-bold ${listing.change >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                  {listing.change >= 0 ? "▲" : "▼"} {Math.abs(listing.change).toFixed(1)}%
+                </div>
+              </div>
+              <div className="mt-2 text-right text-xs font-bold text-blue-400">사고팔기 →</div>
+            </button>
+          );
+        })}
+      </div>
+      <p className="mt-3 text-center text-[11px] text-slate-600">
+        위험도는 최근 가격 변화와 종목 특징을 바탕으로 한 쉬운 안내이며, 결과를 보장하지 않아요.
+      </p>
+    </div>
+  );
+}
 
 function TickerBar({ items }: { items: Listing[] }) {
   if (items.length === 0) return null;
@@ -561,6 +671,8 @@ function TradeModal({
   sel,
   qty,
   setQty,
+  showMetrics,
+  showNews,
   onClose,
   onTrade,
 }: {
@@ -569,6 +681,8 @@ function TradeModal({
   sel: NonNullable<Selection>;
   qty: number;
   setQty: (n: number) => void;
+  showMetrics: boolean;
+  showNews: boolean;
   onClose: () => void;
   onTrade: (side: "buy" | "sell") => void;
 }) {
@@ -671,7 +785,7 @@ function TradeModal({
         />
 
         {/* ── Metrics ── */}
-        {isStock && (
+        {isStock && showMetrics && (
           <div
             style={{ borderTop: "1px solid rgba(148,163,184,0.07)", borderBottom: "1px solid rgba(148,163,184,0.07)", background: "rgba(255,255,255,0.02)" }}
           >
@@ -701,7 +815,7 @@ function TradeModal({
         )}
 
         {/* ── Related news ── */}
-        {isStock && (() => {
+        {isStock && showNews && (() => {
           const relatedNews = game.news
             .filter((n) => n.tags.some((t) => t === sel.id || t === (stockCompany?.industryId ?? "")) || n.layer === "monetary")
             .slice(-6)

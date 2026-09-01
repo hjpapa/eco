@@ -1,10 +1,19 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useGameStore } from "@/store/gameStore";
-import { netWorth, playerRank, rankings, LAYER_LABELS } from "@/lib/engine";
-import type { NewsItem } from "@/lib/engine";
+import {
+  getFeatureUnlockTurn,
+  getCampaignOutcome,
+  isFeatureUnlocked,
+  netWorth,
+  playerRank,
+  rankings,
+  LAYER_LABELS,
+} from "@/lib/engine";
+import type { GameState, NewsItem } from "@/lib/engine";
 import type { TurnSummary } from "@/lib/engine/tick";
 import { formatMoney } from "@/lib/format";
 import { initAudio, isMuted, setMuted, startBgm, stopBgm } from "@/lib/audio";
@@ -21,22 +30,19 @@ import { Secretary } from "@/components/Secretary";
 import { CompanyStatusCard } from "@/components/CompanyStatusCard";
 import { WorldMap } from "@/components/WorldMap";
 import { CampusStrip } from "@/components/CampusStrip";
-import { HelpModal } from "@/components/HelpModal";
 import { Tutorial } from "@/components/Tutorial";
-import { TAB_ICONS, RESULT_ICONS, BANNER_IMGS } from "@/lib/assetMap";
+import { RESULT_ICONS, BANNER_IMGS } from "@/lib/assetMap";
+import { hasSeenLearningIntro } from "@/lib/learning";
 
-const TUTORIAL_SEEN_KEY = "uc_tutorial_seen";
-
-type Tab = "home" | "company" | "invest" | "talent" | "news" | "rank" | "visit";
+type Tab = "home" | "company" | "invest" | "talent" | "more";
+type MorePage = "news" | "rank" | "visit";
 
 const TABS: { id: Tab; label: string; emoji: string }[] = [
-  { id: "home", label: "대시보드", emoji: "🏠" },
+  { id: "home", label: "홈", emoji: "🏠" },
   { id: "company", label: "회사", emoji: "🏙️" },
   { id: "invest", label: "투자", emoji: "📈" },
   { id: "talent", label: "인재", emoji: "👔" },
-  { id: "news", label: "뉴스", emoji: "📰" },
-  { id: "rank", label: "순위", emoji: "🏆" },
-  { id: "visit", label: "방문", emoji: "🌍" },
+  { id: "more", label: "더보기", emoji: "•••" },
 ];
 
 export default function PlayPage() {
@@ -46,20 +52,23 @@ export default function PlayPage() {
   const toast = useGameStore((s) => s.toast);
   const dismissToast = useGameStore((s) => s.dismissToast);
   const loadSave = useGameStore((s) => s.loadSave);
+  const acknowledgeLearningIntro = useGameStore((s) => s.acknowledgeLearningIntro);
 
   const [tab, setTab] = useState<Tab>("home");
+  const [morePage, setMorePage] = useState<MorePage | null>(null);
   const [visitId, setVisitId] = useState<string | null>(null);
   const [muted, setMutedState] = useState(false);
   const [ready, setReady] = useState(false);
   const [eventPopup, setEventPopup] = useState<NewsItem[] | null>(null);
   const [resultsPopup, setResultsPopup] = useState<{ summary: TurnSummary; prevNw: number } | null>(null);
-  const [help, setHelp] = useState<null | "tutorial" | "manual" | "glossary">(null);
+  const [showLearningChoice, setShowLearningChoice] = useState(false);
+  const [showSpotlight, setShowSpotlight] = useState(false);
   const lockUntil = useRef(0);
 
   // Advance one quarter. Guards against (a) rapid double-clicks force-skipping
   // multiple turns and (b) skipping past an unacknowledged event popup.
   const handleNext = () => {
-    if (eventPopup || resultsPopup) return; // must acknowledge popups first
+    if (eventPopup || resultsPopup || showLearningChoice) return; // must acknowledge popups first
     const now = Date.now();
     if (now < lockUntil.current) return; // debounce accidental multi-advance
     lockUntil.current = now + 400;
@@ -93,15 +102,12 @@ export default function PlayPage() {
       }
     }
     setReady(true);
-    // Show the tutorial automatically the first time a player reaches the game.
-    try {
-      if (!window.localStorage.getItem(TUTORIAL_SEEN_KEY)) {
-        setHelp("tutorial");
-        window.localStorage.setItem(TUTORIAL_SEEN_KEY, "1");
-      }
-    } catch {
-      /* ignore storage errors */
-    }
+    // Offer the choice once for every newly-created game. A legacy tutorial or
+    // a course completed in another game must not silently skip this game's
+    // first-entry choice.
+    const activeGame = useGameStore.getState().game;
+    if (activeGame && !hasSeenLearningIntro(activeGame.createdAt)) setShowLearningChoice(true);
+    if (new URLSearchParams(window.location.search).get("guide") === "1") setShowSpotlight(true);
   }, [loadSave, router]);
 
   // BGM follows market mood.
@@ -130,6 +136,10 @@ export default function PlayPage() {
   const nw = netWorth(player, game);
   const rank = playerRank(game);
   const ended = game.status === "ended";
+  const buildingsUnlocked = isFeatureUnlocked(game, "buildingsResearch");
+  const investmentUnlocked = isFeatureUnlocked(game, "investment");
+  const talentUnlocked = isFeatureUnlocked(game, "talentNewsRanking");
+  const visitUnlocked = isFeatureUnlocked(game, "visitsPartnershipsAdvanced");
 
   const toggleMute = () => {
     const m = !muted;
@@ -139,7 +149,14 @@ export default function PlayPage() {
 
   const goVisit = (companyId: string) => {
     setVisitId(companyId);
-    setTab("visit");
+    setMorePage("visit");
+    setTab("more");
+  };
+
+  const chooseLearningStart = (choice: "practice" | "play") => {
+    acknowledgeLearningIntro();
+    setShowLearningChoice(false);
+    if (choice === "practice") router.push("/learn?practice=basics&return=/play");
   };
 
   return (
@@ -157,48 +174,64 @@ export default function PlayPage() {
             <div className="leading-tight">
               <div className="text-sm font-black text-slate-800">{player.name}</div>
               <div className="text-xs text-slate-500">
-                {game.turn}/{game.maxTurns}분기 · {rank}위
+                {game.turn}/{game.maxTurns}분기 · {talentUnlocked ? `${rank}위` : "순위 잠김"}
               </div>
             </div>
           </div>
-          <div className="ml-auto text-right">
-            <div className="text-xs text-slate-500">순자산</div>
+          <div className="ml-auto hidden text-right sm:block">
+            <div className="text-xs text-slate-500">내 총재산(순자산)</div>
             <div className="text-sm font-black text-slate-800">{formatMoney(nw)}</div>
           </div>
-          <div className="text-right">
+          <div className="hidden text-right md:block">
             <div className="text-xs text-slate-500">현금</div>
             <div className="text-sm font-bold text-bull">{formatMoney(player.cash)}</div>
           </div>
-          <button onClick={() => setHelp("manual")} className="btn-ghost !px-2.5 !py-2" title="도움말">
-            ❓
-          </button>
-          <button onClick={toggleMute} className="btn-ghost !px-2.5 !py-2" title="소리">
+          <Link
+            href="/learn?return=/play"
+            className="btn-ghost whitespace-nowrap !px-2.5 !py-2 text-xs sm:text-sm"
+          >
+            📘 배우기
+          </Link>
+          <button onClick={toggleMute} className="hidden btn-ghost !px-2.5 !py-2 sm:block" title="소리">
             {muted ? "🔇" : "🔊"}
           </button>
           <button
             id="btn-next-turn"
             onClick={handleNext}
-            disabled={ended || !!eventPopup || !!resultsPopup}
-            className="btn-primary whitespace-nowrap"
+            disabled={ended || !!eventPopup || !!resultsPopup || showLearningChoice}
+            className="btn-primary whitespace-nowrap !px-3"
           >
-            {ended ? "게임 종료" : "다음 분기 ▶"}
+            {ended ? "게임 종료" : <><span className="hidden sm:inline">다음 분기 </span>▶</>}
           </button>
         </div>
 
         {/* Tabs */}
-        <nav className="mx-auto flex max-w-5xl gap-1 overflow-x-auto scroll-thin px-2 pb-2">
-          {TABS.map((t) => (
-            <button
-              key={t.id}
-              id={`tab-${t.id}`}
-              onClick={() => setTab(t.id)}
-              className={`shrink-0 rounded-lg px-3 py-1.5 text-sm font-semibold transition ${
-                tab === t.id ? "bg-brand-600 text-white" : "text-slate-600 hover:bg-slate-100"
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
+        <nav className="mx-auto grid max-w-5xl grid-cols-5 gap-1 px-2 pb-2" aria-label="게임 메뉴">
+          {TABS.map((t) => {
+            const locked = (t.id === "invest" && !investmentUnlocked) || (t.id === "talent" && !talentUnlocked);
+            return (
+              <button
+                key={t.id}
+                id={`tab-${t.id}`}
+                onClick={() => {
+                  if (locked) return;
+                  setTab(t.id);
+                  if (t.id !== "more") setMorePage(null);
+                }}
+                disabled={locked}
+                className={`rounded-lg px-1 py-1.5 text-xs font-semibold transition sm:px-3 sm:text-sm ${
+                  tab === t.id
+                    ? "bg-brand-600 text-white"
+                    : locked
+                      ? "cursor-not-allowed text-slate-300"
+                      : "text-slate-600 hover:bg-slate-100"
+                }`}
+                title={locked ? `${getFeatureUnlockTurn(game.gameLength, t.id === "invest" ? "investment" : "talentNewsRanking")}분기에 열려요` : undefined}
+              >
+                <span aria-hidden>{locked ? "🔒" : t.emoji}</span>{" "}{t.label}
+              </button>
+            );
+          })}
         </nav>
       </header>
 
@@ -208,25 +241,60 @@ export default function PlayPage() {
           {tab === "home" && <Dashboard game={game} />}
           {tab === "company" && (
             <div className="space-y-4">
-              <div className="card p-4">
-                <h3 className="mb-3 text-base font-bold text-slate-800">🏙️ 우리 회사 캠퍼스</h3>
-                <CompanyCity game={game} company={player} />
-              </div>
               <CompanyPanel game={game} company={player} />
+              {buildingsUnlocked ? (
+                <details className="card group p-4">
+                  <summary className="cursor-pointer list-none text-base font-bold text-slate-800">
+                    <span className="inline-flex items-center gap-2">🏙️ 더 많은 활동: 건물과 연구</span>
+                    <span className="float-right text-slate-400 transition group-open:rotate-180">⌄</span>
+                  </summary>
+                  <div className="mt-3">
+                    <CompanyCity game={game} company={player} />
+                  </div>
+                </details>
+              ) : (
+                <FeatureLockCard
+                  emoji="🏗️"
+                  title="건물과 연구는 곧 열려요"
+                  turn={getFeatureUnlockTurn(game.gameLength, "buildingsResearch")}
+                />
+              )}
             </div>
           )}
           {tab === "invest" && <InvestmentDesk />}
           {tab === "talent" && <TalentMarket game={game} company={player} />}
-          {tab === "news" && <NewsFeed game={game} />}
-          {tab === "rank" && <Leaderboard game={game} onVisit={goVisit} />}
-          {tab === "visit" && <WorldMap game={game} initialCompanyId={visitId} />}
+          {tab === "more" && (
+            <MoreHub
+              game={game}
+              page={morePage}
+              onPage={setMorePage}
+              onVisit={goVisit}
+              visitId={visitId}
+              talentUnlocked={talentUnlocked}
+              visitUnlocked={visitUnlocked}
+            />
+          )}
         </div>
 
         {/* Sidebar */}
-        <aside className="space-y-4">
-          <Secretary game={game} />
-          <CompanyStatusCard game={game} company={player} />
-          <EconomyIndicators game={game} />
+        <aside>
+          <details className="card group p-4 lg:sticky lg:top-32">
+            <summary className="cursor-pointer list-none text-sm font-bold text-slate-700">
+              📋 회사 요약 더보기
+              <span className="float-right text-slate-400 transition group-open:rotate-180">⌄</span>
+            </summary>
+            <div className="mt-4 space-y-4">
+              <Secretary game={game} />
+              <CompanyStatusCard game={game} company={player} />
+              {visitUnlocked ? (
+                <EconomyIndicators game={game} />
+              ) : (
+                <div className="rounded-xl bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700 ring-1 ring-amber-200">
+                  🔒 경제 고급 정보는 {getFeatureUnlockTurn(game.gameLength, "visitsPartnershipsAdvanced")}분기에 열려요.
+                </div>
+              )}
+            </div>
+          </details>
         </aside>
       </main>
 
@@ -261,13 +329,156 @@ export default function PlayPage() {
       {/* Game over overlay */}
       {ended && <GameOver game={game} onRestart={() => router.push("/")} />}
 
-      {/* iorad-style tutorial overlay */}
-      {help === "tutorial" && <Tutorial onClose={() => setHelp(null)} />}
-
-      {/* Help center (manual / glossary) */}
-      {help !== null && help !== "tutorial" && (
-        <HelpModal open initialTab={help} onClose={() => setHelp(null)} />
+      {showLearningChoice && (
+        <LearningChoice onChoose={chooseLearningStart} />
       )}
+
+      {showSpotlight && !showLearningChoice && (
+        <Tutorial onClose={() => setShowSpotlight(false)} />
+      )}
+    </div>
+  );
+}
+
+function FeatureLockCard({ emoji, title, turn }: { emoji: string; title: string; turn: number }) {
+  return (
+    <div className="card p-5 text-center ring-1 ring-amber-200">
+      <div className="text-3xl" aria-hidden>{emoji}</div>
+      <div className="mt-2 font-bold text-slate-800">{title}</div>
+      <p className="mt-1 text-sm text-slate-500">{turn}분기에 자동으로 열립니다. 지금은 기본 운영에 집중해 보세요.</p>
+    </div>
+  );
+}
+
+function MoreHub({
+  game,
+  page,
+  onPage,
+  onVisit,
+  visitId,
+  talentUnlocked,
+  visitUnlocked,
+}: {
+  game: GameState;
+  page: MorePage | null;
+  onPage: (page: MorePage | null) => void;
+  onVisit: (companyId: string) => void;
+  visitId: string | null;
+  talentUnlocked: boolean;
+  visitUnlocked: boolean;
+}) {
+  if (page) {
+    return (
+      <div className="space-y-3">
+        <button className="btn-ghost" onClick={() => onPage(null)}>
+          ← 더보기 메뉴
+        </button>
+        {page === "news" && talentUnlocked && <NewsFeed game={game} />}
+        {page === "rank" && talentUnlocked && <Leaderboard game={game} onVisit={onVisit} canVisit={visitUnlocked} />}
+        {page === "visit" && visitUnlocked && <WorldMap game={game} initialCompanyId={visitId} />}
+      </div>
+    );
+  }
+
+  const items: Array<{
+    id: MorePage;
+    emoji: string;
+    label: string;
+    desc: string;
+    unlocked: boolean;
+    unlockTurn: number;
+  }> = [
+    {
+      id: "news",
+      emoji: "📰",
+      label: "뉴스",
+      desc: "시장과 회사에 생긴 일을 쉬운 말로 확인해요.",
+      unlocked: talentUnlocked,
+      unlockTurn: getFeatureUnlockTurn(game.gameLength, "talentNewsRanking"),
+    },
+    {
+      id: "rank",
+      emoji: "🏆",
+      label: "순위",
+      desc: "상위 5개 회사와 내 위치를 비교해요.",
+      unlocked: talentUnlocked,
+      unlockTurn: getFeatureUnlockTurn(game.gameLength, "talentNewsRanking"),
+    },
+    {
+      id: "visit",
+      emoji: "🌍",
+      label: "방문·제휴",
+      desc: "다른 회사를 살펴보고 함께할 기회를 찾아요.",
+      unlocked: visitUnlocked,
+      unlockTurn: getFeatureUnlockTurn(game.gameLength, "visitsPartnershipsAdvanced"),
+    },
+  ];
+
+  return (
+    <div className="space-y-4">
+      <div className="card p-5">
+        <h2 className="text-xl font-black text-slate-800">더보기</h2>
+        <p className="mt-1 text-sm text-slate-500">뉴스, 순위, 다른 회사 방문을 여기서 열 수 있어요.</p>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-3">
+        {items.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            disabled={!item.unlocked}
+            onClick={() => onPage(item.id)}
+            className={`card p-5 text-left transition ${
+              item.unlocked
+                ? "hover:-translate-y-0.5 hover:ring-2 hover:ring-brand-300"
+                : "cursor-not-allowed opacity-65"
+            }`}
+          >
+            <div className="text-3xl" aria-hidden>{item.unlocked ? item.emoji : "🔒"}</div>
+            <div className="mt-2 font-black text-slate-800">{item.label}</div>
+            <p className="mt-1 text-sm text-slate-500">{item.desc}</p>
+            <div className={`mt-3 text-xs font-bold ${item.unlocked ? "text-brand-600" : "text-amber-600"}`}>
+              {item.unlocked ? "열기 →" : `${item.unlockTurn}분기에 열려요`}
+            </div>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function LearningChoice({ onChoose }: { onChoose: (choice: "practice" | "play") => void }) {
+  const trapFocus = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== "Tab") return;
+    const controls = Array.from(event.currentTarget.querySelectorAll<HTMLElement>("button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])"));
+    if (controls.length === 0) return;
+    const first = controls[0];
+    const last = controls[controls.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/70 p-4" role="dialog" aria-modal="true" aria-labelledby="learning-choice-title" onKeyDown={trapFocus}>
+      <div className="card w-full max-w-md animate-popin p-6 text-center">
+        <div className="text-5xl" aria-hidden>🎓</div>
+        <h2 id="learning-choice-title" className="mt-3 text-xl font-black text-slate-800">처음 오셨나요?</h2>
+        <p className="mt-2 text-sm leading-relaxed text-slate-600">
+          실제 게임과 저장에 영향을 주지 않는 연습장에서 가격과 생산을 2분 동안 익힐 수 있어요.
+        </p>
+        <div className="mt-5 grid gap-2 sm:grid-cols-2">
+          <button autoFocus className="btn-primary" onClick={() => onChoose("practice")}>
+            📘 2분 기초 연습
+          </button>
+          <button className="btn-ghost" onClick={() => onChoose("play")}>
+            바로 시작 ▶
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -289,6 +500,7 @@ function ResultsPopup({
   const nw = netWorth(player, game);
   const nwDelta = nw - prevNw;
   const rank = playerRank(game);
+  const rankingUnlocked = isFeatureUnlocked(game, "talentNewsRanking");
   const stock = game.stocks[player.id];
   const stockChange = stock
     ? ((stock.price - (stock.history[stock.history.length - 2] ?? stock.price)) /
@@ -310,7 +522,11 @@ function ResultsPopup({
       tone: nwDelta >= 0 ? "good" : "bad",
     },
     { label: "현재 순자산", value: formatMoney(Math.round(nw)), tone: "neutral" },
-    { label: "현재 순위", value: `${rank}위 / ${game.companies.length}`, tone: rank <= 3 ? "good" : "neutral" },
+    {
+      label: "현재 순위",
+      value: rankingUnlocked ? `${rank}위 / ${game.companies.length}` : "🔒 아직 비공개",
+      tone: rankingUnlocked && rank <= 3 ? "good" : "neutral",
+    },
     {
       label: "자사 주가",
       value: stock ? `${stock.price.toFixed(0)} (${stockChange >= 0 ? "+" : ""}${stockChange.toFixed(1)}%)` : "—",
@@ -442,16 +658,38 @@ function EventPopup({ events, onClose }: { events: NewsItem[]; onClose: () => vo
 function GameOver({ game, onRestart }: { game: ReturnType<typeof useGameStore.getState>["game"] & object; onRestart: () => void }) {
   if (!game) return null;
   const board = rankings(game);
-  const rank = board.findIndex((e) => e.companyId === game.playerCompanyId) + 1;
-  const won = rank === 1;
+  const outcome = getCampaignOutcome(game);
+  const rank = outcome.finalRank;
+  const won = outcome.isChampion;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="card w-full max-w-md animate-popin p-6 text-center">
-        <img src={won ? RESULT_ICONS.win : RESULT_ICONS.end} alt={won ? "우승" : "게임 종료"} className="mx-auto h-40 w-40 object-contain" />
+      <div className="card max-h-[92vh] w-full max-w-lg animate-popin overflow-y-auto p-6 text-center">
+        <img src={won ? RESULT_ICONS.win : RESULT_ICONS.end} alt={won ? "우승" : "게임 종료"} className="mx-auto h-32 w-32 object-contain" />
         <h2 className="mt-3 text-2xl font-black text-slate-800">
           {won ? "축하합니다! 1위 달성!" : "게임 종료"}
         </h2>
         <p className="mt-1 text-slate-500">{game.maxTurns}분기 경영 결과, {rank}위로 마쳤어요.</p>
+        <div className="mt-4 grid grid-cols-2 gap-2 text-left">
+          {outcome.badges.map((badge) => {
+            const progress = badge.id === "rankClimber"
+              ? `${outcome.initialRank}위 → ${outcome.finalRank}위`
+              : badge.id === "wealthBuilder"
+                ? `${outcome.netWorthGrowth >= 0 ? "+" : ""}${formatMoney(outcome.netWorthGrowth)}`
+                : badge.description;
+            return (
+              <div
+                key={badge.id}
+                className={`rounded-xl p-3 ring-1 ${
+                  badge.earned ? "bg-amber-50 ring-amber-200" : "bg-slate-50 opacity-55 ring-slate-200"
+                }`}
+              >
+                <div className="text-lg" aria-hidden>{badge.earned ? badge.emoji : "🔒"}</div>
+                <div className="text-xs font-black text-slate-800">{badge.label}</div>
+                <div className="mt-0.5 text-[11px] text-slate-500">{progress}</div>
+              </div>
+            );
+          })}
+        </div>
         <div className="mt-4 space-y-1.5 text-left">
           {board.slice(0, 5).map((e, i) => (
             <div

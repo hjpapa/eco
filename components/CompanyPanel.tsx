@@ -5,6 +5,7 @@ import { useGameStore } from "@/store/gameStore";
 import {
   estimateDemand,
   factoryCapacity,
+  isFeatureUnlocked,
   type Company,
   type GameState,
 } from "@/lib/engine";
@@ -89,6 +90,8 @@ export function CompanyPanel({ game, company }: { game: GameState; company: Comp
   const facCap = factoryCapacity(company, game.config);
   const demand = estimateDemand(company, industry, country, game.macro, game.config);
   const d = company.decisions;
+  const buildingsResearchUnlocked = isFeatureUnlocked(game, "buildingsResearch");
+  const advancedInfoUnlocked = isFeatureUnlocked(game, "visitsPartnershipsAdvanced");
 
   const productDefs = getIndustryProducts(company.industryId);
   const productPrices = company.productPrices ?? productDefs.map((p) => Math.round(industry.basePrice * p.priceRatio));
@@ -106,12 +109,29 @@ export function CompanyPanel({ game, company }: { game: GameState; company: Comp
   const activeMaxPrice = activeDef ? Math.round(activeTierRef * (1 + company.quality / 100)) : Math.round(industry.basePrice * 2);
   const activePrice = productPrices[activeIdx] ?? Math.round(activeTierRef);
   const activeInventory = productInventory[activeIdx] ?? 0;
+  const recommendation = (() => {
+    if (facCap <= 0) {
+      return buildingsResearchUnlocked
+        ? "먼저 캠퍼스에서 공장을 지어 생산할 수 있게 해 보세요."
+        : "건물 기능이 열릴 때까지 상품 가격과 다음 분기 계획을 살펴보세요.";
+    }
+    if (company.inventory > demand) return "재고가 예상 수요보다 많아요. 생산 목표를 낮추거나 판매 가격을 조금 내려 보세요.";
+    if (activePrice > activeTierRef * 1.3) return "현재 상품 가격이 높은 편이에요. 가격을 낮추면 더 많이 팔릴 수 있어요.";
+    if (company.lastProfit < 0) return "지난 분기 손해가 났어요. 생산 목표를 예상 수요와 비슷하게 맞춰 보세요.";
+    if (company.quality < 45 && buildingsResearchUnlocked) return "기초 연구로 품질을 높이면 더 좋은 상품과 높은 가격을 사용할 수 있어요.";
+    return `예상 수요 ${formatNum(demand)}개에 맞춰 생산 목표를 조절해 보세요.`;
+  })();
 
   return (
     <div className="space-y-4">
       {/* ── Ticker ─────────────────────────────────────────────────────── */}
       <div className="overflow-hidden rounded-2xl shadow-sm">
         <CompanyTicker game={game} company={company} />
+      </div>
+
+      <div className="rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 p-4 ring-1 ring-amber-200">
+        <div className="text-xs font-black uppercase tracking-wide text-amber-700">💡 이번 분기 추천 행동</div>
+        <p className="mt-1 text-sm font-semibold leading-relaxed text-slate-700">{recommendation}</p>
       </div>
 
       {/* ── 상품 라인업 탭 (최상단) ────────────────────────────────────── */}
@@ -290,9 +310,14 @@ export function CompanyPanel({ game, company }: { game: GameState; company: Comp
         />
 
         {/* Management action buttons */}
-        <div className="space-y-4">
-          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">경영 활동</div>
-          {ACTION_SECTIONS.map((section) => (
+        <details className="group mt-4 rounded-xl border border-slate-200 bg-white p-3">
+          <summary className="cursor-pointer list-none text-sm font-bold text-slate-700">
+            더 많은 활동
+            <span className="float-right text-slate-400 transition group-open:rotate-180">⌄</span>
+          </summary>
+          <div className="mt-4 space-y-4">
+          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">마케팅·연구·직원·안전</div>
+          {ACTION_SECTIONS.filter((section) => buildingsResearchUnlocked || section.key !== "rnd").map((section) => (
             <div key={section.key}>
               <div className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-slate-600">
                 {section.icon && <img src={section.icon} alt="" className="h-4 w-4 object-contain" />}
@@ -322,35 +347,41 @@ export function CompanyPanel({ game, company }: { game: GameState; company: Comp
               </div>
             </div>
           ))}
-        </div>
+          </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-3 rounded-xl bg-slate-50 p-3 text-sm">
-          <Info label="공장 생산 한도" value={`${formatNum(facCap)}개`} />
-          <Info label="예상 총 수요" value={`${formatNum(demand)}개`} hint={demand < d.productionTarget ? "수요<생산: 재고 위험" : "수요 충분"} />
-          <Info label="총 재고" value={`${formatNum(company.inventory)}개`} />
-          <Info label="지난 분기 이익" value={formatMoney(company.lastProfit)} tone={company.lastProfit >= 0 ? "good" : "bad"} />
-        </div>
+          <div className="mt-4 grid grid-cols-2 gap-3 rounded-xl bg-slate-50 p-3 text-sm">
+            <Info label="공장 생산 한도" value={`${formatNum(facCap)}개`} />
+            <Info label="예상 총 수요" value={`${formatNum(demand)}개`} hint={demand < d.productionTarget ? "수요<생산: 재고 위험" : "수요 충분"} />
+            <Info label="총 재고" value={`${formatNum(company.inventory)}개`} />
+            <Info label="지난 분기 이익" value={formatMoney(company.lastProfit)} tone={company.lastProfit >= 0 ? "good" : "bad"} />
+          </div>
+        </details>
       </div>
 
       {/* Company stats */}
-      <div className="card p-5">
-        <h3 className="mb-3 flex items-center gap-2 text-base font-bold text-slate-800">
+      <details className="card group p-5">
+        <summary className="flex cursor-pointer list-none items-center gap-2 text-base font-bold text-slate-800">
           {BUILDING_IMG.rnd && <img src={BUILDING_IMG.rnd} alt="" className="h-7 w-7 object-contain" />}
-          회사 상태
-        </h3>
-        <StatBar label={<Term term="품질">품질 / 기술</Term>} value={company.quality} color="#6366f1" />
-        <StatBar label={<Term term="평판" />} value={company.reputation} color="#0ea5e9" />
-        <StatBar label={<Term term="사기">직원 사기</Term>} value={company.morale} color="#16a34a" />
-        <StatBar label={<Term term="안전" />} value={company.safety} color="#f59e0b" hint={company.safety < 40 ? "낮음! 사고 위험" : undefined} />
-      </div>
+          회사 상태 자세히 보기
+          <span className="ml-auto text-slate-400 transition group-open:rotate-180">⌄</span>
+        </summary>
+        <div className="mt-4">
+          <StatBar label={<Term term="품질">품질 / 기술</Term>} value={company.quality} color="#6366f1" />
+          <StatBar label={<Term term="평판" />} value={company.reputation} color="#0ea5e9" />
+          <StatBar label={<Term term="사기">직원 사기</Term>} value={company.morale} color="#16a34a" />
+          <StatBar label={<Term term="안전" />} value={company.safety} color="#f59e0b" hint={company.safety < 40 ? "낮음! 사고 위험" : undefined} />
+        </div>
+      </details>
 
       {/* Finance */}
-      {game.config.showAdvancedMetrics && (
-        <div className="card p-5">
-          <h3 className="mb-3 flex items-center gap-2 text-base font-bold text-slate-800">
+      {game.config.showAdvancedMetrics && advancedInfoUnlocked && (
+        <details className="card group p-5">
+          <summary className="flex cursor-pointer list-none items-center gap-2 text-base font-bold text-slate-800">
             {BUILDING_IMG.office && <img src={BUILDING_IMG.office} alt="" className="h-7 w-7 object-contain" />}
-            재무
-          </h3>
+            전문가 재무 보기
+            <span className="ml-auto text-slate-400 transition group-open:rotate-180">⌄</span>
+          </summary>
+          <div className="mt-4">
           <div className="mb-1 flex justify-between text-sm">
             <span className="text-slate-500">부채</span>
             <span className="font-bold text-slate-800">{formatMoney(company.debt)}</span>
@@ -380,7 +411,8 @@ export function CompanyPanel({ game, company }: { game: GameState; company: Comp
               추가됩니다.
             </div>
           )}
-        </div>
+          </div>
+        </details>
       )}
     </div>
   );

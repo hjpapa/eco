@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { rankings } from "@/lib/engine";
 import type { GameState } from "@/lib/engine";
 import { formatMoney } from "@/lib/format";
@@ -9,18 +10,42 @@ import { CompanyMark } from "./CompanyMark";
 export function Leaderboard({
   game,
   onVisit,
+  canVisit = true,
 }: {
   game: GameState;
   onVisit?: (companyId: string) => void;
+  canVisit?: boolean;
 }) {
   const entries = rankings(game);
+  const [showAll, setShowAll] = useState(false);
+  const myIndex = entries.findIndex((entry) => entry.isPlayer);
+  const topFive = entries.slice(0, 5);
+  const summaryEntries = myIndex >= 5 ? [...topFive, entries[myIndex]] : topFive;
+  const visibleEntries = showAll ? entries : summaryEntries;
+  const rankByCompanyId = new Map(entries.map((entry, index) => [entry.companyId, index]));
   return (
     <div className="card p-4">
-      <h3 className="mb-3 text-base font-bold text-slate-800">🏆 순위 (순자산)</h3>
+      <div className="mb-3 flex items-end justify-between gap-3">
+        <div>
+          <h3 className="text-base font-bold text-slate-800">🏆 회사 순위</h3>
+          <p className="text-xs text-slate-500">내 총재산(순자산)으로 비교해요.</p>
+        </div>
+        {myIndex >= 0 && <span className="pill bg-brand-100 font-bold text-brand-700">나는 {myIndex + 1}위</span>}
+      </div>
       <div className="space-y-1.5">
-        {entries.map((e, i) => (
+        {visibleEntries.map((e, visibleIndex) => {
+          const i = rankByCompanyId.get(e.companyId) ?? visibleIndex;
+          const separatedPlayer = !showAll && myIndex >= 5 && visibleIndex === visibleEntries.length - 1;
+          return (
+          <div key={e.companyId}>
+            {separatedPlayer && (
+              <div className="my-2 flex items-center gap-2 text-[10px] text-slate-400" aria-hidden>
+                <span className="h-px flex-1 bg-slate-200" />
+                내 위치
+                <span className="h-px flex-1 bg-slate-200" />
+              </div>
+            )}
           <div
-            key={e.companyId}
             className={`flex items-center gap-3 rounded-xl p-2.5 ${
               e.isPlayer ? "bg-brand-50 ring-1 ring-brand-300" : "bg-slate-50"
             }`}
@@ -32,23 +57,30 @@ export function Leaderboard({
                 {e.name} {e.isPlayer && <span className="text-xs text-brand-600">(나)</span>}
               </div>
               <div className="text-xs text-slate-400">
-                기업 {formatMoney(e.companyValue)} · 투자 {formatMoney(e.portfolioValue)}
+                회사 가치(기업가치) {formatMoney(e.companyValue)} · 투자 {formatMoney(e.portfolioValue)}
               </div>
             </div>
             <div className="text-right">
               <div className="text-sm font-bold text-slate-800">{formatMoney(e.netWorth)}</div>
-              {onVisit && !e.isPlayer && (
+              {onVisit && !e.isPlayer && canVisit ? (
                 <button
                   className="text-xs text-brand-600 hover:underline"
                   onClick={() => onVisit(e.companyId)}
                 >
                   방문 →
                 </button>
-              )}
+              ) : null}
             </div>
           </div>
-        ))}
+          </div>
+          );
+        })}
       </div>
+      {entries.length > summaryEntries.length && (
+        <button className="btn-ghost mt-3 w-full" onClick={() => setShowAll((open) => !open)}>
+          {showAll ? "상위 5개와 내 위치만 보기" : `전체 ${entries.length}개 회사 보기`}
+        </button>
+      )}
     </div>
   );
 }
