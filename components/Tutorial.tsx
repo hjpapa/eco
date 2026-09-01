@@ -1,54 +1,9 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
+import { LEARNING_CATALOG } from "@/lib/learning";
 
-interface TutorialStep {
-  targetId?: string;
-  title: string;
-  body: string;
-  placement?: "top" | "bottom" | "left" | "right";
-}
-
-const STEPS: TutorialStep[] = [
-  {
-    title: "🎮 유니콘 시티에 오신 것을 환영합니다!",
-    body: "이 게임에서 당신의 회사를 경영하고 100분기 안에 1위를 차지하세요. 간단한 안내를 따라가볼까요? (끝까지 진행해야 시작할 수 있어요!)",
-  },
-  {
-    targetId: "btn-next-turn",
-    title: "📅 분기 진행 버튼",
-    body: "이 버튼을 클릭하면 한 분기(3개월)가 지나갑니다. 생산·판매·비용이 자동 계산됩니다. 먼저 상품과 가격을 설정한 후 눌러보세요!",
-    placement: "bottom",
-  },
-  {
-    targetId: "tab-company",
-    title: "🏙️ 회사 탭 — 핵심!",
-    body: "상품 라인업 탭에서 어떤 제품을 판매할지, 가격은 얼마로 할지 결정하세요. R&D 투자를 많이 할수록 더 비싼 가격을 받을 수 있어요.",
-    placement: "bottom",
-  },
-  {
-    targetId: "tab-invest",
-    title: "📈 투자 탭",
-    body: "회사 경영 외에도 주식·부동산·금·암호화폐에 투자해 추가 수익을 올리세요. 다각화가 위기를 이겨내는 열쇠입니다!",
-    placement: "bottom",
-  },
-  {
-    targetId: "tab-talent",
-    title: "👔 인재 탭",
-    body: "우수한 임원을 영입하면 생산 효율, R&D, 마케팅이 크게 향상됩니다. 경쟁사 인재 스카우트도 가능해요!",
-    placement: "bottom",
-  },
-  {
-    targetId: "tab-rank",
-    title: "🏆 순위 탭",
-    body: "경쟁사들과 순자산을 비교하세요. 순위가 오를수록 주가도 오릅니다. 100분기 종료 시 1위가 되면 우승!",
-    placement: "bottom",
-  },
-  {
-    title: "🚀 준비 완료! 게임을 시작하세요",
-    body: "핵심 전략: 처음엔 기본 상품으로 현금을 쌓고, R&D에 투자해 품질을 올린 뒤 고급 상품으로 전환하세요. 재고가 쌓이면 판매가를 낮추는 것도 잊지 마세요!",
-  },
-];
+const STEPS = LEARNING_CATALOG.spotlight;
 
 interface Rect { top: number; left: number; width: number; height: number; }
 

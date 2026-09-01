@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { MANUAL_SECTIONS, TUTORIAL_STEPS, GLOSSARY_GROUPS } from "@/lib/data/manual";
-import { GLOSSARY } from "@/lib/data/glossary";
+import { LEARNING_CATALOG } from "@/lib/learning";
 
 type HelpTab = "tutorial" | "manual" | "glossary";
 
@@ -40,14 +39,19 @@ export function HelpModal({
       onClick={onClose}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="help-modal-title"
         className="card flex max-h-[88vh] w-full max-w-lg flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-center gap-2 border-b border-slate-100 bg-gradient-to-r from-brand-600 to-indigo-500 px-4 py-3 text-white">
           <span className="text-xl">📖</span>
-          <h2 className="text-base font-black">게임 도움말</h2>
+          <h2 id="help-modal-title" className="text-base font-black">게임 도움말</h2>
           <button
+            type="button"
+            aria-label="도움말 닫기"
             onClick={onClose}
             className="ml-auto rounded-lg bg-white/20 px-2.5 py-1 text-sm font-bold hover:bg-white/30"
           >
@@ -59,7 +63,7 @@ export function HelpModal({
         <div className="flex gap-1 border-b border-slate-100 px-2 py-2">
           {([
             ["tutorial", "🚀 튜토리얼"],
-            ["manual", "📘 메뉴얼"],
+            ["manual", "📘 매뉴얼"],
             ["glossary", "🔤 용어 풀이"],
           ] as const).map(([id, label]) => (
             <button
@@ -88,7 +92,7 @@ export function HelpModal({
 function TutorialView() {
   return (
     <ol className="space-y-3">
-      {TUTORIAL_STEPS.map((s, i) => (
+      {LEARNING_CATALOG.quickStart.map((s, i) => (
         <li key={i} className="flex gap-3 rounded-xl bg-slate-50 p-3">
           <span className="text-2xl leading-none">{s.icon}</span>
           <div>
@@ -106,7 +110,7 @@ function TutorialView() {
 function ManualView() {
   return (
     <div className="space-y-4">
-      {MANUAL_SECTIONS.map((sec) => (
+      {LEARNING_CATALOG.manual.map((sec) => (
         <section key={sec.id}>
           <h3 className="mb-1.5 flex items-center gap-2 text-sm font-black text-slate-800">
             <span className="text-lg">{sec.icon}</span>
@@ -138,13 +142,13 @@ function GlossaryView() {
         className="mb-3 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 outline-none focus:border-brand-500"
       />
       <div className="space-y-4">
-        {GLOSSARY_GROUPS.map((g) => {
-          const terms = g.terms.filter((t) => {
+        {LEARNING_CATALOG.glossary.map((g) => {
+          const entries = g.entries.filter((entry) => {
             if (!query) return true;
-            const def = GLOSSARY[t] ?? "";
-            return t.toLowerCase().includes(query) || def.toLowerCase().includes(query);
+            return entry.term.toLowerCase().includes(query)
+              || entry.definition.toLowerCase().includes(query);
           });
-          if (terms.length === 0) return null;
+          if (entries.length === 0) return null;
           return (
             <section key={g.title}>
               <h3 className="mb-1.5 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-slate-400">
@@ -152,10 +156,10 @@ function GlossaryView() {
                 {g.title}
               </h3>
               <dl className="space-y-1.5">
-                {terms.map((t) => (
-                  <div key={t} className="rounded-lg bg-slate-50 px-3 py-2">
-                    <dt className="text-sm font-bold text-brand-700">{t}</dt>
-                    <dd className="text-xs leading-relaxed text-slate-600">{GLOSSARY[t]}</dd>
+                {entries.map((entry) => (
+                  <div key={entry.term} className="rounded-lg bg-slate-50 px-3 py-2">
+                    <dt className="text-sm font-bold text-brand-700">{entry.term}</dt>
+                    <dd className="text-xs leading-relaxed text-slate-600">{entry.definition}</dd>
                   </div>
                 ))}
               </dl>

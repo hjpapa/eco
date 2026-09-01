@@ -4,11 +4,14 @@ import { create } from "zustand";
 import {
   advanceTurn,
   createGame,
+  migrateGameState,
   type AssetClass,
   type BuildingType,
   type CompanyDecisions,
+  type GameLength,
   type GameState,
   type Level,
+  type RevealMode,
 } from "@/lib/engine";
 import {
   buildBuilding,
@@ -31,8 +34,9 @@ import {
 import type { TurnSummary } from "@/lib/engine/tick";
 import { playSfx } from "@/lib/audio";
 import { formatMoney } from "@/lib/format";
+import { markLearningIntroSeen } from "@/lib/learning";
 
-const SAVE_KEY = "uc-save-single";
+export const GAME_SAVE_KEY = "uc-save-single";
 
 export interface NewGameInput {
   level: Level;
@@ -41,6 +45,8 @@ export interface NewGameInput {
   countryId: string;
   logoColor?: string;
   basedOn?: string;
+  gameLength?: GameLength;
+  revealMode?: RevealMode;
   maxTurns?: number;
   mapSize?: number;
 }
@@ -54,6 +60,7 @@ interface GameStore {
   loadSave: () => boolean;
   hasSave: () => boolean;
   clearSave: () => void;
+  acknowledgeLearningIntro: () => void;
 
   next: () => void;
   setDecisions: (partial: Partial<CompanyDecisions>) => void;
@@ -81,7 +88,7 @@ function player(game: GameState) {
 function persist(game: GameState): void {
   if (typeof window === "undefined") return;
   try {
-    window.localStorage.setItem(SAVE_KEY, JSON.stringify(game));
+    window.localStorage.setItem(GAME_SAVE_KEY, JSON.stringify(game));
   } catch {
     /* ignore quota errors */
   }
@@ -101,9 +108,18 @@ export const useGameStore = create<GameStore>((set, get) => ({
   loadSave: () => {
     if (typeof window === "undefined") return false;
     try {
-      const raw = window.localStorage.getItem(SAVE_KEY);
+      const raw = window.localStorage.getItem(GAME_SAVE_KEY);
       if (!raw) return false;
-      const game = JSON.parse(raw) as GameState;
+      const parsed = JSON.parse(raw) as unknown;
+      const legacyCampaign = !!parsed && typeof parsed === "object" && !("gameLength" in parsed);
+      const game = migrateGameState(parsed);
+      if (!game) return false;
+      // Existing pre-campaign saves should never receive a surprise first-run
+      // dialog. Record that fact outside the game save before persisting its
+      // normal campaign migration.
+      if (legacyCampaign) markLearningIntroSeen(game.createdAt);
+      // Persist migrations immediately so every later read sees one schema.
+      persist(game);
       set({ game, lastSummary: null });
       return true;
     } catch {
@@ -113,11 +129,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   hasSave: () => {
     if (typeof window === "undefined") return false;
-    return !!window.localStorage.getItem(SAVE_KEY);
+    return !!window.localStorage.getItem(GAME_SAVE_KEY);
   },
 
   clearSave: () => {
-    if (typeof window !== "undefined") window.localStorage.removeItem(SAVE_KEY);
+    if (typeof window !== "undefined") window.localStorage.removeItem(GAME_SAVE_KEY);
+  },
+
+  acknowledgeLearningIntro: () => {
+    const game = get().game;
+    if (!game) return;
+    markLearningIntroSeen(game.createdAt);
   },
 
   next: () => {
@@ -226,7 +248,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   negotiateSalary: (characterId, newSalary, miniGameBonus) => {
     const game = get().game;
     if (!game) return;
-    const res = raiseSalary(player(game), characterId, newSalary, miniGameBonus);
+    const res = raiseSalary(game, player(game), characterId, newSalary, miniGameBonus);
     if (!res.ok) return showToast(set, res.error ?? "실패", "bad");
     playSfx("click");
     persist(game);
