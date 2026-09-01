@@ -1,4 +1,4 @@
-# 유니콘 시티 — 그래픽 에셋 제작 프롬프트 가이드
+# 드래곤마운틴 시티 — 그래픽 에셋 제작 프롬프트 가이드
 
 이미지 생성 AI(Midjourney, DALL·E, Stable Diffusion 등)에 아래 프롬프트를 붙여 넣어 에셋을 제작하세요.
 공통 규칙:
@@ -19,7 +19,7 @@
 - ✅ **경제지표 아이콘 4종** — gdp/inflation/rate/sentiment
 - ✅ **재무 아이콘 4종** — cash/portfolio/company_value/debt
 - ✅ **기타 아이콘** — stock, news
-- ✅ **마스코트** — `mascot/unicorn.png` (홈 히어로)
+- ✅ **마스코트** — `mascot/dragon.png` (홈·게임 종료 히어로)
 
 아래 1~6번이 **아직 이모지로 대체 중이라 추가 제작이 필요한 부분**입니다.
 우선순위는 ⭐(높음)~☆(낮음)로 표기했습니다.
@@ -126,9 +126,9 @@ Clean minimal game-UI icon set, consistent stroke weight
 세로 일러스트 또는 정사각, 512×512 권장.
 ```
 Two celebratory cartoon scenes (512x512, transparent), Korean game style:
-- win: a cute unicorn mascot holding a #1 gold trophy, confetti, rainbow
-- end (non-win): the unicorn mascot waving "수고했어요", friendly encouraging
-Matching the existing unicorn mascot design
+- win: a cute dragon mascot holding a #1 gold trophy, confetti, mountain-city celebration
+- end (non-win): the dragon mascot waving "수고했어요", friendly encouraging
+Matching the existing Dragon Mountain City dragon mascot design
 ```
 파일명: `result_win.png`, `result_end.png`
 
@@ -138,18 +138,18 @@ Matching the existing unicorn mascot design
 
 홈 화면·로딩·SNS 공유 미리보기에 사용.
 
-### 스플래시 (`splash.png`, 1920×1080 또는 1080×1920)
+### 스플래시 (`splash-dragon.png`, 1920×1080 또는 1080×1920)
 ```
-Game splash illustration, "유니콘 시티" title prominent,
-isometric cityscape skyline of cute company buildings, the unicorn mascot
+Game splash illustration, "드래곤마운틴 시티" title prominent,
+isometric mountain cityscape skyline of cute company buildings, the dragon mascot
 front and center, vibrant gradient sky (indigo to pink), Korean educational
 business game, exciting and colorful, cartoon style
 ```
 
 ### OG / 썸네일 (`og.png`, 1200×630)
 ```
-Social share card (1200x630), "유니콘 시티 — 회사를 키우고 투자하는 경제 게임",
-isometric building skyline + unicorn mascot + a small rising stock chart,
+Social share card (1200x630), "드래곤마운틴 시티 — 회사를 키우고 투자하는 경제 게임",
+mountain city skyline + dragon mascot + a small rising stock chart,
 bright friendly palette, large readable Korean title text
 ```
 

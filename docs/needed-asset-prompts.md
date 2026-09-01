@@ -99,9 +99,9 @@ Clean minimal game-UI icon set, consistent stroke weight
 **4-2. 결과·게임오버 히어로 (512×512, 투명)** — `ResultsPopup`/`GameOver` (현재 🏆🎮)
 ```
 Two celebratory cartoon scenes (512x512, transparent), Korean game style:
-- win: a cute unicorn mascot holding a #1 gold trophy, confetti, rainbow
-- end (non-win): the unicorn mascot waving "수고했어요", friendly encouraging
-Matching the existing unicorn mascot design
+- win: a cute dragon mascot holding a #1 gold trophy, confetti, mountain-city celebration
+- end (non-win): the dragon mascot waving "수고했어요", friendly encouraging
+Matching the existing Dragon Mountain City dragon mascot design
 ```
 파일명: `result_win.png`, `result_end.png`
 
@@ -109,18 +109,18 @@ Matching the existing unicorn mascot design
 
 ## 5. ☆ 스플래시 / OG 이미지
 
-**`splash.png` (1920×1080 또는 1080×1920)**
+**`splash-dragon.png` (1920×1080 또는 1080×1920)**
 ```
-Game splash illustration, "유니콘 시티" title prominent,
-isometric cityscape skyline of cute company buildings, the unicorn mascot
+Game splash illustration, "드래곤마운틴 시티" title prominent,
+isometric mountain cityscape skyline of cute company buildings, the dragon mascot
 front and center, vibrant gradient sky (indigo to pink), Korean educational
 business game, exciting and colorful, cartoon style
 ```
 
 **`og.png` (1200×630)**
 ```
-Social share card (1200x630), "유니콘 시티 — 회사를 키우고 투자하는 경제 게임",
-isometric building skyline + unicorn mascot + a small rising stock chart,
+Social share card (1200x630), "드래곤마운틴 시티 — 회사를 키우고 투자하는 경제 게임",
+mountain city skyline + dragon mascot + a small rising stock chart,
 bright friendly palette, large readable Korean title text
 ```
 

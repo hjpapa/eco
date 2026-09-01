@@ -41,6 +41,36 @@ export function createAssets(): Record<AssetClass, AssetMarketItem> {
   return out;
 }
 
+/**
+ * Refresh catalog copy without resetting a saved market.
+ *
+ * Asset prices and histories are live game data, while names and descriptions
+ * belong to the current curriculum. Migrations can therefore adopt the latest
+ * kid-friendly copy and still preserve every market movement already played.
+ */
+export function mergeAssetCatalogMetadata(
+  savedAssets: Partial<Record<AssetClass, AssetMarketItem>>,
+): Record<AssetClass, AssetMarketItem> {
+  const catalog = createAssets();
+  const merged = {} as Record<AssetClass, AssetMarketItem>;
+
+  for (const id of Object.keys(catalog) as AssetClass[]) {
+    const current = catalog[id];
+    const saved = savedAssets[id];
+    merged[id] = saved
+      ? {
+          ...current,
+          ...saved,
+          id,
+          name: current.name,
+          desc: current.desc,
+        }
+      : current;
+  }
+
+  return merged;
+}
+
 /** Deterministic per-turn drift for an asset given the macro environment. */
 function driftFor(id: AssetClass, macro: MacroState): number {
   const realRate = macro.interestRate - macro.inflation;

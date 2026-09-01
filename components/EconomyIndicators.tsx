@@ -3,6 +3,7 @@
 import { PHASE_EMOJI, PHASE_LABELS } from "@/lib/engine";
 import type { GameState } from "@/lib/engine";
 import { getCountry } from "@/lib/data/countries";
+import { getInflationDisplay } from "@/lib/ui/economyIndicators";
 import { Term } from "./Term";
 import { ASSET_ICONS, ECONOMY_ICONS, PHASE_ICONS } from "@/lib/assetMap";
 
@@ -13,11 +14,7 @@ export function EconomyIndicators({ game }: { game: GameState }) {
   );
   const sentimentPct = Math.round((m.sentiment + 1) * 50);
   const fx = game.assets.fx;
-  const inflationHint = m.inflation >= 4
-    ? "같은 돈으로 살 수 있는 양이 빠르게 줄어요"
-    : m.inflation >= 2
-      ? "물건값이 조금씩 오르고 있어요"
-      : "물건값이 비교적 천천히 변해요";
+  const inflationDisplay = getInflationDisplay(m.inflation);
 
   return (
     <div className="card p-4">
@@ -40,7 +37,7 @@ export function EconomyIndicators({ game }: { game: GameState }) {
 
       <div className="grid grid-cols-2 gap-2 text-sm">
         <Metric icon={ECONOMY_ICONS.gdp} term="GDP 성장률" label="경제 성장(GDP)" value={`${m.gdpGrowth.toFixed(1)}%`} hint={m.gdpGrowth >= 0 ? "경제가 커지고 있어요" : "경제가 잠시 줄고 있어요"} />
-        <Metric icon={ECONOMY_ICONS.inflation} term="인플레이션" label="물건값 오름(인플레이션)" value={`${m.inflation.toFixed(1)}%`} hint={inflationHint} />
+        <Metric icon={ECONOMY_ICONS.inflation} term={inflationDisplay.term} label={inflationDisplay.label} value={`${m.inflation.toFixed(1)}%`} hint={inflationDisplay.hint} />
         <Metric icon={ECONOMY_ICONS.rate} term="기준금리" label="돈 빌리는 값(기준금리)" value={`${m.interestRate.toFixed(2)}%`} hint="오르면 대출·예금 이자도 커져요" />
         <Metric icon={ECONOMY_ICONS.sentiment} term="시장 심리" label="사람들의 기대(시장 심리)" value={`${sentimentPct}점`} hint={sentimentPct >= 50 ? "좋아질 거라고 보는 사람이 많아요" : "조심하려는 사람이 많아요"} />
         {game.config.enabledAssets.includes("fx") && fx ? (

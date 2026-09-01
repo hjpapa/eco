@@ -19,6 +19,7 @@ import { runAiTurn } from "./ai";
 import { generateEvents } from "./events";
 import { generateAdvice } from "../advisor";
 import { createRng } from "./rng";
+import { createAssets } from "./assets";
 import {
   buildBuilding,
   applyCompanyAction,
@@ -339,6 +340,35 @@ describe("save migration and outcomes", () => {
     expect(migrated?.config.enabledAssets).toContain("fx");
     expect(migrated?.config.showAdvancedMetrics).toBe(true);
     expect(migrated?.companies.find((company) => company.isPlayer)?.cash).toBe(432_100);
+  });
+
+  it("refreshes elementary asset copy without resetting saved prices or holdings", () => {
+    const current = game({ gameLength: 50, revealMode: "guided" });
+    const player = current.companies.find((company) => company.isPlayer)!;
+    current.version = 2;
+    current.turn = 14;
+    current.assets.fx = {
+      ...current.assets.fx,
+      name: "예전 외환 이름",
+      desc: "예전 어려운 설명",
+      price: 143.25,
+      history: [100, 112.5, 127.75, 143.25],
+      risk: 0.27,
+    };
+    player.portfolio.assets.fx = 37;
+
+    const migrated = migrateGameState(structuredClone(current));
+    const currentCatalog = createAssets();
+
+    expect(migrated?.assets.fx.name).toBe(currentCatalog.fx.name);
+    expect(migrated?.assets.fx.desc).toBe(currentCatalog.fx.desc);
+    expect(migrated?.assets.fx.price).toBe(143.25);
+    expect(migrated?.assets.fx.history).toEqual([100, 112.5, 127.75, 143.25]);
+    expect(migrated?.assets.fx.risk).toBe(0.27);
+    expect(
+      migrated?.companies.find((company) => company.isPlayer)?.portfolio.assets.fx,
+    ).toBe(37);
+    expect(migrated?.turn).toBe(14);
   });
 
   it("keeps first place as the top reward and reports complementary badges", () => {

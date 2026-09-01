@@ -1,5 +1,6 @@
 import { netWorth, playerRank } from "./ranking";
 import { getLevelConfig } from "./levels";
+import { mergeAssetCatalogMetadata } from "./assets";
 import type {
   CampaignFeature,
   Company,
@@ -240,12 +241,17 @@ export function migrateGameState(value: unknown): GameState | null {
     : isRevealMode(raw.revealMode)
       ? raw.revealMode
       : "all";
-  const config = refreshElementaryConfig(raw);
+  const refreshElementary = needsElementaryV3Refresh(raw);
+  const config = refreshElementary ? refreshedElementaryConfig(raw) : raw.config;
+  const assets = refreshElementary
+    ? mergeAssetCatalogMetadata(raw.assets)
+    : raw.assets;
 
   const migrated: GameState = {
     ...raw,
     version: GAME_VERSION,
     config,
+    assets,
     gameLength,
     revealMode,
     maxTurns: legacyCampaign ? 100 : raw.maxTurns,
@@ -262,11 +268,7 @@ export function migrateGameState(value: unknown): GameState | null {
  * their live company balances, turn and chosen map size while receiving the
  * current feature catalog and difficulty settings.
  */
-function refreshElementaryConfig(state: GameState): GameState["config"] {
-  if (state.level !== "elementary" || state.version >= GAME_VERSION) {
-    return state.config;
-  }
-
+function refreshedElementaryConfig(state: GameState): GameState["config"] {
   const current = getLevelConfig("elementary");
   return {
     ...current,
@@ -275,6 +277,13 @@ function refreshElementaryConfig(state: GameState): GameState["config"] {
         ? state.config.mapSize
         : current.mapSize,
   };
+}
+
+function needsElementaryV3Refresh(state: GameState): boolean {
+  return (
+    state.level === "elementary" &&
+    (typeof state.version !== "number" || state.version < GAME_VERSION)
+  );
 }
 
 function isGameStateLike(value: unknown): value is GameState {
