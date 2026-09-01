@@ -3,6 +3,8 @@ import {
   LEARNING_CATALOG,
   LEARNING_INTRO_KEY,
   LEARNING_PROGRESS_KEY,
+  LEGACY_LEARNING_INTRO_KEYS,
+  LEGACY_LEARNING_PROGRESS_KEYS,
   advancePracticeTurn,
   completeLearningCourse,
   createPracticeState,
@@ -132,7 +134,7 @@ describe("isolated fixed-seed practice", () => {
 
   it("does not read or alter the real game save", () => {
     const storage = new MemoryStorage();
-    const saveKey = "uc-save-single";
+    const saveKey = "dragon-mountain-city-save-single";
     const originalSave = '{"turn":17,"company":{"cash":12345}}';
     storage.setItem(saveKey, originalSave);
 
@@ -148,7 +150,7 @@ describe("isolated fixed-seed practice", () => {
 
   it("records the first-entry choice without changing the game save string", () => {
     const storage = new MemoryStorage();
-    const saveKey = "uc-save-single";
+    const saveKey = "dragon-mountain-city-save-single";
     const originalSave = '{"turn":0,"createdAt":1234,"company":{"cash":500000}}';
     storage.setItem(saveKey, originalSave);
 
@@ -162,6 +164,36 @@ describe("isolated fixed-seed practice", () => {
 });
 
 describe("versioned learning completion", () => {
+  it("moves valid learning progress from the former brand key", () => {
+    const storage = new MemoryStorage();
+    const legacyKey = LEGACY_LEARNING_PROGRESS_KEYS[0];
+    storage.setItem(
+      legacyKey,
+      JSON.stringify({
+        version: 1,
+        completedCourseIds: ["basics"],
+        updatedAt: "2026-09-01T00:00:00.000Z",
+      }),
+    );
+
+    expect(readLearningProgress(storage).completedCourseIds).toEqual(["basics"]);
+    expect(storage.getItem(LEARNING_PROGRESS_KEY)).not.toBeNull();
+    expect(storage.getItem(legacyKey)).toBeNull();
+  });
+
+  it("moves the former intro history without showing onboarding again", () => {
+    const storage = new MemoryStorage();
+    const legacyKey = LEGACY_LEARNING_INTRO_KEYS[0];
+    storage.setItem(
+      legacyKey,
+      JSON.stringify({ version: 1, seenGameIds: ["saved-game"] }),
+    );
+
+    expect(hasSeenLearningIntro("saved-game", storage)).toBe(true);
+    expect(storage.getItem(LEARNING_INTRO_KEY)).not.toBeNull();
+    expect(storage.getItem(legacyKey)).toBeNull();
+  });
+
   it("does not write progress merely by reading/opening a course", () => {
     const storage = new MemoryStorage();
     expect(readLearningProgress(storage).completedCourseIds).toEqual([]);

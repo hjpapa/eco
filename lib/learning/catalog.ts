@@ -192,7 +192,7 @@ const COURSES: LearningCourse[] = [
 
 const SPOTLIGHT_TUTORIAL: SpotlightTutorialStep[] = [
   {
-    title: "🎮 드래곤마운틴 시티에 오신 것을 환영합니다!",
+    title: "🎮 드래곤 마운틴 시티에 오신 것을 환영합니다!",
     body: "가격과 생산량을 정하고 한 분기씩 회사를 키워 보세요. 배우기 메뉴의 2분 연습은 실제 저장 게임에 영향을 주지 않아요.",
   },
   {
@@ -228,7 +228,7 @@ const SPOTLIGHT_TUTORIAL: SpotlightTutorialStep[] = [
 const QUICK_START = [
   {
     icon: "👋",
-    title: "드래곤마운틴 시티에 오신 걸 환영해요!",
+    title: "드래곤 마운틴 시티에 오신 걸 환영해요!",
     text: "회사를 키우고 투자하며 내 총재산(순자산)을 늘리는 게임이에요. 게임 길이는 20·50·100분기 중에서 고를 수 있어요.",
   },
   {

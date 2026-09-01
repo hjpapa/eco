@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""One-time asset processor for 드래곤마운틴 시티.
+"""One-time asset processor for 드래곤 마운틴 시티.
 
 Takes the raw pixel-art PNGs (white background, RGB) and produces
 trimmed, white-keyed-to-transparent RGBA PNGs under public/assets/.

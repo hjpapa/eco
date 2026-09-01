@@ -111,7 +111,7 @@ Matching the existing Dragon Mountain City dragon mascot design
 
 **`splash-dragon.png` (1920×1080 또는 1080×1920)**
 ```
-Game splash illustration, "드래곤마운틴 시티" title prominent,
+Game splash illustration, "드래곤 마운틴 시티" title prominent,
 isometric mountain cityscape skyline of cute company buildings, the dragon mascot
 front and center, vibrant gradient sky (indigo to pink), Korean educational
 business game, exciting and colorful, cartoon style
@@ -119,7 +119,7 @@ business game, exciting and colorful, cartoon style
 
 **`og.png` (1200×630)**
 ```
-Social share card (1200x630), "드래곤마운틴 시티 — 회사를 키우고 투자하는 경제 게임",
+Social share card (1200x630), "드래곤 마운틴 시티 — 회사를 키우고 투자하는 경제 게임",
 mountain city skyline + dragon mascot + a small rising stock chart,
 bright friendly palette, large readable Korean title text
 ```

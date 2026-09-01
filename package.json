@@ -1,9 +1,9 @@
 {
-  "name": "dragonmountain-city",
+  "name": "dragon-mountain-city",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "드래곤마운틴 시티 — 초등학생용 회사 경영 & 경제 교육 게임 (제작: hjpapa)",
+  "description": "드래곤 마운틴 시티 — 초등학생용 회사 경영 & 경제 교육 게임 (제작: hjpapa)",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

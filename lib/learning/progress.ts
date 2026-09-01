@@ -1,9 +1,21 @@
 import type { LearningCourseId } from "./catalog";
+import {
+  readStoredValue,
+  removeStorageKeys,
+  writeMigratedStorageValue,
+  type KeyValueStorage,
+} from "../storage";
 
 export const LEARNING_PROGRESS_VERSION = 1 as const;
-export const LEARNING_PROGRESS_KEY = `uc-learning-progress-v${LEARNING_PROGRESS_VERSION}`;
+export const LEARNING_PROGRESS_KEY = `dragon-mountain-city-learning-progress-v${LEARNING_PROGRESS_VERSION}`;
+export const LEGACY_LEARNING_PROGRESS_KEYS = [
+  `uc-learning-progress-v${LEARNING_PROGRESS_VERSION}`,
+] as const;
 export const LEARNING_INTRO_VERSION = 1 as const;
-export const LEARNING_INTRO_KEY = `uc-learning-intro-v${LEARNING_INTRO_VERSION}`;
+export const LEARNING_INTRO_KEY = `dragon-mountain-city-learning-intro-v${LEARNING_INTRO_VERSION}`;
+export const LEGACY_LEARNING_INTRO_KEYS = [
+  `uc-learning-intro-v${LEARNING_INTRO_VERSION}`,
+] as const;
 
 export interface LearningProgress {
   version: typeof LEARNING_PROGRESS_VERSION;
@@ -11,11 +23,7 @@ export interface LearningProgress {
   updatedAt: string | null;
 }
 
-export interface LearningStorage {
-  getItem(key: string): string | null;
-  setItem(key: string, value: string): void;
-  removeItem?(key: string): void;
-}
+export type LearningStorage = KeyValueStorage;
 
 interface LearningIntroState {
   version: typeof LEARNING_INTRO_VERSION;
@@ -54,19 +62,30 @@ export function readLearningProgress(
   if (!storage) return emptyLearningProgress();
 
   try {
-    const raw = storage.getItem(LEARNING_PROGRESS_KEY);
-    if (!raw) return emptyLearningProgress();
-    const parsed = JSON.parse(raw) as Partial<LearningProgress>;
+    const stored = readStoredValue(
+      storage,
+      LEARNING_PROGRESS_KEY,
+      LEGACY_LEARNING_PROGRESS_KEYS,
+    );
+    if (!stored) return emptyLearningProgress();
+    const parsed = JSON.parse(stored.value) as Partial<LearningProgress>;
     if (parsed.version !== LEARNING_PROGRESS_VERSION || !Array.isArray(parsed.completedCourseIds)) {
       return emptyLearningProgress();
     }
-    return {
+    const progress: LearningProgress = {
       version: LEARNING_PROGRESS_VERSION,
       completedCourseIds: Array.from(
         new Set(parsed.completedCourseIds.filter((id): id is LearningCourseId => COURSE_IDS.has(id as LearningCourseId))),
       ),
       updatedAt: typeof parsed.updatedAt === "string" ? parsed.updatedAt : null,
     };
+    writeMigratedStorageValue(
+      storage,
+      LEARNING_PROGRESS_KEY,
+      LEGACY_LEARNING_PROGRESS_KEYS,
+      JSON.stringify(progress),
+    );
+    return progress;
   } catch {
     return emptyLearningProgress();
   }
@@ -85,33 +104,50 @@ export function completeLearningCourse(
       : [...current.completedCourseIds, courseId],
     updatedAt: now.toISOString(),
   };
-  try {
-    storage?.setItem(LEARNING_PROGRESS_KEY, JSON.stringify(next));
-  } catch {
-    // Completion still succeeds in memory when storage is unavailable or full.
+  if (storage) {
+    writeMigratedStorageValue(
+      storage,
+      LEARNING_PROGRESS_KEY,
+      LEGACY_LEARNING_PROGRESS_KEYS,
+      JSON.stringify(next),
+    );
   }
   return next;
 }
 
 export function clearLearningProgress(storage: LearningStorage | null = browserStorage()): void {
-  try {
-    storage?.removeItem?.(LEARNING_PROGRESS_KEY);
-  } catch {
-    // A blocked storage area should not break the learning UI.
-  }
+  if (!storage) return;
+  removeStorageKeys(storage, [
+    LEARNING_PROGRESS_KEY,
+    ...LEGACY_LEARNING_PROGRESS_KEYS,
+  ]);
 }
 
 function readLearningIntroState(storage: LearningStorage | null): LearningIntroState {
   if (!storage) return { version: LEARNING_INTRO_VERSION, seenGameIds: [] };
   try {
-    const parsed = JSON.parse(storage.getItem(LEARNING_INTRO_KEY) ?? "null") as Partial<LearningIntroState> | null;
+    const stored = readStoredValue(
+      storage,
+      LEARNING_INTRO_KEY,
+      LEGACY_LEARNING_INTRO_KEYS,
+    );
+    const parsed = JSON.parse(stored?.value ?? "null") as Partial<LearningIntroState> | null;
     if (parsed?.version !== LEARNING_INTRO_VERSION || !Array.isArray(parsed.seenGameIds)) {
       return { version: LEARNING_INTRO_VERSION, seenGameIds: [] };
     }
-    return {
+    const state: LearningIntroState = {
       version: LEARNING_INTRO_VERSION,
       seenGameIds: parsed.seenGameIds.filter((id): id is string => typeof id === "string"),
     };
+    if (stored) {
+      writeMigratedStorageValue(
+        storage,
+        LEARNING_INTRO_KEY,
+        LEGACY_LEARNING_INTRO_KEYS,
+        JSON.stringify(state),
+      );
+    }
+    return state;
   } catch {
     return { version: LEARNING_INTRO_VERSION, seenGameIds: [] };
   }
@@ -139,9 +175,10 @@ export function markLearningIntroSeen(
     version: LEARNING_INTRO_VERSION,
     seenGameIds: [...current.seenGameIds, id].slice(-20),
   };
-  try {
-    storage.setItem(LEARNING_INTRO_KEY, JSON.stringify(next));
-  } catch {
-    // The game remains playable when storage is blocked or full.
-  }
+  writeMigratedStorageValue(
+    storage,
+    LEARNING_INTRO_KEY,
+    LEGACY_LEARNING_INTRO_KEYS,
+    JSON.stringify(next),
+  );
 }

@@ -2,6 +2,12 @@
 // simple ambient BGM pad, so there are no audio asset files to ship. Respects a
 // global mute flag persisted in localStorage.
 
+import {
+  getBrowserStorage,
+  readStoredValue,
+  writeMigratedStorageValue,
+} from "./storage";
+
 type Sfx =
   | "click"
   | "buy"
@@ -17,6 +23,8 @@ let ctx: AudioContext | null = null;
 let muted = false;
 let bgmGain: GainNode | null = null;
 let bgmTimer: ReturnType<typeof setInterval> | null = null;
+export const AUDIO_MUTE_KEY = "dragon-mountain-city-muted";
+export const LEGACY_AUDIO_MUTE_KEYS = ["uc-muted"] as const;
 
 function ensureCtx(): AudioContext | null {
   if (typeof window === "undefined") return null;
@@ -29,9 +37,27 @@ function ensureCtx(): AudioContext | null {
   return ctx;
 }
 
+export function readMutePreference(storage: Storage): boolean {
+  const stored = readStoredValue(
+    storage,
+    AUDIO_MUTE_KEY,
+    LEGACY_AUDIO_MUTE_KEYS,
+  );
+  if (stored) {
+    writeMigratedStorageValue(
+      storage,
+      AUDIO_MUTE_KEY,
+      LEGACY_AUDIO_MUTE_KEYS,
+      stored.value,
+    );
+  }
+  return stored?.value === "1";
+}
+
 export function initAudio(): void {
-  if (typeof window === "undefined") return;
-  muted = window.localStorage.getItem("uc-muted") === "1";
+  const storage = getBrowserStorage();
+  if (!storage) return;
+  muted = readMutePreference(storage);
   ensureCtx();
 }
 
@@ -41,8 +67,14 @@ export function isMuted(): boolean {
 
 export function setMuted(value: boolean): void {
   muted = value;
-  if (typeof window !== "undefined") {
-    window.localStorage.setItem("uc-muted", value ? "1" : "0");
+  const storage = getBrowserStorage();
+  if (storage) {
+    writeMigratedStorageValue(
+      storage,
+      AUDIO_MUTE_KEY,
+      LEGACY_AUDIO_MUTE_KEYS,
+      value ? "1" : "0",
+    );
   }
   if (value) stopBgm();
 }

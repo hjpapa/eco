@@ -92,8 +92,11 @@ export default function Home() {
             <div className="inline-flex rounded-full bg-emerald-400/20 px-3 py-1 text-sm font-black text-emerald-100 ring-1 ring-emerald-200/40">
               초등 4~6학년 경제 탐험
             </div>
-            <h1 className="mt-4 text-4xl font-black leading-[1.05] tracking-tight text-white drop-shadow-lg sm:text-6xl lg:text-7xl">
-              드래곤마운틴
+            <h1
+              aria-label="드래곤 마운틴 시티"
+              className="mt-4 text-4xl font-black leading-[1.05] tracking-tight text-white drop-shadow-lg sm:text-6xl lg:text-7xl"
+            >
+              <span className="block">드래곤 마운틴</span>
               <span className="block text-amber-300">시티</span>
             </h1>
             <p className="mt-4 max-w-xl text-base font-semibold leading-relaxed text-slate-100 sm:text-xl">

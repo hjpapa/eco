@@ -136,7 +136,7 @@ export interface TutorialStep {
 export const TUTORIAL_STEPS: TutorialStep[] = [
   {
     icon: "👋",
-    title: "드래곤마운틴 시티에 오신 걸 환영해요!",
+    title: "드래곤 마운틴 시티에 오신 걸 환영해요!",
     text: "시작 자금 100만 원으로 회사를 키우고 투자하며 내 총재산(순자산)을 늘리는 게임이에요. 짧게 흐름만 알려줄게요.",
   },
   {

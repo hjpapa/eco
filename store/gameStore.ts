@@ -5,7 +5,6 @@ import {
   advanceTurn,
   createGame,
   isFeatureUnlocked,
-  migrateGameState,
   type AssetClass,
   type BuildingType,
   type CompanyDecisions,
@@ -36,8 +35,15 @@ import type { TurnSummary } from "@/lib/engine/tick";
 import { playSfx } from "@/lib/audio";
 import { formatMoney } from "@/lib/format";
 import { markLearningIntroSeen } from "@/lib/learning";
+import {
+  clearGameSaves,
+  hasGameSave,
+  loadGameFromStorage,
+  saveGameToStorage,
+} from "@/lib/gamePersistence";
+import { getBrowserStorage } from "@/lib/storage";
 
-export const GAME_SAVE_KEY = "uc-save-single";
+export { GAME_SAVE_KEY, LEGACY_GAME_SAVE_KEYS } from "@/lib/gamePersistence";
 
 export interface NewGameInput {
   level: Level;
@@ -86,13 +92,9 @@ function player(game: GameState) {
   return game.companies.find((c) => c.id === game.playerCompanyId)!;
 }
 
-function persist(game: GameState): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(GAME_SAVE_KEY, JSON.stringify(game));
-  } catch {
-    /* ignore quota errors */
-  }
+function persist(game: GameState): boolean {
+  const storage = getBrowserStorage();
+  return storage ? saveGameToStorage(storage, game) : false;
 }
 
 export const useGameStore = create<GameStore>((set, get) => ({
@@ -107,34 +109,26 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   loadSave: () => {
-    if (typeof window === "undefined") return false;
-    try {
-      const raw = window.localStorage.getItem(GAME_SAVE_KEY);
-      if (!raw) return false;
-      const parsed = JSON.parse(raw) as unknown;
-      const legacyCampaign = !!parsed && typeof parsed === "object" && !("gameLength" in parsed);
-      const game = migrateGameState(parsed);
-      if (!game) return false;
-      // Existing pre-campaign saves should never receive a surprise first-run
-      // dialog. Record that fact outside the game save before persisting its
-      // normal campaign migration.
-      if (legacyCampaign) markLearningIntroSeen(game.createdAt);
-      // Persist migrations immediately so every later read sees one schema.
-      persist(game);
-      set({ game, lastSummary: null });
-      return true;
-    } catch {
-      return false;
-    }
+    const storage = getBrowserStorage();
+    if (!storage) return false;
+    const loaded = loadGameFromStorage(storage);
+    if (!loaded) return false;
+    // Existing pre-campaign saves should never receive a surprise first-run
+    // dialog. Record that fact outside the game save before persisting its
+    // normal campaign migration.
+    if (loaded.legacyCampaign) markLearningIntroSeen(loaded.game.createdAt);
+    set({ game: loaded.game, lastSummary: null });
+    return true;
   },
 
   hasSave: () => {
-    if (typeof window === "undefined") return false;
-    return !!window.localStorage.getItem(GAME_SAVE_KEY);
+    const storage = getBrowserStorage();
+    return storage ? hasGameSave(storage) : false;
   },
 
   clearSave: () => {
-    if (typeof window !== "undefined") window.localStorage.removeItem(GAME_SAVE_KEY);
+    const storage = getBrowserStorage();
+    if (storage) clearGameSaves(storage);
   },
 
   acknowledgeLearningIntro: () => {

@@ -164,7 +164,7 @@ export default function PlayPage() {
     <div className="min-h-screen bg-slate-100 pb-24">
       {/* Author bar */}
       <div className="w-full bg-slate-800 py-1 text-center text-xs text-slate-400">
-        드래곤마운틴 시티 · 제작 <span className="font-semibold text-slate-200">hjpapa</span>
+        드래곤 마운틴 시티 · 제작 <span className="font-semibold text-slate-200">hjpapa</span>
       </div>
       {/* Top bar */}
       <header className="sticky top-0 z-30 overflow-hidden bg-white/90 shadow-sm backdrop-blur">

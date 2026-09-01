@@ -13,7 +13,7 @@ export const STORY: Record<Level, StoryScene[]> = {
   elementary: [
     {
       emoji: "🐉",
-      title: "드래곤마운틴 시티에 오신 걸 환영해요",
+      title: "드래곤 마운틴 시티에 오신 걸 환영해요",
       body: "산 아래 작은 회사의 새 사장님이 되었어요. 시작 자금 100만 원으로 멋진 도시 회사를 키워 볼까요?",
     },
     {
