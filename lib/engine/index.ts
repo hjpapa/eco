@@ -175,7 +175,9 @@ export function createGame(opts: NewGameOptions): GameState {
     countryId: opts.countryId,
     logoColor: playerColor,
     isPlayer: true,
-    cash: config.startingCash * playerScale,
+    // Every player starts with the configured amount. Preset scale still
+    // shapes the company's initial capabilities, but never its cash balance.
+    cash: config.startingCash,
     scale: playerScale,
     instant: config.instantBuild,
     basedOn: opts.basedOn,
@@ -213,14 +215,6 @@ export function createGame(opts: NewGameOptions): GameState {
         instant: config.instantBuild,
       }),
     );
-  }
-
-  // Place player at rank 15-20: set player cash just below the ~32nd percentile
-  // of AI company cashes (ascending), so roughly 32% of AI companies start lower.
-  {
-    const aiCashRanked = aiCompanies.map((c) => c.cash).sort((a, b) => a - b);
-    const idx = Math.floor(aiCashRanked.length * 0.32);
-    player.cash = Math.round(aiCashRanked[Math.max(0, idx)] * 0.97);
   }
 
   const companies = [player, ...aiCompanies];
@@ -272,7 +266,13 @@ export {
 export { LEVEL_CONFIGS, getLevelConfig } from "./levels";
 export { PHASE_LABELS, PHASE_EMOJI } from "./economy";
 export { LAYER_LABELS } from "./events";
-export { BUILDINGS, BUILDING_LIST, buildingCostFor } from "./buildings";
+export {
+  ADJACENCY_PAIRS,
+  BUILDINGS,
+  BUILDING_LIST,
+  buildingCostFor,
+  countAdjacencyPairs,
+} from "./buildings";
 export { ROLE_LABELS, roleBonuses } from "./characters";
 export {
   productionCapacity,

@@ -64,7 +64,7 @@ export function advanceTurn(state: GameState): TurnSummary {
       tone: hike ? "negative" : "positive",
       emoji: hike ? "📈" : "📉",
       title: `${homeCountry.centralBank} 기준금리 ${hike ? "인상" : "인하"}`,
-      body: `기준금리가 ${oldRate.toFixed(2)}%에서 ${state.macro.interestRate.toFixed(2)}%로 ${hike ? "인상" : "인하"}되었습니다. ${hike ? "성장주와 부동산이 영향을 받을 수 있습니다." : "경기 부양 효과가 예상됩니다."}`,
+      body: `돈을 빌릴 때 기준이 되는 금리가 ${oldRate.toFixed(2)}%에서 ${state.macro.interestRate.toFixed(2)}%로 ${hike ? "올랐어요" : "내렸어요"}. ${hike ? "대출 이자 부담과 예금 이자가 함께 커질 수 있어요." : "대출 이자 부담이 줄어 회사가 돈을 쓰기 쉬워질 수 있어요."}`,
       tags: ["monetary"],
     });
   }

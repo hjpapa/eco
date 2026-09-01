@@ -1,4 +1,4 @@
-// Central type contract for the Unicorn City simulation engine.
+// Central type contract for the Dragon Mountain City simulation engine.
 // Pure data only — no React, no DB. The same types are used by single-player
 // (browser) and multiplayer (server-authoritative) code.
 

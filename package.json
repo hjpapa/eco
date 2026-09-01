@@ -1,9 +1,9 @@
 {
-  "name": "unicorn-city",
+  "name": "dragonmountain-city",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "유니콘 시티 — 학생용 회사 경영 & 주식 투자 교육 게임",
+  "description": "드래곤마운틴 시티 — 초등학생용 회사 경영 & 경제 교육 게임 (제작: hjpapa)",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

@@ -312,6 +312,35 @@ describe("save migration and outcomes", () => {
     expect(migrated?.turn).toBe(7);
   });
 
+  it("adds the elementary economy curriculum without resetting an existing game", () => {
+    const current = game({ gameLength: 50, revealMode: "guided", mapSize: 12 });
+    const player = current.companies.find((company) => company.isPlayer)!;
+    current.version = 2;
+    current.turn = 13;
+    player.cash = 432_100;
+    current.config = {
+      ...current.config,
+      startingCash: 750_000,
+      adjacencyBonus: false,
+      enabledAssets: ["deposit", "etf"],
+      enabledEventLayers: ["macro", "market"],
+      showAdvancedMetrics: false,
+    };
+
+    const migrated = migrateGameState(structuredClone(current));
+
+    expect(migrated?.version).toBe(3);
+    expect(migrated?.turn).toBe(13);
+    expect(migrated?.gameLength).toBe(50);
+    expect(migrated?.revealMode).toBe("guided");
+    expect(migrated?.config.mapSize).toBe(12);
+    expect(migrated?.config.startingCash).toBe(1_000_000);
+    expect(migrated?.config.adjacencyBonus).toBe(true);
+    expect(migrated?.config.enabledAssets).toContain("fx");
+    expect(migrated?.config.showAdvancedMetrics).toBe(true);
+    expect(migrated?.companies.find((company) => company.isPlayer)?.cash).toBe(432_100);
+  });
+
   it("keeps first place as the top reward and reports complementary badges", () => {
     const state = game({ gameLength: 20 });
     const company = state.companies.find((item) => item.id === state.playerCompanyId)!;

@@ -1,6 +1,6 @@
 "use client";
 
-import { isFeatureUnlocked, type Company, type GameState } from "@/lib/engine";
+import { getFeatureUnlockTurn, isFeatureUnlocked, type Company, type GameState } from "@/lib/engine";
 import { getIndustry } from "@/lib/data/industries";
 import { formatMoney } from "@/lib/format";
 import { Bar } from "./Sparkline";
@@ -43,8 +43,8 @@ export function CompanyStatusCard({ game, company }: { game: GameState; company:
           <div className="mt-2 flex justify-between text-[10px] text-slate-400">
             <span>재고 {company.inventory.toLocaleString()}개</span>
             {advancedInfoUnlocked
-              ? <span>부채 {formatMoney(company.debt)}</span>
-              : <span>🔒 고급 정보</span>
+              ? <span><Term term="부채">갚을 돈(부채)</Term> {formatMoney(company.debt)}</span>
+              : <span>🔒 돈 관리는 {getFeatureUnlockTurn(game.gameLength, "visitsPartnershipsAdvanced")}분기</span>
             }
           </div>
         </div>

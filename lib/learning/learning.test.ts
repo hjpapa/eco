@@ -40,6 +40,83 @@ describe("learning catalog", () => {
       "glossary",
     ]);
   });
+
+  it("provides real, easy explanations for the elementary economy terms", () => {
+    const glossary = new Map(
+      LEARNING_CATALOG.glossary.flatMap((group) =>
+        group.entries.map((entry) => [entry.term, entry.definition] as const),
+      ),
+    );
+    const requiredTerms = [
+      "인접 보너스",
+      "예금",
+      "채권",
+      "금",
+      "기준금리",
+      "인플레이션",
+      "환율",
+      "부채",
+      "이자",
+      "대출",
+      "현금",
+      "매출",
+      "이익",
+      "순자산",
+      "기업가치",
+      "투자자산",
+      "PER",
+      "PBR",
+      "ROE",
+    ];
+
+    for (const term of requiredTerms) {
+      expect(glossary.get(term), `${term} 설명`).toBeTruthy();
+      expect(glossary.get(term), `${term} 설명`).not.toBe("설명이 준비 중이에요.");
+    }
+
+    expect(glossary.get("인접 보너스")).toMatch(/옆|붙|가까/);
+    expect(glossary.get("기준금리")).toMatch(/이자|빌리|빚/);
+    expect(glossary.get("인플레이션")).toMatch(/물가/);
+    expect(glossary.get("환율")).toMatch(/다른 나라 돈|외국 돈|바꾸/);
+    expect(glossary.get("부채")).toMatch(/빚|갚/);
+    expect(glossary.get("이자")).toMatch(/빌린 돈|대출|빚/);
+  });
+
+  it("teaches the enabled concepts in course content, not only in the glossary", () => {
+    const courseBody = LEARNING_CATALOG.courses
+      .flatMap((course) =>
+        course.sections.flatMap((section) => [
+          section.title,
+          section.body,
+          section.tip ?? "",
+        ]),
+      )
+      .join(" ");
+    const conceptsThatNeedTeaching = [
+      "인접 보너스",
+      "예금",
+      "채권",
+      "기준금리",
+      "인플레이션",
+      "환율",
+      "부채",
+      "이자",
+      "대출",
+      "현금",
+      "매출",
+      "이익",
+      "순자산",
+      "기업가치",
+      "투자자산",
+      "PER",
+      "PBR",
+      "ROE",
+    ];
+
+    for (const concept of conceptsThatNeedTeaching) {
+      expect(courseBody, `${concept} 과정 본문`).toContain(concept);
+    }
+  });
 });
 
 describe("isolated fixed-seed practice", () => {

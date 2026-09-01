@@ -84,6 +84,7 @@ export function CompanyPanel({ game, company }: { game: GameState; company: Comp
   const quarterlyRate = game.macro.interestRate / 100 / 4;
   const currentInterest = Math.round(company.debt * quarterlyRate);
   const loanInterest = Math.round(loanAmt * quarterlyRate);
+  const lastCost = Math.max(0, company.lastRevenue - company.lastProfit);
 
   const industry = getIndustry(company.industryId);
   const country = getCountry(company.countryId);
@@ -378,37 +379,55 @@ export function CompanyPanel({ game, company }: { game: GameState; company: Comp
         <details className="card group p-5">
           <summary className="flex cursor-pointer list-none items-center gap-2 text-base font-bold text-slate-800">
             {BUILDING_IMG.office && <img src={BUILDING_IMG.office} alt="" className="h-7 w-7 object-contain" />}
-            전문가 재무 보기
+            우리 회사 돈 살펴보기(재무)
             <span className="ml-auto text-slate-400 transition group-open:rotate-180">⌄</span>
           </summary>
-          <div className="mt-4">
+          <div className="mt-4 space-y-4">
+          <p className="rounded-xl bg-blue-50 px-3 py-2 text-sm leading-relaxed text-blue-800">
+            <Term term="재무">재무</Term>는 회사에 들어온 돈, 쓴 돈, 남은 돈과 빚을 함께 살펴보는 일이에요.
+          </p>
+          <div className="grid grid-cols-3 gap-2 text-center text-xs">
+            <div className="rounded-xl bg-slate-50 p-2">
+              <div className="text-slate-500"><Term term="매출">들어온 돈(매출)</Term></div>
+              <div className="mt-1 font-bold text-slate-800">{formatMoney(company.lastRevenue)}</div>
+            </div>
+            <div className="rounded-xl bg-slate-50 p-2">
+              <div className="text-slate-500"><Term term="비용">쓴 돈(비용)</Term></div>
+              <div className="mt-1 font-bold text-slate-800">{formatMoney(lastCost)}</div>
+            </div>
+            <div className="rounded-xl bg-slate-50 p-2">
+              <div className="text-slate-500"><Term term="이익">남은 돈(이익)</Term></div>
+              <div className={`mt-1 font-bold ${company.lastProfit >= 0 ? "text-bull" : "text-bear"}`}>{formatMoney(company.lastProfit)}</div>
+            </div>
+          </div>
           <div className="mb-1 flex justify-between text-sm">
-            <span className="text-slate-500">부채</span>
+            <span className="text-slate-500"><Term term="부채">빌린 돈(부채)</Term></span>
             <span className="font-bold text-slate-800">{formatMoney(company.debt)}</span>
           </div>
           <div className="mb-3 flex justify-between text-xs">
-            <span className="text-slate-400">현재 분기 이자 (연 {game.macro.interestRate.toFixed(2)}%)</span>
+            <span className="text-slate-400"><Term term="이자">이번 분기에 내는 이자</Term> (연 {game.macro.interestRate.toFixed(2)}%)</span>
             <span className="font-semibold text-bear">≈ {formatMoney(currentInterest)}/분기</span>
           </div>
           <div className="flex items-center gap-2">
             <input
               type="number"
+              aria-label="빌리거나 갚을 금액"
               value={loanAmt}
               step={50000}
               onChange={(e) => setLoanAmt(Math.max(0, Number(e.target.value)))}
               className="w-32 rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-800"
             />
             <button className="btn-ghost" onClick={() => loan(loanAmt, "borrow")}>
-              대출
+              돈 빌리기(대출)
             </button>
             <button className="btn-ghost" onClick={() => loan(loanAmt, "repay")}>
-              상환
+              갚기(상환)
             </button>
           </div>
           {loanAmt > 0 && (
             <div className="mt-2 text-xs text-slate-500">
-              {formatMoney(loanAmt)} 대출 시 분기 이자 약 <b className="text-bear">{formatMoney(loanInterest)}</b>씩
-              추가됩니다.
+              {formatMoney(loanAmt)}을 빌리면 분기 이자가 약 <b className="text-bear">{formatMoney(loanInterest)}</b>씩
+              늘어요. 빌린 원금도 나중에 갚아야 해요.
             </div>
           )}
           </div>

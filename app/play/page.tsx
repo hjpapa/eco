@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useGameStore } from "@/store/gameStore";
@@ -163,7 +164,7 @@ export default function PlayPage() {
     <div className="min-h-screen bg-slate-100 pb-24">
       {/* Author bar */}
       <div className="w-full bg-slate-800 py-1 text-center text-xs text-slate-400">
-        제작 by <span className="font-semibold text-slate-300">Dustin</span> · Teacher · Data Analytics · App Developer
+        드래곤마운틴 시티 · 제작 <span className="font-semibold text-slate-200">hjpapa</span>
       </div>
       {/* Top bar */}
       <header className="sticky top-0 z-30 overflow-hidden bg-white/90 shadow-sm backdrop-blur">
@@ -277,8 +278,9 @@ export default function PlayPage() {
         </div>
 
         {/* Sidebar */}
-        <aside>
-          <details className="card group p-4 lg:sticky lg:top-32">
+        <aside className="space-y-4 lg:sticky lg:top-32 lg:self-start">
+          <EconomyIndicators game={game} />
+          <details className="card group p-4">
             <summary className="cursor-pointer list-none text-sm font-bold text-slate-700">
               📋 회사 요약 더보기
               <span className="float-right text-slate-400 transition group-open:rotate-180">⌄</span>
@@ -286,13 +288,6 @@ export default function PlayPage() {
             <div className="mt-4 space-y-4">
               <Secretary game={game} />
               <CompanyStatusCard game={game} company={player} />
-              {visitUnlocked ? (
-                <EconomyIndicators game={game} />
-              ) : (
-                <div className="rounded-xl bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700 ring-1 ring-amber-200">
-                  🔒 경제 고급 정보는 {getFeatureUnlockTurn(game.gameLength, "visitsPartnershipsAdvanced")}분기에 열려요.
-                </div>
-              )}
             </div>
           </details>
         </aside>
@@ -664,7 +659,13 @@ function GameOver({ game, onRestart }: { game: ReturnType<typeof useGameStore.ge
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
       <div className="card max-h-[92vh] w-full max-w-lg animate-popin overflow-y-auto p-6 text-center">
-        <img src={won ? RESULT_ICONS.win : RESULT_ICONS.end} alt={won ? "우승" : "게임 종료"} className="mx-auto h-32 w-32 object-contain" />
+        <Image
+          src={won ? RESULT_ICONS.win : RESULT_ICONS.end}
+          alt={won ? "우승을 축하하는 드래곤" : "게임 결과를 안내하는 드래곤"}
+          width={144}
+          height={144}
+          className="mx-auto h-36 w-36 object-contain"
+        />
         <h2 className="mt-3 text-2xl font-black text-slate-800">
           {won ? "축하합니다! 1위 달성!" : "게임 종료"}
         </h2>

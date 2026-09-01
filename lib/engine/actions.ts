@@ -491,7 +491,7 @@ export function sellAsset(
 
 /** Take on debt to raise cash. */
 export function takeLoan(state: GameState, company: Company, amount: number): ActionResult {
-  if (!isFeatureUnlocked(state, "visitsPartnershipsAdvanced")) return lockedFeature("전문가 재무");
+  if (!isFeatureUnlocked(state, "visitsPartnershipsAdvanced")) return lockedFeature("회사 돈 관리(재무)");
   if (amount <= 0) return { ok: false, error: "금액을 확인하세요." };
   company.cash += amount;
   company.debt += amount;
@@ -500,7 +500,7 @@ export function takeLoan(state: GameState, company: Company, amount: number): Ac
 
 /** Repay outstanding debt from cash. */
 export function repayLoan(state: GameState, company: Company, amount: number): ActionResult {
-  if (!isFeatureUnlocked(state, "visitsPartnershipsAdvanced")) return lockedFeature("전문가 재무");
+  if (!isFeatureUnlocked(state, "visitsPartnershipsAdvanced")) return lockedFeature("회사 돈 관리(재무)");
   const pay = Math.min(amount, company.debt, company.cash);
   if (pay <= 0) return { ok: false, error: "상환할 수 없습니다." };
   company.cash -= pay;

@@ -2,34 +2,43 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import Link from "next/link";
 import { LEVEL_CONFIGS } from "@/lib/engine";
-import type { Level } from "@/lib/engine";
 import { useGameStore } from "@/store/gameStore";
 import { initAudio, playSfx } from "@/lib/audio";
-import { formatMoney } from "@/lib/format";
 import { COMPANY_PRESETS } from "@/lib/data/companyPresets";
 import { getIndustry } from "@/lib/data/industries";
 import { HelpModal } from "@/components/HelpModal";
 
-const SPLASH_IMG = "/assets/splash.png";
+const SPLASH_IMG = "/assets/splash-dragon.png";
+const ELEMENTARY_CONFIG = LEVEL_CONFIGS.elementary;
 
-const LEVELS: Level[] = ["elementary", "middle", "university"];
-const LEVEL_EMOJI: Record<Level, string> = {
-  elementary: "🧒",
-  middle: "🧑‍🎓",
-  university: "🎓",
-};
-
-const LEVEL_TAGS: Record<Level, string[]> = {
-  elementary: ["즉시 건설", "낮은 변동성", "쉬운 용어"],
-  middle: ["건설 대기", "인접 보너스", "금리·인플레"],
-  university: ["환율·암호화폐", "복합 이벤트", "완전 개방"],
-};
+const ECONOMY_PATH = [
+  {
+    icon: "🏪",
+    title: "회사 운영",
+    text: "가격과 생산량을 정하며 매출·비용·이익을 배워요.",
+  },
+  {
+    icon: "🏙️",
+    title: "건물과 인접 보너스",
+    text: "서로 돕는 건물을 옆에 놓아 회사 효율을 높여요.",
+  },
+  {
+    icon: "🌍",
+    title: "금리·물가·환율",
+    text: "뉴스와 쉬운 지표를 보고 돈의 흐름을 이해해요.",
+  },
+  {
+    icon: "💳",
+    title: "부채와 재무",
+    text: "돈을 빌리고 갚으며 이자와 회사 살림을 익혀요.",
+  },
+] as const;
 
 export default function Home() {
   const router = useRouter();
-  const [level, setLevel] = useState<Level>("middle");
   const [hasSave, setHasSave] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const loadSave = useGameStore((s) => s.loadSave);
@@ -42,7 +51,7 @@ export default function Home() {
 
   const startNew = () => {
     playSfx("click");
-    router.push(`/setup?level=${level}`);
+    router.push("/setup");
   };
 
   const continueGame = () => {
@@ -50,91 +59,97 @@ export default function Home() {
     if (loadSave()) router.push("/play");
   };
 
-  const cfg = LEVEL_CONFIGS[level];
+  const cfg = ELEMENTARY_CONFIG;
 
   // Top companies sorted by scale — acts as a ranking preview
   const topCompanies = [...COMPANY_PRESETS].sort((a, b) => b.scale - a.scale).slice(0, 8);
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-slate-900 via-indigo-950 to-slate-900 text-white">
-      {/* Author bar */}
-      <div className="flex w-full items-center justify-center bg-slate-950/80 px-3 py-1.5 text-center text-xs text-slate-400">
-        <span>제작 by <span className="font-semibold text-slate-300">Dustin</span> · Teacher · Data Analytics · App Developer</span>
+      <div className="relative flex w-full items-center justify-between gap-3 bg-slate-950/90 px-3 py-2 text-xs text-slate-300 sm:justify-center">
+        <span>제작 <span className="font-bold text-white">hjpapa</span></span>
         <Link
           href="/learn"
-          className="absolute right-3 rounded-full bg-blue-600 px-3 py-1 text-sm font-bold text-white shadow-lg transition hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+          className="rounded-full bg-blue-600 px-3 py-1 text-sm font-bold text-white shadow-lg transition hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:absolute sm:right-3"
         >
           📘 배우기
         </Link>
       </div>
-      {/* Full-bleed hero */}
-      <img
-        src={SPLASH_IMG}
-        alt="유니콘 시티"
-        className="w-full object-contain"
-        style={{ maxHeight: "55vh" }}
-      />
+
+      <section className="relative isolate overflow-hidden border-b border-emerald-300/20">
+        <Image
+          src={SPLASH_IMG}
+          alt="산을 중심으로 펼쳐진 도시와 어린이 경제 탐험을 안내하는 드래곤"
+          width={1672}
+          height={941}
+          priority
+          sizes="100vw"
+          className="h-[470px] w-full object-cover object-center sm:h-[520px] lg:h-[600px]"
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-slate-900/52 to-transparent" />
+        <div className="absolute inset-0 mx-auto flex max-w-6xl items-center px-5 sm:px-8">
+          <div className="max-w-2xl pb-10 sm:pb-0">
+            <div className="inline-flex rounded-full bg-emerald-400/20 px-3 py-1 text-sm font-black text-emerald-100 ring-1 ring-emerald-200/40">
+              초등 4~6학년 경제 탐험
+            </div>
+            <h1 className="mt-4 text-4xl font-black leading-[1.05] tracking-tight text-white drop-shadow-lg sm:text-6xl lg:text-7xl">
+              드래곤마운틴
+              <span className="block text-amber-300">시티</span>
+            </h1>
+            <p className="mt-4 max-w-xl text-base font-semibold leading-relaxed text-slate-100 sm:text-xl">
+              회사를 키우고, 도시를 만들고, 돈의 흐름을 배우는 쉬운 경제 게임
+            </p>
+            <div className="mt-5 flex flex-wrap gap-2 text-sm font-bold">
+              <span className="rounded-full bg-white/15 px-3 py-1.5 backdrop-blur">💰 시작 자금 100만 원</span>
+              <span className="rounded-full bg-white/15 px-3 py-1.5 backdrop-blur">🪜 기능이 차례로 열려요</span>
+              <span className="rounded-full bg-white/15 px-3 py-1.5 backdrop-blur">📘 언제든 다시 배우기</span>
+            </div>
+          </div>
+        </div>
+      </section>
 
       <div className="mx-auto flex min-h-screen max-w-5xl flex-col items-center px-4 pb-12">
-
-        {/* Level selection */}
         <section className="mt-10 w-full">
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-400">
-            난이도(학년) 선택
-          </h2>
-          <div className="grid gap-3 sm:grid-cols-3">
-            {LEVELS.map((lv) => {
-              const c = LEVEL_CONFIGS[lv];
-              const active = level === lv;
-              return (
-                <button
-                  key={lv}
-                  onClick={() => {
-                    setLevel(lv);
-                    playSfx("click");
-                  }}
-                  className={`rounded-2xl p-5 text-left ring-2 transition ${
-                    active
-                      ? "bg-brand-600 ring-brand-300"
-                      : "bg-slate-800/60 ring-transparent hover:bg-slate-800"
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="text-3xl">{LEVEL_EMOJI[lv]}</span>
-                    {active && <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs font-bold">선택됨</span>}
-                  </div>
-                  <div className="mt-2 text-lg font-bold">{c.label}</div>
-                  <div className="mt-1 text-xs leading-relaxed text-slate-300">{c.description}</div>
-                  <div className="mt-3 flex flex-wrap gap-1">
-                    {LEVEL_TAGS[lv].map((tag) => (
-                      <span key={tag} className={`rounded-full px-2 py-0.5 text-xs font-semibold ${active ? "bg-white/15 text-white" : "bg-slate-700 text-slate-400"}`}>
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                </button>
-              );
-            })}
+          <div className="text-center">
+            <div className="text-sm font-black uppercase tracking-[0.18em] text-emerald-300">한 단계씩 배우는 경제</div>
+            <h2 className="mt-2 text-2xl font-black sm:text-3xl">어려운 말은 쉽게, 중요한 개념은 빠짐없이</h2>
+            <p className="mx-auto mt-2 max-w-2xl text-sm leading-relaxed text-slate-300 sm:text-base">
+              난이도를 고를 필요가 없어요. 모든 새 게임은 초등학생에게 맞춘 같은 규칙으로 시작하고,
+              건물·투자·재무 기능은 준비된 순서대로 열립니다.
+            </p>
+          </div>
+          <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {ECONOMY_PATH.map((item, index) => (
+              <article key={item.title} className="rounded-2xl bg-slate-800/70 p-5 ring-1 ring-slate-700/70">
+                <div className="flex items-center justify-between">
+                  <span className="text-3xl" aria-hidden>{item.icon}</span>
+                  <span className="rounded-full bg-emerald-400/15 px-2 py-1 text-xs font-black text-emerald-200">
+                    {index + 1}단계
+                  </span>
+                </div>
+                <h3 className="mt-3 font-black text-white">{item.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-slate-300">{item.text}</p>
+              </article>
+            ))}
           </div>
         </section>
 
-        {/* Selected level details */}
         <section className="mt-4 w-full rounded-2xl bg-slate-800/50 p-5 ring-1 ring-slate-700/50">
           <div className="mb-3 flex items-center gap-2">
-            <span className="text-xl">{LEVEL_EMOJI[level]}</span>
-            <span className="font-bold text-slate-200">{cfg.label} 난이도 상세</span>
+            <span className="text-xl">🧒</span>
+            <span className="font-bold text-slate-200">초등 경제 탐험 기본 설정</span>
           </div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <StatCell icon="💰" label="시작 자금" value={formatMoney(cfg.startingCash)} />
+            <StatCell icon="💰" label="시작 자금" value="100만 원 (고정)" />
             <StatCell icon="🏢" label="경쟁사 수" value={`${cfg.aiCount}개사`} />
-            <StatCell icon="🗺️" label="캠퍼스 크기" value={`${cfg.mapSize}×${cfg.mapSize}`} />
-            <StatCell icon="📊" label="시장 변동성" value={cfg.volatility === 0.5 ? "낮음" : cfg.volatility === 1.0 ? "보통" : "높음"} />
+            <StatCell icon="🗺️" label="기본 캠퍼스" value="8×8" />
+            <StatCell icon="📊" label="시장 움직임" value="초등 맞춤·완만함" />
           </div>
-          <div className="mt-3 flex flex-wrap gap-1.5">
-            <span className="text-xs text-slate-500">투자 가능 자산:</span>
-            {cfg.enabledAssets.map(a => (
-              <span key={a} className="rounded bg-slate-700/60 px-1.5 py-0.5 text-xs text-slate-400">{a}</span>
-            ))}
+          <div className="mt-4 flex flex-wrap gap-1.5 text-xs text-slate-300">
+            <span className="rounded-full bg-slate-700/70 px-2.5 py-1">🤝 인접 보너스</span>
+            <span className="rounded-full bg-slate-700/70 px-2.5 py-1">🏦 예금·채권</span>
+            <span className="rounded-full bg-slate-700/70 px-2.5 py-1">💵 환율</span>
+            <span className="rounded-full bg-slate-700/70 px-2.5 py-1">💳 부채·재무</span>
           </div>
         </section>
 
@@ -182,7 +197,7 @@ export default function Home() {
               );
             })}
             <div className="px-4 py-2.5 text-xs text-slate-600">
-              ⚡ 실제 게임에서는 선택한 난이도에 따라 {cfg.aiCount}개 기업이 참가합니다
+              ⚡ 초등 경제 탐험에서는 {cfg.aiCount}개 기업과 함께 성장해요
             </div>
           </div>
         </section>

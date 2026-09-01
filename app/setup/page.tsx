@@ -1,17 +1,16 @@
 "use client";
 
-import { Suspense, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { INDUSTRIES } from "@/lib/data/industries";
 import { COUNTRIES } from "@/lib/data/countries";
 import { COMPANY_PRESETS } from "@/lib/data/companyPresets";
 import { STORY } from "@/lib/data/story";
 import { LEVEL_CONFIGS } from "@/lib/engine";
-import type { GameLength, Level, RevealMode } from "@/lib/engine";
+import type { GameLength, RevealMode } from "@/lib/engine";
 import { useGameStore } from "@/store/gameStore";
 import { playSfx } from "@/lib/audio";
-import { formatMoney } from "@/lib/format";
 import { getIndustry } from "@/lib/data/industries";
 
 const COLORS = ["#6366f1", "#ef4444", "#16a34a", "#f59e0b", "#0ea5e9", "#db2777", "#7c3aed", "#0d9488"];
@@ -29,8 +28,9 @@ type WizardStep = typeof WIZARD_STEPS[number]["id"];
 
 function SetupInner() {
   const router = useRouter();
-  const params = useSearchParams();
-  const level = (params.get("level") as Level) || "middle";
+  // New games always use the elementary profile. Legacy levels remain in the
+  // engine so old saves can still be opened without changing their rules.
+  const level = "elementary" as const;
   const newGame = useGameStore((s) => s.newGame);
 
   const scenes = STORY[level];
@@ -46,8 +46,8 @@ function SetupInner() {
   const [basedOn, setBasedOn] = useState<string | undefined>(undefined);
   const [filterCountry, setFilterCountry] = useState<string>("all");
   const [campusSize, setCampusSize] = useState<"small" | "medium" | "large">("medium");
-  const [gameLength, setGameLength] = useState<GameLength>(level === "elementary" ? 50 : 100);
-  const [revealMode, setRevealMode] = useState<RevealMode>(level === "elementary" ? "guided" : "all");
+  const [gameLength, setGameLength] = useState<GameLength>(50);
+  const [revealMode, setRevealMode] = useState<RevealMode>("guided");
 
   const filteredPresets = useMemo(
     () => COMPANY_PRESETS.filter((p) => filterCountry === "all" || p.countryId === filterCountry),
@@ -103,7 +103,7 @@ function SetupInner() {
   if (phase === "story") {
     const scene = scenes[sceneIdx];
     return (
-      <Shell returnPath={`/setup?level=${level}`}>
+      <Shell returnPath="/setup">
         <div className="card mx-auto max-w-xl animate-popin p-8 text-center">
           <div className="text-6xl">{scene.emoji}</div>
           <h2 className="mt-4 text-2xl font-black text-slate-800">{scene.title}</h2>
@@ -138,13 +138,12 @@ function SetupInner() {
 
   // --- Wizard phase ---
   const levelCfg = LEVEL_CONFIGS[level];
-  const levelEmoji: Record<Level, string> = { elementary: "🧒", middle: "🧑‍🎓", university: "🎓" };
   const selectedIndustry = INDUSTRIES.find((i) => i.id === industryId);
   const selectedCountry = COUNTRIES.find((c) => c.id === countryId);
   const selectedPreset = COMPANY_PRESETS.find((p) => p.id === basedOn);
 
   return (
-    <Shell returnPath={`/setup?level=${level}`}>
+    <Shell returnPath="/setup">
       <div className="mx-auto max-w-2xl space-y-5">
         <h2 className="text-center text-2xl font-black text-white">회사를 만들어요</h2>
 
@@ -175,12 +174,12 @@ function SetupInner() {
           ))}
         </div>
 
-        {/* Level info bar */}
+        {/* Elementary profile info bar */}
         <div className="flex items-center gap-3 rounded-xl bg-slate-800/60 px-4 py-2.5 ring-1 ring-slate-700/50">
-          <span className="text-xl">{levelEmoji[level]}</span>
-          <div className="flex-1 text-sm font-bold text-white">{levelCfg.label} 난이도</div>
+          <span className="text-xl">🧒</span>
+          <div className="flex-1 text-sm font-bold text-white">초등 4~6학년 경제 탐험</div>
           <div className="flex gap-3 text-xs text-slate-400">
-            <span>시작금 <b className="text-slate-200">{formatMoney(levelCfg.startingCash)}</b></span>
+            <span>시작금 <b className="text-slate-200">100만 원 고정</b></span>
             <span>경쟁사 <b className="text-slate-200">{levelCfg.aiCount}개</b></span>
           </div>
         </div>
@@ -225,7 +224,7 @@ function SetupInner() {
               <input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder={tab === "preset" && basedOn ? COMPANY_PRESETS.find(p => p.id === basedOn)!.name : "예) 유니콘 컴퍼니"}
+                placeholder={tab === "preset" && basedOn ? COMPANY_PRESETS.find(p => p.id === basedOn)!.name : "예) 드래곤 상점"}
                 className="mt-1 w-full rounded-xl border border-slate-300 px-4 py-2 text-slate-800 outline-none focus:border-brand-500"
               />
             </div>
@@ -359,9 +358,7 @@ function SetupInner() {
             <div>
               <h3 className="text-center text-lg font-black text-white">얼마나 길게 경영할까요?</h3>
               <p className="mt-1 text-center text-sm text-slate-300">
-                {level === "elementary"
-                  ? "처음이라면 기본 50분기를 추천해요. 짧은 게임일수록 품질·평판·인재가 더 빠르게 성장합니다."
-                  : "기존 난이도는 장기 100분기와 전체 기능 공개가 기본이며, 원하면 더 짧게 바꿀 수 있어요."}
+                처음이라면 기본 50분기를 추천해요. 짧은 게임일수록 품질·평판·인재가 더 빠르게 성장합니다.
               </p>
             </div>
             <div className="grid gap-3 sm:grid-cols-3">
@@ -422,6 +419,15 @@ function SetupInner() {
                 {revealMode === "all" ? "✅ 전체 기능 바로 열기 (숙련자용)" : "🪜 단계별로 하나씩 열기 (추천)"}
               </button>
             </div>
+
+            <div className="grid gap-2 text-sm sm:grid-cols-2">
+              <div className="rounded-xl bg-emerald-950/50 p-3 text-emerald-100 ring-1 ring-emerald-700/40">
+                🏙️ <b>건물 단계</b> — 서로 돕는 건물을 붙여 인접 보너스를 배워요.
+              </div>
+              <div className="rounded-xl bg-blue-950/50 p-3 text-blue-100 ring-1 ring-blue-700/40">
+                🌍 <b>경제 단계</b> — 금리·물가·환율과 부채를 쉬운 말로 익혀요.
+              </div>
+            </div>
           </div>
         )}
 
@@ -436,8 +442,8 @@ function SetupInner() {
                 <SummaryRow label="캠퍼스 크기" value={`${CAMPUS_SIZE_MAP[campusSize]}×${CAMPUS_SIZE_MAP[campusSize]} (${campusSize === "small" ? "작게" : campusSize === "medium" ? "중간" : "크게"})`} />
                 <SummaryRow label="게임 길이" value={`${gameLength}분기${gameLength === 50 ? " (추천)" : ""}`} />
                 <SummaryRow label="기능 공개" value={revealMode === "guided" ? "단계별로 하나씩" : "처음부터 모두"} />
-                <SummaryRow label="시작 자금" value={formatMoney(levelCfg.startingCash)} />
-                <SummaryRow label="난이도" value={`${levelEmoji[level]} ${levelCfg.label}`} />
+                <SummaryRow label="시작 자금" value="100만 원 (고정)" />
+                <SummaryRow label="게임 대상" value="🧒 초등 4~6학년" />
               </div>
               <div className="mt-4 rounded-xl bg-brand-50 p-3 text-sm text-brand-700">
                 💡 <b>팁:</b> {revealMode === "guided"
@@ -534,9 +540,5 @@ function FilterChip({ active, onClick, children }: { active: boolean; onClick: (
 }
 
 export default function SetupPage() {
-  return (
-    <Suspense fallback={<Shell><div className="text-center text-white">불러오는 중…</div></Shell>}>
-      <SetupInner />
-    </Suspense>
-  );
+  return <SetupInner />;
 }

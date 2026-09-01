@@ -15,14 +15,14 @@ interface AssetSeed {
 }
 
 const ASSET_SEEDS: AssetSeed[] = [
-  { id: "deposit", name: "예금·적금", emoji: "🏦", price: 100, risk: 0.01, desc: "안전. 금리만큼 이자가 붙어요." },
-  { id: "bond", name: "채권", emoji: "📜", price: 100, risk: 0.05, desc: "안전자산. 금리와 반대로 움직여요." },
-  { id: "etf", name: "ETF·펀드", emoji: "🧺", price: 100, risk: 0.12, desc: "여러 종목에 분산 투자." },
-  { id: "realestate", name: "부동산", emoji: "🏠", price: 100, risk: 0.1, desc: "경기·금리에 민감, 임대수익." },
-  { id: "gold", name: "금", emoji: "🥇", price: 100, risk: 0.12, desc: "위기에 강한 안전자산." },
-  { id: "oil", name: "원유", emoji: "🛢️", price: 100, risk: 0.18, desc: "경기·지정학에 민감." },
-  { id: "fx", name: "외환(달러)", emoji: "💵", price: 100, risk: 0.1, desc: "위험회피 때 강세." },
-  { id: "crypto", name: "암호화폐", emoji: "🪙", price: 100, risk: 0.4, desc: "초고변동·고위험." },
+  { id: "deposit", name: "예금·적금", emoji: "🏦", price: 100, risk: 0.01, desc: "은행에 돈을 맡기고 이자를 받아요. 비교적 안전해요." },
+  { id: "bond", name: "채권", emoji: "📜", price: 100, risk: 0.05, desc: "정부나 회사에 돈을 빌려주고 이자를 받아요. 금리가 오르면 값이 내려갈 수 있어요." },
+  { id: "etf", name: "ETF·펀드", emoji: "🧺", price: 100, risk: 0.12, desc: "여러 주식을 한 바구니에 나누어 담아 위험을 줄여요." },
+  { id: "realestate", name: "부동산", emoji: "🏠", price: 100, risk: 0.1, desc: "집과 건물의 값이에요. 경기와 금리의 영향을 받아요." },
+  { id: "gold", name: "금", emoji: "🥇", price: 100, risk: 0.12, desc: "물가가 오르거나 세상이 불안할 때 사람들이 많이 찾아요." },
+  { id: "oil", name: "원유", emoji: "🛢️", price: 100, risk: 0.18, desc: "석유의 값이에요. 경기가 좋아지거나 공급이 줄면 오를 수 있어요." },
+  { id: "fx", name: "달러 환율", emoji: "💵", price: 100, risk: 0.1, desc: "다른 나라 돈인 달러의 값이에요. 금리와 세계 경제에 따라 움직여요." },
+  { id: "crypto", name: "암호화폐", emoji: "🪙", price: 100, risk: 0.4, desc: "디지털 자산이에요. 값이 매우 크게 오르내릴 수 있어요." },
 ];
 
 export function createAssets(): Record<AssetClass, AssetMarketItem> {

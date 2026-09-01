@@ -169,6 +169,23 @@ export const BUILDINGS: Record<BuildingType, BuildingDef> = {
 
 export const BUILDING_LIST: BuildingDef[] = Object.values(BUILDINGS);
 
+/**
+ * Building pairs that help each other when placed directly side-by-side.
+ * This public catalog lets the engine, learning content and map UI describe
+ * the exact same adjacency rules without duplicating them.
+ */
+export const ADJACENCY_PAIRS = [
+  ["factory", "warehouse"],
+  ["factory", "power"],
+  ["warehouse", "store"],
+  ["store", "office"],
+  ["office", "rnd"],
+] as const satisfies readonly (readonly [BuildingType, BuildingType])[];
+
+const ADJACENCY_PAIR_KEYS = new Set<string>(
+  ADJACENCY_PAIRS.map(([a, b]) => adjacencyPairKey(a, b)),
+);
+
 /** Cost to construct or upgrade a building to the next level. */
 export function buildingCostFor(type: BuildingType, targetLevel: number): number {
   const def = BUILDINGS[type];
@@ -207,39 +224,43 @@ export function aggregateBuildingCaps(
   }
 
   if (adjacencyBonus) {
-    const bonus = adjacencyMultiplier(operational);
-    caps.productionEfficiency += bonus * 0.05;
-    caps.logistics *= 1 + bonus * 0.1;
+    const pairCount = countAdjacencyPairs(operational);
+    caps.productionEfficiency += pairCount * 0.05;
+    caps.logistics *= 1 + pairCount * 0.1;
   }
 
   return caps;
 }
 
-/** Count complementary neighbour pairs (factory↔warehouse, store↔office...). */
-function adjacencyMultiplier(buildings: PlacedBuilding[]): number {
+/** Count each operational, complementary orthogonal-neighbour pair once. */
+export function countAdjacencyPairs(buildings: PlacedBuilding[]): number {
+  const operational = buildings.filter((building) => building.turnsLeft <= 0);
   const grid = new Map<string, PlacedBuilding>();
-  for (const b of buildings) grid.set(`${b.x},${b.y}`, b);
-  const complements: Partial<Record<BuildingType, BuildingType[]>> = {
-    factory: ["warehouse", "power"],
-    warehouse: ["factory", "store"],
-    store: ["office", "warehouse"],
-    office: ["store", "rnd"],
-    rnd: ["office"],
-  };
+  for (const building of operational) grid.set(`${building.x},${building.y}`, building);
+
   let pairs = 0;
-  for (const b of buildings) {
-    const wanted = complements[b.type] ?? [];
+  for (const building of operational) {
+    // Only inspect right and down. Every physical neighbour pair is therefore
+    // considered exactly once, including rules whose definition is asymmetric
+    // in display order (for example factory + power).
     const neighbours = [
-      grid.get(`${b.x + 1},${b.y}`),
-      grid.get(`${b.x - 1},${b.y}`),
-      grid.get(`${b.x},${b.y + 1}`),
-      grid.get(`${b.x},${b.y - 1}`),
+      grid.get(`${building.x + 1},${building.y}`),
+      grid.get(`${building.x},${building.y + 1}`),
     ];
-    for (const n of neighbours) {
-      if (n && wanted.includes(n.type)) pairs += 0.5; // counted from both sides
+    for (const neighbour of neighbours) {
+      if (
+        neighbour &&
+        ADJACENCY_PAIR_KEYS.has(adjacencyPairKey(building.type, neighbour.type))
+      ) {
+        pairs += 1;
+      }
     }
   }
   return pairs;
+}
+
+function adjacencyPairKey(a: BuildingType, b: BuildingType): string {
+  return a < b ? `${a}|${b}` : `${b}|${a}`;
 }
 
 /** Total per-turn upkeep cost for a company's buildings. */

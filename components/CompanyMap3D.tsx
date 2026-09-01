@@ -5,7 +5,7 @@ import { Canvas, useFrame } from "@react-three/fiber";
 import { Html, OrbitControls, RoundedBox } from "@react-three/drei";
 import * as THREE from "three";
 import { useGameStore } from "@/store/gameStore";
-import { BUILDING_LIST, buildingCostFor } from "@/lib/engine";
+import { BUILDING_LIST, buildingCostFor, countAdjacencyPairs } from "@/lib/engine";
 import type { BuildingType, Company, GameState, PlacedBuilding } from "@/lib/engine";
 import { formatMoney } from "@/lib/format";
 import { pickCityVoice, pickVisitorVoices } from "@/lib/data/cityVoices";
@@ -1135,6 +1135,7 @@ export function CompanyMap3D({
   const [selectedType, setSelectedType] = useState<BuildingType | null>(null);
   const [selectedBuildingId, setSelectedBuildingId] = useState<string | null>(null);
   const n = game.config.mapSize;
+  const adjacencyCount = countAdjacencyPairs(company.buildings);
 
   const onCell = (gx: number, gy: number) => {
     if (readOnly) return;
@@ -1189,6 +1190,14 @@ export function CompanyMap3D({
 
       {!readOnly && !overview && (
         <div>
+          {game.config.adjacencyBonus ? (
+            <div className="mb-3 rounded-xl bg-emerald-50 px-3 py-2 text-sm leading-relaxed text-emerald-900 ring-1 ring-emerald-200">
+              ✨ <b>인접 보너스 {adjacencyCount}개</b>
+              <span className="block text-xs text-emerald-800">
+                공장+창고, 창고+매장, 매장+본사, 본사+연구소를 상하좌우로 붙이면 회사 효율이 올라요.
+              </span>
+            </div>
+          ) : null}
           <div className="mb-1 text-xs font-semibold text-slate-500">
             건물을 선택하고 빈 타일을 클릭하세요 · 드래그로 회전, 휠로 확대 · 사람을 누르면 생각이 보여요
           </div>

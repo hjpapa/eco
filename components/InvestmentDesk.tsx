@@ -129,7 +129,7 @@ export function InvestmentDesk() {
       >
         <div className="flex items-center gap-2">
           <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
-          <span className="font-mono text-xs tracking-[0.2em] text-slate-600">UNICORN MARKET</span>
+          <span className="font-mono text-xs tracking-[0.2em] text-slate-500">DRAGON MOUNTAIN MARKET</span>
         </div>
         <div className="flex items-center gap-5 font-mono text-xs">
           <span>
@@ -355,6 +355,10 @@ export function InvestmentDesk() {
       ) : (
         /* ── Asset list ── */
         <div className="divide-y divide-slate-800/40">
+          <div className="bg-blue-950/30 px-4 py-3 text-xs leading-relaxed text-blue-200">
+            🌍 경제 지표와 연결해 보세요: 금리는 예금·채권, 물가(인플레이션)는 금,
+            다른 나라 돈값(환율)은 달러 환율에 영향을 줄 수 있어요.
+          </div>
           {game.config.enabledAssets.map((id) => {
             const a = game.assets[id];
             const prev = a.history[a.history.length - 2] ?? a.price;

@@ -43,7 +43,7 @@ export const FINANCE_ICONS = {
   debt:          "/assets/icons/icon_debt.png",
 } as const;
 
-export const MASCOT_IMG = "/assets/mascot/unicorn.png";
+export const MASCOT_IMG = "/assets/mascot/dragon.png";
 
 // Per-role images used when no per-character image is assigned.
 export const ROLE_IMG: Partial<Record<CharacterRole, string>> = {
@@ -108,8 +108,8 @@ export const FACT_ICONS = {
 
 // Result/game-over illustrations
 export const RESULT_ICONS = {
-  win: "/assets/icons/result_win.png",
-  end: "/assets/icons/result_end.png",
+  win: "/assets/mascot/dragon.png",
+  end: "/assets/mascot/dragon.png",
 } as const;
 
 // Investment asset class icons

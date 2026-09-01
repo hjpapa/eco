@@ -1,4 +1,5 @@
 import { netWorth, playerRank } from "./ranking";
+import { getLevelConfig } from "./levels";
 import type {
   CampaignFeature,
   Company,
@@ -7,7 +8,7 @@ import type {
   RevealMode,
 } from "./types";
 
-export const GAME_VERSION = 2;
+export const GAME_VERSION = 3;
 export const DEFAULT_GAME_LENGTH: GameLength = 50;
 export const DEFAULT_REVEAL_MODE: RevealMode = "guided";
 
@@ -239,10 +240,12 @@ export function migrateGameState(value: unknown): GameState | null {
     : isRevealMode(raw.revealMode)
       ? raw.revealMode
       : "all";
+  const config = refreshElementaryConfig(raw);
 
   const migrated: GameState = {
     ...raw,
     version: GAME_VERSION,
+    config,
     gameLength,
     revealMode,
     maxTurns: legacyCampaign ? 100 : raw.maxTurns,
@@ -252,6 +255,26 @@ export function migrateGameState(value: unknown): GameState | null {
 
   if (migrated.turn >= migrated.maxTurns) migrated.status = "ended";
   return migrated;
+}
+
+/**
+ * Version 3 expands the elementary curriculum. Existing elementary games keep
+ * their live company balances, turn and chosen map size while receiving the
+ * current feature catalog and difficulty settings.
+ */
+function refreshElementaryConfig(state: GameState): GameState["config"] {
+  if (state.level !== "elementary" || state.version >= GAME_VERSION) {
+    return state.config;
+  }
+
+  const current = getLevelConfig("elementary");
+  return {
+    ...current,
+    mapSize:
+      typeof state.config.mapSize === "number"
+        ? state.config.mapSize
+        : current.mapSize,
+  };
 }
 
 function isGameStateLike(value: unknown): value is GameState {

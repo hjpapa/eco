@@ -78,7 +78,7 @@ function buildItems(game: GameState, company: Company): Item[] {
   const phaseHints: Record<string, Item> = {
     boom:        { text: "🚀 경기 호황기 — 소비 심리 강세, 매출 확장의 적기입니다", tone: "pos" },
     recession:   { text: "📉 경기 침체기 — 소비가 위축되고 있어 가격 경쟁력이 생존의 열쇠입니다", tone: "neg" },
-    inflation:   { text: "🔥 물가 상승기 — 원자재·인건비 부담 증가, 가격 인상 검토 타이밍", tone: "neg" },
+    inflation:   { text: "🔥 물가(인플레이션)가 빠르게 올라요 — 같은 돈으로 살 수 있는 것이 줄어들어요", tone: "neg" },
     deflation:   { text: "🧊 물가 하락기 — 소비 심리가 위축되어 있습니다. 현금 보유 유리", tone: "neg" },
     stagflation: { text: "🌫️ 스태그플레이션 — 원가 상승 + 수요 위축 이중고, 비용 절감이 최우선", tone: "neg" },
     normal:      { text: "📊 경기 안정기 — 지속적인 성장과 효율화로 경쟁력을 다질 시기", tone: "neu" },
@@ -88,9 +88,9 @@ function buildItems(game: GameState, company: Company): Item[] {
   // ── 8. 금리 ──────────────────────────────────────────────────────────────
   const rate = game.macro.interestRate;
   if (advancedInfoUnlocked && rate > 5) {
-    items.push({ text: `🏦 기준금리 ${rate.toFixed(1)}% — 부채 비용 증가, 성장주 밸류에이션 압박`, tone: "neg" });
+    items.push({ text: `🏦 돈 빌리는 값(기준금리) ${rate.toFixed(1)}% — 대출 이자 부담이 커지고 예금 이자도 늘 수 있어요`, tone: "neg" });
   } else if (advancedInfoUnlocked && rate < 2) {
-    items.push({ text: `🏦 저금리 환경 (${rate.toFixed(1)}%) — 설비 투자·확장의 유리한 타이밍`, tone: "pos" });
+    items.push({ text: `🏦 돈 빌리는 값(기준금리) ${rate.toFixed(1)}% — 이자 부담이 낮지만 필요한 만큼만 빌려요`, tone: "pos" });
   }
 
   // ── 9. 상품 라인업 힌트 ──────────────────────────────────────────────────

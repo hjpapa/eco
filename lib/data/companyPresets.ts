@@ -9,7 +9,7 @@ export interface CompanyPreset {
   industryId: string;
   countryId: string;
   logoColor: string;
-  /** Relative starting scale multiplier applied to cash/quality/reputation. */
+  /** Relative starting scale multiplier for capabilities; player cash stays fixed. */
   scale: number;
   blurb: string;
   /** Distinctive icon/emoji mark for the company logo badge. */

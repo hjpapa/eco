@@ -57,9 +57,12 @@ export function fundamentalValue(company: Company): number {
     ? recent.reduce((a, b) => a + b, 0) / recent.length
     : company.lastProfit;
 
+  // Cash raised by a new loan is matched by the same liability. Using the
+  // same weight keeps borrowing from creating or destroying value instantly;
+  // later interest payments still reduce cash and company value normally.
   const value =
     company.cash * 0.4 -
-    company.debt * 0.5 +
+    company.debt * 0.4 +
     avgProfit * 9 +
     company.quality * 4_000 +
     company.reputation * 2_500 +
