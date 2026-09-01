@@ -85,7 +85,11 @@ export function advanceTurn(state: GameState): TurnSummary {
 
   let playerResult: CompanyTurnResult | null = null;
   const growthMultiplier = getCampaignGrowthMultiplier(state);
+  const researchUnlocked = isFeatureUnlocked(state, "buildingsResearch");
   for (const company of state.companies) {
+    // Treat the engine as the final authority even if a caller or edited save
+    // tries to inject an R&D budget before guided research unlocks.
+    if (!researchUnlocked) company.decisions.rndBudget = 0;
     const result = runCompanyTurn(
       company,
       state.macro,

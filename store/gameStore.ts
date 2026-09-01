@@ -4,6 +4,7 @@ import { create } from "zustand";
 import {
   advanceTurn,
   createGame,
+  isFeatureUnlocked,
   migrateGameState,
   type AssetClass,
   type BuildingType,
@@ -155,7 +156,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
   setDecisions: (partial) => {
     const game = get().game;
     if (!game) return;
-    Object.assign(player(game).decisions, partial);
+    const company = player(game);
+    const allowed: Partial<CompanyDecisions> = { ...partial };
+    if (!isFeatureUnlocked(game, "buildingsResearch")) {
+      delete allowed.rndBudget;
+      company.decisions.rndBudget = 0;
+    }
+    Object.assign(company.decisions, allowed);
     persist(game);
     set({ game: { ...game } });
   },
@@ -295,7 +302,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const game = get().game;
     if (!game) return;
     const p = player(game);
-    const res = side === "borrow" ? takeLoan(p, amount) : repayLoan(p, amount);
+    const res = side === "borrow" ? takeLoan(game, p, amount) : repayLoan(game, p, amount);
     if (!res.ok) return showToast(set, res.error ?? "실패", "bad");
     playSfx("click");
     persist(game);

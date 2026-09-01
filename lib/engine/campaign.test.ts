@@ -26,6 +26,7 @@ import {
   hireCharacter,
   proposeDeal,
   raiseSalary,
+  takeLoan,
 } from "./actions";
 
 const LENGTHS = [20, 50, 100] as const satisfies readonly GameLength[];
@@ -111,8 +112,26 @@ describe("campaign defaults and feature reveals", () => {
 
     state.turn = 9;
     expect(proposeDeal(state, company, state.companies[1].id, "partner").ok).toBe(false);
+    expect(takeLoan(state, company, 10_000).ok).toBe(false);
     state.turn = 10;
     expect(proposeDeal(state, company, state.companies[1].id, "partner").ok).toBe(true);
+    expect(takeLoan(state, company, 10_000).ok).toBe(true);
+  });
+
+  it("drops an injected R&D budget before guided research unlocks", () => {
+    const injected = game({ gameLength: 20, revealMode: "guided" });
+    const control = structuredClone(injected);
+    const injectedPlayer = injected.companies.find((company) => company.isPlayer)!;
+    const controlPlayer = control.companies.find((company) => company.isPlayer)!;
+    injectedPlayer.decisions.rndBudget = 300_000;
+    controlPlayer.decisions.rndBudget = 0;
+
+    advanceTurn(injected);
+    advanceTurn(control);
+
+    expect(injectedPlayer.decisions.rndBudget).toBe(0);
+    expect(injectedPlayer.cash).toBeCloseTo(controlPlayer.cash, 8);
+    expect(injectedPlayer.quality).toBeCloseTo(controlPlayer.quality, 8);
   });
 
   it("keeps visitor events out of the engine until the exact reveal boundary", () => {
