@@ -10,6 +10,11 @@ import { autoAssignRole, generateCharacter } from "./characters";
 import { adjustRivalry, getRivalry } from "./relations";
 import { shockStock } from "./market";
 import { nextFloat } from "./rng";
+import {
+  applyCampaignGrowthMultiplier,
+  captureCampaignGrowth,
+  isFeatureUnlocked,
+} from "./campaign";
 
 // Mutating player/AI actions that happen *between* turns (they don't advance
 // the clock). Single-sourced so the AI and the human player obey the same rules.
@@ -60,6 +65,7 @@ export function buildBuilding(
   x: number,
   y: number,
 ): ActionResult {
+  if (!isFeatureUnlocked(state, "buildingsResearch")) return lockedFeature("건물·연구");
   if (!state.config.enabledBuildings.includes(type)) {
     return { ok: false, error: "이 레벨에서는 사용할 수 없는 건물입니다." };
   }
@@ -92,6 +98,7 @@ export function sellBuilding(
   company: Company,
   buildingId: string,
 ): ActionResult {
+  if (!isFeatureUnlocked(state, "buildingsResearch")) return lockedFeature("건물·연구");
   const idx = company.buildings.findIndex((b) => b.id === buildingId);
   if (idx < 0) return { ok: false, error: "건물을 찾을 수 없습니다." };
   const b = company.buildings[idx];
@@ -168,6 +175,9 @@ export function proposeDeal(
   targetCompanyId: string,
   dealId: string,
 ): ActionResult {
+  if (!isFeatureUnlocked(state, "visitsPartnershipsAdvanced")) {
+    return lockedFeature("방문·제휴");
+  }
   const def = DEALS[dealId];
   if (!def) return { ok: false, error: "알 수 없는 제안입니다." };
   const target = findCompany(state, targetCompanyId);
@@ -192,6 +202,7 @@ export function proposeDeal(
     return { ok: true, message: "협상이 결렬되었습니다. 비용의 50%가 환불됩니다." };
   }
 
+  const growthBefore = captureCampaignGrowth(company);
   const bump = (c: Company, q = 0, r = 0) => {
     c.quality = Math.min(100, c.quality + q);
     c.reputation = Math.min(100, c.reputation + r);
@@ -221,6 +232,7 @@ export function proposeDeal(
       break;
     }
   }
+  applyCampaignGrowthMultiplier(state, company, growthBefore);
   return { ok: true, message: "협력이 성사되었습니다!" };
 }
 
@@ -241,9 +253,14 @@ export function applyCompanyAction(
 ): ActionResult {
   const def = COMPANY_ACTIONS[actionId];
   if (!def) return { ok: false, error: "알 수 없는 활동입니다." };
+  if (def.cat === "rnd" && !isFeatureUnlocked(state, "buildingsResearch")) {
+    return lockedFeature("연구");
+  }
   if (company.cash < def.cost) return { ok: false, error: "현금이 부족합니다." };
   company.cash -= def.cost;
+  const growthBefore = captureCampaignGrowth(company);
   def.apply(company);
+  applyCampaignGrowthMultiplier(state, company, growthBefore);
 
   // Push news item for the action
   if (def.desc) {
@@ -267,6 +284,7 @@ export function upgradeBuilding(
   company: Company,
   buildingId: string,
 ): ActionResult {
+  if (!isFeatureUnlocked(state, "buildingsResearch")) return lockedFeature("건물·연구");
   const b = company.buildings.find((x) => x.id === buildingId);
   if (!b) return { ok: false, error: "건물을 찾을 수 없습니다." };
   const def = BUILDINGS[b.type];
@@ -286,6 +304,7 @@ export function hireCharacter(
   overrideSalary?: number,
   loyaltyBonus?: number,
 ): ActionResult {
+  if (!isFeatureUnlocked(state, "talentNewsRanking")) return lockedFeature("인재");
   const idx = state.talentPool.findIndex((c) => c.id === characterId);
   if (idx < 0) return { ok: false, error: "인재를 찾을 수 없습니다." };
   const character = state.talentPool[idx];
@@ -304,10 +323,11 @@ export function hireCharacter(
 
 /** Dismiss a hired employee. Costs severance and dents morale/reputation. */
 export function fireCharacter(
-  _state: GameState,
+  state: GameState,
   company: Company,
   characterId: string,
 ): ActionResult {
+  if (!isFeatureUnlocked(state, "talentNewsRanking")) return lockedFeature("인재");
   const idx = company.hired.findIndex((c) => c.id === characterId);
   if (idx < 0) return { ok: false, error: "해당 직원을 찾을 수 없습니다." };
   const severance = Math.round(company.hired[idx].salary); // one-off payout
@@ -329,6 +349,7 @@ export function poachCharacter(
   overrideSalary?: number,
   loyaltyBonus?: number,
 ): ActionResult {
+  if (!isFeatureUnlocked(state, "talentNewsRanking")) return lockedFeature("인재");
   const target = state.companies.find((c) => c.id === targetCompanyId);
   if (!target) return { ok: false, error: "대상 회사를 찾을 수 없습니다." };
   const chIdx = target.hired.findIndex((c) => c.id === characterId);
@@ -351,20 +372,25 @@ export function poachCharacter(
 
 /** Raise an existing employee's salary to boost loyalty. */
 export function raiseSalary(
+  state: GameState,
   company: Company,
   characterId: string,
   newSalary: number,
   miniGameBonus: number,
 ): ActionResult {
+  if (!isFeatureUnlocked(state, "talentNewsRanking")) return lockedFeature("인재");
   const ch = company.hired.find((c) => c.id === characterId);
   if (!ch) return { ok: false, error: "인재를 찾을 수 없습니다." };
   if (newSalary <= ch.salary) return { ok: false, error: "현재 연봉보다 높아야 합니다." };
   const ratio = (newSalary - ch.salary) / ch.salary;
   const salaryBonus = Math.round(Math.min(30, ratio * 60));
   const total = salaryBonus + miniGameBonus;
+  const growthBefore = captureCampaignGrowth(company);
   ch.salary = newSalary;
   ch.loyalty = Math.min(100, (ch.loyalty ?? 70) + total);
-  return { ok: true, message: `연봉 인상 완료 · 충성도 +${total}` };
+  applyCampaignGrowthMultiplier(state, company, growthBefore);
+  const actualGain = Math.round((ch.loyalty ?? 70) - growthBefore.loyaltyById[ch.id]);
+  return { ok: true, message: `연봉 인상 완료 · 충성도 +${actualGain}` };
 }
 
 export function buyStock(
@@ -373,6 +399,7 @@ export function buyStock(
   targetCompanyId: string,
   shares: number,
 ): ActionResult {
+  if (!isFeatureUnlocked(state, "investment")) return lockedFeature("투자");
   if (shares <= 0) return { ok: false, error: "수량을 확인하세요." };
   if (targetCompanyId === company.id) {
     return { ok: false, error: "자기 회사 주식은 살 수 없습니다." };
@@ -401,6 +428,7 @@ export function sellStock(
   targetCompanyId: string,
   shares: number,
 ): ActionResult {
+  if (!isFeatureUnlocked(state, "investment")) return lockedFeature("투자");
   const held = company.portfolio.stocks[targetCompanyId] ?? 0;
   if (shares <= 0 || held <= 0) return { ok: false, error: "보유 수량이 부족합니다." };
   const sellShares = Math.min(shares, held); // never sell more than held
@@ -430,6 +458,7 @@ export function buyAsset(
   assetClass: AssetClass,
   units: number,
 ): ActionResult {
+  if (!isFeatureUnlocked(state, "investment")) return lockedFeature("투자");
   if (units <= 0) return { ok: false, error: "수량을 확인하세요." };
   if (!state.config.enabledAssets.includes(assetClass)) {
     return { ok: false, error: "이 레벨에서는 거래할 수 없는 자산입니다." };
@@ -449,6 +478,7 @@ export function sellAsset(
   assetClass: AssetClass,
   units: number,
 ): ActionResult {
+  if (!isFeatureUnlocked(state, "investment")) return lockedFeature("투자");
   const held = company.portfolio.assets[assetClass] ?? 0;
   if (units <= 0 || units > held) return { ok: false, error: "보유 수량이 부족합니다." };
   const asset = state.assets[assetClass];
@@ -474,4 +504,8 @@ export function repayLoan(company: Company, amount: number): ActionResult {
   company.cash -= pay;
   company.debt -= pay;
   return { ok: true };
+}
+
+function lockedFeature(label: string): ActionResult {
+  return { ok: false, error: `${label} 기능은 아직 배우는 중입니다.` };
 }

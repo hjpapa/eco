@@ -15,6 +15,7 @@ import {
 } from "./actions";
 import { fundamentalValue } from "./market";
 import { type RngState, nextFloat, nextRange, pick, shuffle } from "./rng";
+import { isFeatureUnlocked } from "./campaign";
 
 // Heuristic AI that runs each turn for non-player companies: it tunes its
 // operating decisions, expands its campus, hires talent and invests — so the
@@ -54,7 +55,9 @@ export function runAiTurn(state: GameState, company: Company): void {
   // Kept sustainable so the wider field stays roughly break-even, not bankrupt.
   const opBudget = Math.max(50_000, company.lastRevenue * 0.22);
   company.decisions.marketingBudget = Math.round(opBudget * 0.4);
-  company.decisions.rndBudget = Math.round(opBudget * 0.4 * (0.6 + industry.rndDependence));
+  company.decisions.rndBudget = isFeatureUnlocked(state, "buildingsResearch")
+    ? Math.round(opBudget * 0.4 * (0.6 + industry.rndDependence))
+    : 0;
   company.decisions.welfareBudget = Math.round(opBudget * 0.2);
 
   // --- Expansion: build through the game, more when flush with cash. ---
@@ -88,7 +91,7 @@ export function runAiTurn(state: GameState, company: Company): void {
   // Raise salaries before disloyal staff quit.
   for (const ch of company.hired) {
     if ((ch.loyalty ?? 70) < 45 && company.cash > ch.salary * 3 && nextFloat(rng) < 0.4) {
-      raiseSalary(company, ch.id, Math.round(ch.salary * 1.15), 0);
+      raiseSalary(state, company, ch.id, Math.round(ch.salary * 1.15), 0);
     }
   }
 

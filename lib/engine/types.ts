@@ -6,6 +6,20 @@ import type { RngState } from "./rng";
 
 export type Level = "elementary" | "middle" | "university";
 
+/** Supported campaign lengths, expressed in game quarters. */
+export type GameLength = 20 | 50 | 100;
+
+/** Guided campaigns reveal systems gradually; all keeps every menu available. */
+export type RevealMode = "guided" | "all";
+
+/** Coarse feature groups used by navigation and the guided reveal schedule. */
+export type CampaignFeature =
+  | "company"
+  | "buildingsResearch"
+  | "investment"
+  | "talentNewsRanking"
+  | "visitsPartnershipsAdvanced";
+
 // ---------------------------------------------------------------------------
 // Macro economy
 // ---------------------------------------------------------------------------
@@ -342,6 +356,11 @@ export interface GameState {
   config: LevelConfig;
   turn: number;
   maxTurns: number;
+  gameLength: GameLength;
+  revealMode: RevealMode;
+  /** Baseline values captured before the first turn for end-of-game progress. */
+  initialPlayerRank: number;
+  initialPlayerNetWorth: number;
   status: "playing" | "ended";
 
   macro: MacroState;

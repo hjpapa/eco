@@ -128,6 +128,7 @@ export function runCompanyTurn(
   config: LevelConfig,
   rng: RngState,
   marketPressure?: number,
+  growthMultiplier = 1,
 ): CompanyTurnResult {
   const industry = getIndustry(company.industryId);
   const country = getCountry(company.countryId);
@@ -255,7 +256,7 @@ export function runCompanyTurn(
   // --- Stat updates ---
   const rndPower = caps.rndPower + bonuses.rndPower + Math.sqrt(Math.max(0, d.rndBudget) / 3000);
   const qualityGain = rndPower * 0.15 * (0.5 + industry.rndDependence) - 0.5;
-  company.quality = clamp(company.quality + qualityGain, 0, 100);
+  company.quality = clamp(company.quality + scalePositive(qualityGain, growthMultiplier), 0, 100);
 
   // Morale decays toward 40 without investment; welfare + buildings lift it.
   // Losses push the target down 8 extra points so bad quarters feel painful.
@@ -266,7 +267,7 @@ export function runCompanyTurn(
   // Reputation has a natural decay of ~0.5/quarter. Profitable quarters add ~0.6;
   // loss quarters subtract ~0.5. Buildings and bonuses partially offset the decay.
   const repDrift = (profit > 0 ? 0.6 : -0.5) + bonuses.reputationAdd + caps.reputation * 0.1 - 0.5;
-  company.reputation = clamp(company.reputation + repDrift, 0, 100);
+  company.reputation = clamp(company.reputation + scalePositive(repDrift, growthMultiplier), 0, 100);
 
   // Safety decays ~0.6/quarter; safety budget and morale fight the decay.
   const safetyBase = 35 + company.morale * 0.15 + bonuses.safetyAdd +
@@ -275,7 +276,7 @@ export function runCompanyTurn(
 
   // --- Talent loyalty / quitting ---
   const canPay = company.cash > salaries;
-  const quit = updateLoyalty(company, canPay, rng);
+  const quit = updateLoyalty(company, canPay, rng, growthMultiplier);
 
   // Auto-borrow a little if cash goes negative (with a small debt penalty).
   if (company.cash < 0) {
@@ -295,4 +296,9 @@ export function runCompanyTurn(
 
 function clamp(v: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, v));
+}
+
+/** Accelerate gains in short campaigns without softening losses. */
+function scalePositive(delta: number, multiplier: number): number {
+  return delta > 0 ? delta * multiplier : delta;
 }

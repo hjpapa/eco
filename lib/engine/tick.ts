@@ -10,6 +10,7 @@ import { generateEvents } from "./events";
 import { decayRelations } from "./relations";
 import { recordNetWorth } from "./ranking";
 import { topUpTalentPool } from "./characters";
+import { getCampaignGrowthMultiplier, isFeatureUnlocked } from "./campaign";
 
 export interface TurnSummary {
   turn: number;
@@ -83,8 +84,16 @@ export function advanceTurn(state: GameState): TurnSummary {
     pulls.length > 0 ? pulls.reduce((a, b) => a + b, 0) / pulls.length : 1;
 
   let playerResult: CompanyTurnResult | null = null;
+  const growthMultiplier = getCampaignGrowthMultiplier(state);
   for (const company of state.companies) {
-    const result = runCompanyTurn(company, state.macro, state.config, state.rng, marketPressure);
+    const result = runCompanyTurn(
+      company,
+      state.macro,
+      state.config,
+      state.rng,
+      marketPressure,
+      growthMultiplier,
+    );
     if (company.id === state.playerCompanyId) playerResult = result;
   }
 
@@ -109,7 +118,18 @@ export function advanceTurn(state: GameState): TurnSummary {
   if (state.turn >= state.maxTurns) state.status = "ended";
   state.updatedAt = Date.now();
 
-  return { turn: state.turn, playerResult, rateChange, phaseChanged, events };
+  // The simulation may prepare news in the background, but guided players do
+  // not receive news cut-ins or campus visitors until those lessons unlock.
+  const newsUnlocked = isFeatureUnlocked(state, "talentNewsRanking");
+  const visitsUnlocked = isFeatureUnlocked(state, "visitsPartnershipsAdvanced");
+  if (!visitsUnlocked) {
+    for (const company of state.companies) company.visitor = undefined;
+  }
+  const visibleEvents = newsUnlocked
+    ? events.filter((event) => event.layer !== "visitor" || visitsUnlocked)
+    : [];
+
+  return { turn: state.turn, playerResult, rateChange, phaseChanged, events: visibleEvents };
 }
 
 function pushNews(state: GameState, item: Omit<NewsItem, "id" | "turn">): void {

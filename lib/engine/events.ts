@@ -12,6 +12,11 @@ import { shockAsset } from "./assets";
 import { adjustRivalry, adjustTension } from "./relations";
 import { generateCharacter } from "./characters";
 import {
+  applyCampaignGrowthMultiplier,
+  captureCampaignGrowth,
+  isFeatureUnlocked,
+} from "./campaign";
+import {
   type RngState,
   nextFloat,
   nextInt,
@@ -973,6 +978,13 @@ export function generateEvents(state: GameState): NewsItem[] {
   const ctx: EventCtx = { state, rng: state.rng };
   const intensity = state.config.eventIntensity;
   const enabled = new Set(state.config.enabledEventLayers);
+  // Events run before the turn counter increments, so use the projected turn
+  // to make the first visitor land exactly on the documented unlock boundary.
+  const visitsUnlocked = isFeatureUnlocked(
+    { gameLength: state.gameLength, revealMode: state.revealMode, turn: state.turn + 1 },
+    "visitsPartnershipsAdvanced",
+  );
+  if (!visitsUnlocked) enabled.delete("visitor");
 
   // Fire 1..(3*intensity+1) events per quarter so there's always something going on.
   const maxEvents = nextInt(state.rng, 1, Math.round(3 * intensity) + 1);
@@ -998,7 +1010,14 @@ export function generateEvents(state: GameState): NewsItem[] {
 
     const template = weightedPick(state.rng, valid);
     used.add(template.id);
+    const growthBefore = new Map(
+      state.companies.map((company) => [company.id, captureCampaignGrowth(company)]),
+    );
     const result = template.run(ctx);
+    for (const company of state.companies) {
+      const before = growthBefore.get(company.id);
+      if (before) applyCampaignGrowthMultiplier(state, company, before);
+    }
     if (!result) continue;
 
     const news: NewsItem = {

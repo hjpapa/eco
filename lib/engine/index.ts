@@ -1,8 +1,10 @@
 import type {
   Company,
+  GameLength,
   GameState,
   Level,
   PlacedBuilding,
+  RevealMode,
 } from "./types";
 import { createRng, nextRange, type RngState } from "./rng";
 import { getLevelConfig } from "./levels";
@@ -16,11 +18,17 @@ import { buildTalentPool } from "./characters";
 import { createRelations } from "./relations";
 import { defaultDecisions } from "./company";
 import { shuffle } from "./rng";
-import { recordNetWorth } from "./ranking";
+import { netWorth, playerRank, recordNetWorth } from "./ranking";
 import { getIndustryProducts } from "../data/products";
+import {
+  DEFAULT_GAME_LENGTH,
+  DEFAULT_REVEAL_MODE,
+  GAME_VERSION,
+  isGameLength,
+} from "./campaign";
 
-export const GAME_VERSION = 1;
-export const DEFAULT_MAX_TURNS = 100;
+export { GAME_VERSION } from "./campaign";
+export const DEFAULT_MAX_TURNS = DEFAULT_GAME_LENGTH;
 
 export interface NewGameOptions {
   level: Level;
@@ -30,6 +38,9 @@ export interface NewGameOptions {
   countryId: string;
   logoColor?: string;
   basedOn?: string; // preset id
+  gameLength?: GameLength;
+  revealMode?: RevealMode;
+  /** @deprecated Prefer gameLength. Kept for compatible custom/test games. */
   maxTurns?: number;
   mapSize?: number; // override level default (5=small, 8=medium, 12=large)
 }
@@ -147,6 +158,13 @@ export function createGame(opts: NewGameOptions): GameState {
     : baseConfig;
   const seed = opts.seed ?? Math.floor(Math.random() * 1_000_000) + 1;
   const rng = createRng(seed);
+  // Guided 50-turn onboarding is the elementary default. Existing higher
+  // difficulty modes keep their original long, fully-open campaign unless a
+  // player explicitly chooses otherwise in setup.
+  const levelDefaultLength: GameLength = opts.level === "elementary" ? DEFAULT_GAME_LENGTH : 100;
+  const gameLength =
+    opts.gameLength ??
+    (isGameLength(opts.maxTurns) ? opts.maxTurns : levelDefaultLength);
 
   const playerColor = opts.logoColor ?? "#6366f1";
   const playerScale = opts.basedOn ? PRESET_MAP[opts.basedOn]?.scale ?? 1 : 1;
@@ -214,7 +232,11 @@ export function createGame(opts: NewGameOptions): GameState {
     level: opts.level,
     config,
     turn: 0,
-    maxTurns: opts.maxTurns ?? DEFAULT_MAX_TURNS,
+    maxTurns: opts.maxTurns ?? gameLength,
+    gameLength,
+    revealMode: opts.revealMode ?? (opts.level === "elementary" ? DEFAULT_REVEAL_MODE : "all"),
+    initialPlayerRank: 0,
+    initialPlayerNetWorth: 0,
     status: "playing",
     macro: createMacro(getCountry(opts.countryId), rng),
     companies,
@@ -229,11 +251,14 @@ export function createGame(opts: NewGameOptions): GameState {
   };
 
   recordNetWorth(state);
+  state.initialPlayerRank = playerRank(state);
+  state.initialPlayerNetWorth = netWorth(player, state);
   return state;
 }
 
 // Re-exports for convenient importing from the UI layer.
 export * from "./types";
+export * from "./campaign";
 export { advanceTurn } from "./tick";
 export { rankings, netWorth, portfolioValue, playerRank } from "./ranking";
 export {

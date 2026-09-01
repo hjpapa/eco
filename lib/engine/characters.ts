@@ -130,12 +130,15 @@ export function updateLoyalty(
   company: Company,
   canPay: boolean,
   rng: RngState,
+  growthMultiplier = 1,
 ): Character[] {
   const quit: Character[] = [];
   for (const ch of company.hired) {
     let loyalty = ch.loyalty ?? 70;
-    loyalty += canPay ? 1.5 : -12;
-    loyalty += (company.morale - 60) / 20;
+    const loyaltyGrowth = (canPay ? 1.5 : -12) + (company.morale - 60) / 20;
+    // Loyalty is the existing talent-progression measure. Short campaigns
+    // speed up positive development, but unpaid/low-morale losses stay honest.
+    loyalty += loyaltyGrowth > 0 ? loyaltyGrowth * growthMultiplier : loyaltyGrowth;
     loyalty = Math.max(0, Math.min(100, loyalty));
     ch.loyalty = loyalty;
     if (loyalty <= 0 && nextFloat(rng) < 0.5) quit.push(ch);
