@@ -52,7 +52,7 @@ function NewsCard({ n }: { n: NewsItem }) {
             <span className="rounded bg-white/70 px-1.5 py-0.5 font-semibold">
               {LAYER_LABELS[n.layer]}
             </span>
-            <span>{n.turn}분기</span>
+            <span>{n.turn}턴(분기)</span>
           </div>
         </div>
       </div>

@@ -66,7 +66,7 @@ export default function PlayPage() {
   const [showSpotlight, setShowSpotlight] = useState(false);
   const lockUntil = useRef(0);
 
-  // Advance one quarter. Guards against (a) rapid double-clicks force-skipping
+  // Advance one turn (quarter). Guards against rapid double-clicks force-skipping
   // multiple turns and (b) skipping past an unacknowledged event popup.
   const handleNext = () => {
     if (eventPopup || resultsPopup || showLearningChoice) return; // must acknowledge popups first
@@ -175,7 +175,7 @@ export default function PlayPage() {
             <div className="leading-tight">
               <div className="text-sm font-black text-slate-800">{player.name}</div>
               <div className="text-xs text-slate-500">
-                {game.turn}/{game.maxTurns}분기 · {talentUnlocked ? `${rank}위` : "순위 잠김"}
+                {game.turn}/{game.maxTurns}턴(분기) · {talentUnlocked ? `${rank}위` : "순위 잠김"}
               </div>
             </div>
           </div>
@@ -202,7 +202,7 @@ export default function PlayPage() {
             disabled={ended || !!eventPopup || !!resultsPopup || showLearningChoice}
             className="btn-primary whitespace-nowrap !px-3"
           >
-            {ended ? "게임 종료" : <><span className="hidden sm:inline">다음 분기 </span>▶</>}
+            {ended ? "게임 종료" : <><span className="hidden sm:inline">다음 턴(분기) </span>▶</>}
           </button>
         </div>
 
@@ -227,7 +227,7 @@ export default function PlayPage() {
                       ? "cursor-not-allowed text-slate-300"
                       : "text-slate-600 hover:bg-slate-100"
                 }`}
-                title={locked ? `${getFeatureUnlockTurn(game.gameLength, t.id === "invest" ? "investment" : "talentNewsRanking")}분기에 열려요` : undefined}
+                title={locked ? `${getFeatureUnlockTurn(game.gameLength, t.id === "invest" ? "investment" : "talentNewsRanking")}턴(분기)에 열려요` : undefined}
               >
                 <span aria-hidden>{locked ? "🔒" : t.emoji}</span>{" "}{t.label}
               </button>
@@ -340,7 +340,7 @@ function FeatureLockCard({ emoji, title, turn }: { emoji: string; title: string;
     <div className="card p-5 text-center ring-1 ring-amber-200">
       <div className="text-3xl" aria-hidden>{emoji}</div>
       <div className="mt-2 font-bold text-slate-800">{title}</div>
-      <p className="mt-1 text-sm text-slate-500">{turn}분기에 자동으로 열립니다. 지금은 기본 운영에 집중해 보세요.</p>
+      <p className="mt-1 text-sm text-slate-500">{turn}턴(분기)에 자동으로 열립니다. 지금은 기본 운영에 집중해 보세요.</p>
     </div>
   );
 }
@@ -432,7 +432,7 @@ function MoreHub({
             <div className="mt-2 font-black text-slate-800">{item.label}</div>
             <p className="mt-1 text-sm text-slate-500">{item.desc}</p>
             <div className={`mt-3 text-xs font-bold ${item.unlocked ? "text-brand-600" : "text-amber-600"}`}>
-              {item.unlocked ? "열기 →" : `${item.unlockTurn}분기에 열려요`}
+              {item.unlocked ? "열기 →" : `${item.unlockTurn}턴(분기)에 열려요`}
             </div>
           </button>
         ))}
@@ -535,7 +535,7 @@ function ResultsPopup({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
       <div
-        className="card w-full max-w-sm animate-popin overflow-hidden"
+        className="card max-h-[92vh] w-full max-w-md animate-popin overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header with banner */}
@@ -543,7 +543,7 @@ function ResultsPopup({
           <img src={BANNER_IMGS.report} alt="" className="w-full object-cover" style={{ maxHeight: 110 }} />
           <div className="absolute inset-0 flex items-end bg-black/30 px-5 pb-3">
             <div className="text-white drop-shadow">
-              <div className="text-xs opacity-80">{game.turn}분기 실적 보고</div>
+              <div className="text-xs opacity-80">{game.turn}턴(분기) 실적 보고</div>
               <div className="text-base font-black">{player.name}</div>
             </div>
             <div className={`ml-auto text-sm font-bold drop-shadow ${r.profit >= 0 ? "text-emerald-200" : "text-red-200"}`}>
@@ -571,6 +571,21 @@ function ResultsPopup({
             </div>
           ))}
         </div>
+
+        {summary.recoveryPlan && (
+          <section className={`mx-5 mt-4 rounded-xl p-4 ring-1 ${summary.recoveryPlan.level === "danger" ? "bg-red-50 ring-red-200" : "bg-amber-50 ring-amber-200"}`} aria-labelledby="recovery-plan-title">
+            <h3 id="recovery-plan-title" className="font-black text-slate-800">🛟 {summary.recoveryPlan.title}</h3>
+            <p className="mt-1 text-xs leading-relaxed text-slate-600">{summary.recoveryPlan.summary}</p>
+            <ol className="mt-3 space-y-2 text-left">
+              {summary.recoveryPlan.steps.map((step, index) => (
+                <li key={step.title} className="rounded-lg bg-white/90 p-2.5 text-xs ring-1 ring-black/5">
+                  <div className="font-black text-slate-800">{index + 1}. {step.emoji} {step.title}</div>
+                  <div className="mt-0.5 leading-relaxed text-slate-600">{step.detail}</div>
+                </li>
+              ))}
+            </ol>
+          </section>
+        )}
 
         <div className="px-5 pb-5 pt-2">
           <button
@@ -608,7 +623,7 @@ function EventPopup({ events, onClose }: { events: NewsItem[]; onClose: () => vo
           <img src={BANNER_IMGS[tone]} alt="" className="w-full object-cover" style={{ maxHeight: 100 }} />
           <div className="absolute inset-0 flex items-end bg-black/25 px-4 pb-2.5">
             <h2 className="text-base font-black text-white drop-shadow">
-              이번 분기 속보 {events.length > 1 ? `(${events.length})` : ""}
+              이번 턴(분기) 속보 {events.length > 1 ? `(${events.length})` : ""}
             </h2>
           </div>
         </div>
@@ -656,20 +671,31 @@ function GameOver({ game, onRestart }: { game: ReturnType<typeof useGameStore.ge
   const outcome = getCampaignOutcome(game);
   const rank = outcome.finalRank;
   const won = outcome.isChampion;
+  const failed = game.endReason === "insolvent";
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
       <div className="card max-h-[92vh] w-full max-w-lg animate-popin overflow-y-auto p-6 text-center">
         <Image
-          src={won ? RESULT_ICONS.win : RESULT_ICONS.end}
-          alt={won ? "우승을 축하하는 드래곤" : "게임 결과를 안내하는 드래곤"}
+          src={won && !failed ? RESULT_ICONS.win : RESULT_ICONS.end}
+          alt={won && !failed ? "우승을 축하하는 드래곤" : "게임 결과를 안내하는 드래곤"}
           width={144}
           height={144}
           className="mx-auto h-36 w-36 object-contain"
         />
         <h2 className="mt-3 text-2xl font-black text-slate-800">
-          {won ? "축하합니다! 1위 달성!" : "게임 종료"}
+          {failed ? "경영 위기: 이번 도전은 여기까지" : won ? "축하합니다! 1위 달성!" : "게임 종료"}
         </h2>
-        <p className="mt-1 text-slate-500">{game.maxTurns}분기 경영 결과, {rank}위로 마쳤어요.</p>
+        <p className="mt-1 text-slate-500">
+          {failed
+            ? `${game.turn}턴(분기)에 현금이 바닥나고 빚과 적자가 이어졌어요. 실패도 중요한 경제 실험이에요.`
+            : `${game.maxTurns}턴(분기) 경영 결과, ${rank}위로 마쳤어요.`}
+        </p>
+        {failed && (
+          <div className="mt-4 rounded-xl bg-amber-50 p-4 text-left text-sm leading-relaxed text-amber-950 ring-1 ring-amber-200">
+            <b>다음 도전의 회복 공식</b>
+            <p className="mt-1">생산량을 수요보다 낮게 줄이고 → 가격이 원가보다 높은지 확인하고 → 새 건물과 투자를 잠시 멈춰 현금을 모아 보세요.</p>
+          </div>
+        )}
         <div className="mt-4 grid grid-cols-2 gap-2 text-left">
           {outcome.badges.map((badge) => {
             const progress = badge.id === "rankClimber"
@@ -705,7 +731,7 @@ function GameOver({ game, onRestart }: { game: ReturnType<typeof useGameStore.ge
           ))}
         </div>
         <button className="btn-primary mt-5 w-full" onClick={onRestart}>
-          새 게임 하기
+          {failed ? "다시 경영해 보기" : "새 게임 하기"}
         </button>
       </div>
     </div>

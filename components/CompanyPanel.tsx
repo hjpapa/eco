@@ -114,11 +114,11 @@ export function CompanyPanel({ game, company }: { game: GameState; company: Comp
     if (facCap <= 0) {
       return buildingsResearchUnlocked
         ? "먼저 캠퍼스에서 공장을 지어 생산할 수 있게 해 보세요."
-        : "건물 기능이 열릴 때까지 상품 가격과 다음 분기 계획을 살펴보세요.";
+        : "건물 기능이 열릴 때까지 상품 가격과 다음 턴(분기) 계획을 살펴보세요.";
     }
     if (company.inventory > demand) return "재고가 예상 수요보다 많아요. 생산 목표를 낮추거나 판매 가격을 조금 내려 보세요.";
     if (activePrice > activeTierRef * 1.3) return "현재 상품 가격이 높은 편이에요. 가격을 낮추면 더 많이 팔릴 수 있어요.";
-    if (company.lastProfit < 0) return "지난 분기 손해가 났어요. 생산 목표를 예상 수요와 비슷하게 맞춰 보세요.";
+    if (company.lastProfit < 0) return "지난 턴(분기)에 손해가 났어요. 생산 목표를 예상 수요와 비슷하게 맞춰 보세요.";
     if (company.quality < 45 && buildingsResearchUnlocked) return "기초 연구로 품질을 높이면 더 좋은 상품과 높은 가격을 사용할 수 있어요.";
     return `예상 수요 ${formatNum(demand)}개에 맞춰 생산 목표를 조절해 보세요.`;
   })();
@@ -131,7 +131,7 @@ export function CompanyPanel({ game, company }: { game: GameState; company: Comp
       </div>
 
       <div className="rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 p-4 ring-1 ring-amber-200">
-        <div className="text-xs font-black uppercase tracking-wide text-amber-700">💡 이번 분기 추천 행동</div>
+        <div className="text-xs font-black uppercase tracking-wide text-amber-700">💡 이번 턴(분기) 추천 행동</div>
         <p className="mt-1 text-sm font-semibold leading-relaxed text-slate-700">{recommendation}</p>
       </div>
 
@@ -354,7 +354,7 @@ export function CompanyPanel({ game, company }: { game: GameState; company: Comp
             <Info label="공장 생산 한도" value={`${formatNum(facCap)}개`} />
             <Info label="예상 총 수요" value={`${formatNum(demand)}개`} hint={demand < d.productionTarget ? "수요<생산: 재고 위험" : "수요 충분"} />
             <Info label="총 재고" value={`${formatNum(company.inventory)}개`} />
-            <Info label="지난 분기 이익" value={formatMoney(company.lastProfit)} tone={company.lastProfit >= 0 ? "good" : "bad"} />
+            <Info label="지난 턴(분기) 이익" value={formatMoney(company.lastProfit)} tone={company.lastProfit >= 0 ? "good" : "bad"} />
           </div>
         </details>
       </div>
@@ -405,8 +405,8 @@ export function CompanyPanel({ game, company }: { game: GameState; company: Comp
             <span className="font-bold text-slate-800">{formatMoney(company.debt)}</span>
           </div>
           <div className="mb-3 flex justify-between text-xs">
-            <span className="text-slate-400"><Term term="이자">이번 분기에 내는 이자</Term> (연 {game.macro.interestRate.toFixed(2)}%)</span>
-            <span className="font-semibold text-bear">≈ {formatMoney(currentInterest)}/분기</span>
+            <span className="text-slate-400"><Term term="이자">이번 턴(분기)에 내는 이자</Term> (연 {game.macro.interestRate.toFixed(2)}%)</span>
+            <span className="font-semibold text-bear">≈ {formatMoney(currentInterest)}/턴(분기)</span>
           </div>
           <div className="flex items-center gap-2">
             <input
@@ -426,7 +426,7 @@ export function CompanyPanel({ game, company }: { game: GameState; company: Comp
           </div>
           {loanAmt > 0 && (
             <div className="mt-2 text-xs text-slate-500">
-              {formatMoney(loanAmt)}을 빌리면 분기 이자가 약 <b className="text-bear">{formatMoney(loanInterest)}</b>씩
+              {formatMoney(loanAmt)}을 빌리면 턴(분기) 이자가 약 <b className="text-bear">{formatMoney(loanInterest)}</b>씩
               늘어요. 빌린 원금도 나중에 갚아야 해요.
             </div>
           )}

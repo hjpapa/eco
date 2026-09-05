@@ -171,7 +171,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (!res.ok) return showToast(set, res.error ?? "건설 실패", "bad");
     playSfx("build");
     persist(game);
-    set({ game: { ...game }, toast: { text: "건설 완료!", tone: "good" } });
+    set({ game: { ...game }, toast: { text: res.message ?? "건설 완료!", tone: "good" } });
   },
 
   upgrade: (buildingId) => {

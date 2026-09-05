@@ -253,6 +253,7 @@ export function createGame(opts: NewGameOptions): GameState {
 // Re-exports for convenient importing from the UI layer.
 export * from "./types";
 export * from "./campaign";
+export * from "./health";
 export { advanceTurn } from "./tick";
 export { rankings, netWorth, portfolioValue, playerRank } from "./ranking";
 export {
@@ -268,10 +269,15 @@ export { PHASE_LABELS, PHASE_EMOJI } from "./economy";
 export { LAYER_LABELS } from "./events";
 export {
   ADJACENCY_PAIRS,
+  BUILDING_COMBOS,
   BUILDINGS,
   BUILDING_LIST,
+  buildingConstructionCost,
   buildingCostFor,
   countAdjacencyPairs,
+  evaluateBuildingPlacement,
+  findBestBuildingCell,
+  getActiveBuildingCombos,
 } from "./buildings";
 export { ROLE_LABELS, roleBonuses } from "./characters";
 export {

@@ -12,6 +12,8 @@ export type GameLength = 20 | 50 | 100;
 /** Guided campaigns reveal systems gradually; all keeps every menu available. */
 export type RevealMode = "guided" | "all";
 
+export type GameEndReason = "completed" | "insolvent";
+
 /** Coarse feature groups used by navigation and the guided reveal schedule. */
 export type CampaignFeature =
   | "company"
@@ -362,6 +364,8 @@ export interface GameState {
   initialPlayerRank: number;
   initialPlayerNetWorth: number;
   status: "playing" | "ended";
+  /** Why the run ended. Missing on older saves means normal completion. */
+  endReason?: GameEndReason;
 
   macro: MacroState;
 

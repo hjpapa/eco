@@ -190,7 +190,7 @@ export function InvestmentDesk() {
                 type="button"
                 onClick={() => advancedInfoUnlocked && setView("expert")}
                 disabled={!advancedInfoUnlocked}
-                title={!advancedInfoUnlocked ? `${getFeatureUnlockTurn(game.gameLength, "visitsPartnershipsAdvanced")}분기에 열려요` : undefined}
+                title={!advancedInfoUnlocked ? `${getFeatureUnlockTurn(game.gameLength, "visitsPartnershipsAdvanced")}턴(분기)에 열려요` : undefined}
                 className={`rounded-md px-2.5 py-1.5 text-xs font-bold ${view === "expert" ? "bg-blue-600 text-white" : advancedInfoUnlocked ? "text-slate-500" : "cursor-not-allowed text-slate-700"}`}
               >
                 {advancedInfoUnlocked ? "전문가 보기" : "🔒 전문가 보기"}

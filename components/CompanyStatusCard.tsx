@@ -44,7 +44,7 @@ export function CompanyStatusCard({ game, company }: { game: GameState; company:
             <span>재고 {company.inventory.toLocaleString()}개</span>
             {advancedInfoUnlocked
               ? <span><Term term="부채">갚을 돈(부채)</Term> {formatMoney(company.debt)}</span>
-              : <span>🔒 돈 관리는 {getFeatureUnlockTurn(game.gameLength, "visitsPartnershipsAdvanced")}분기</span>
+              : <span>🔒 돈 관리는 {getFeatureUnlockTurn(game.gameLength, "visitsPartnershipsAdvanced")}턴(분기)</span>
             }
           </div>
         </div>

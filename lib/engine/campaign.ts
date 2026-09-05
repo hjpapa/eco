@@ -257,9 +257,13 @@ export function migrateGameState(value: unknown): GameState | null {
     maxTurns: legacyCampaign ? 100 : raw.maxTurns,
     initialPlayerRank: raw.initialPlayerRank ?? safePlayerRank(raw),
     initialPlayerNetWorth: raw.initialPlayerNetWorth ?? initialNetWorth(raw),
+    endReason: raw.endReason ?? (raw.status === "ended" ? "completed" : undefined),
   };
 
-  if (migrated.turn >= migrated.maxTurns) migrated.status = "ended";
+  if (migrated.turn >= migrated.maxTurns) {
+    migrated.status = "ended";
+    migrated.endReason = "completed";
+  }
   return migrated;
 }
 

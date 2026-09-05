@@ -358,14 +358,14 @@ function SetupInner() {
             <div>
               <h3 className="text-center text-lg font-black text-white">얼마나 길게 경영할까요?</h3>
               <p className="mt-1 text-center text-sm text-slate-300">
-                처음이라면 기본 50분기를 추천해요. 짧은 게임일수록 품질·평판·인재가 더 빠르게 성장합니다.
+                처음이라면 기본 50턴(분기)을 추천해요. 짧은 게임일수록 품질·평판·인재가 더 빠르게 성장합니다.
               </p>
             </div>
             <div className="grid gap-3 sm:grid-cols-3">
               {([
-                { value: 20 as const, emoji: "⚡", label: "빠른 20분기", desc: "한 수업 안에 빠르게", badge: "품질·평판·인재 2.0배" },
-                { value: 50 as const, emoji: "🎯", label: "기본 50분기", desc: "처음 플레이 추천", badge: "품질·평판·인재 1.4배" },
-                { value: 100 as const, emoji: "🌳", label: "장기 100분기", desc: "천천히 깊이 있게", badge: "기본 성장" },
+                { value: 20 as const, emoji: "⚡", label: "빠른 20턴(분기)", desc: "한 수업 안에 빠르게", badge: "품질·평판·인재 2.0배" },
+                { value: 50 as const, emoji: "🎯", label: "기본 50턴(분기)", desc: "처음 플레이 추천", badge: "품질·평판·인재 1.4배" },
+                { value: 100 as const, emoji: "🌳", label: "장기 100턴(분기)", desc: "천천히 깊이 있게", badge: "기본 성장" },
               ]).map((option) => (
                 <button
                   key={option.value}
@@ -440,14 +440,14 @@ function SetupInner() {
                 {selectedIndustry && <SummaryRow label="업종" value={`${selectedIndustry.emoji} ${selectedIndustry.name}`} />}
                 {selectedCountry && <SummaryRow label="국가" value={`${selectedCountry.flag} ${selectedCountry.name}`} />}
                 <SummaryRow label="캠퍼스 크기" value={`${CAMPUS_SIZE_MAP[campusSize]}×${CAMPUS_SIZE_MAP[campusSize]} (${campusSize === "small" ? "작게" : campusSize === "medium" ? "중간" : "크게"})`} />
-                <SummaryRow label="게임 길이" value={`${gameLength}분기${gameLength === 50 ? " (추천)" : ""}`} />
+                <SummaryRow label="게임 길이" value={`${gameLength}턴(분기)${gameLength === 50 ? " (추천)" : ""}`} />
                 <SummaryRow label="기능 공개" value={revealMode === "guided" ? "단계별로 하나씩" : "처음부터 모두"} />
                 <SummaryRow label="시작 자금" value="100만 원 (고정)" />
                 <SummaryRow label="게임 대상" value="🧒 초등 4~6학년" />
               </div>
               <div className="mt-4 rounded-xl bg-brand-50 p-3 text-sm text-brand-700">
                 💡 <b>팁:</b> {revealMode === "guided"
-                  ? "처음에는 가격과 생산량을 맞추는 데 집중하세요. 건물과 연구는 알맞은 분기에 차례로 열립니다!"
+                  ? "처음에는 가격과 생산량을 맞추는 데 집중하세요. 건물과 연구는 알맞은 턴(분기)에 차례로 열립니다!"
                   : "기본 상품부터 판매하고 R&D에 투자해 품질을 높이면 더 비싼 상품을 판매할 수 있습니다!"}
               </div>
             </div>

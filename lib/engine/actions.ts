@@ -5,7 +5,12 @@ import type {
   GameState,
   PlacedBuilding,
 } from "./types";
-import { BUILDINGS, buildingCostFor } from "./buildings";
+import {
+  BUILDINGS,
+  buildingConstructionCost,
+  buildingCostFor,
+  evaluateBuildingPlacement,
+} from "./buildings";
 import { autoAssignRole, generateCharacter } from "./characters";
 import { adjustRivalry, getRivalry } from "./relations";
 import { shockStock } from "./market";
@@ -76,7 +81,8 @@ export function buildBuilding(
   if (company.buildings.some((b) => b.x === x && b.y === y)) {
     return { ok: false, error: "이미 건물이 있는 칸입니다." };
   }
-  const cost = buildingCostFor(type, 1);
+  const placement = evaluateBuildingPlacement(company, type, x, y, max);
+  const cost = buildingConstructionCost(company, type);
   if (company.cash < cost) return { ok: false, error: "현금이 부족합니다." };
 
   company.cash -= cost;
@@ -89,7 +95,10 @@ export function buildBuilding(
     turnsLeft: state.config.instantBuild ? 0 : BUILDINGS[type].buildTurns,
   };
   company.buildings.push(building);
-  return { ok: true };
+  const comboMessage = placement.combos.length > 0
+    ? ` · ${placement.combos.map((combo) => `${combo.emoji} ${combo.name}`).join(", ")} 완성!`
+    : " · 다음 건물과 조합할 옆 칸을 남겨 보세요.";
+  return { ok: true, message: `${BUILDINGS[type].name} 건설${comboMessage}` };
 }
 
 /** Demolish/sell a building, refunding part of its construction cost. */

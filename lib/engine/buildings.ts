@@ -174,16 +174,38 @@ export const BUILDING_LIST: BuildingDef[] = Object.values(BUILDINGS);
  * This public catalog lets the engine, learning content and map UI describe
  * the exact same adjacency rules without duplicating them.
  */
-export const ADJACENCY_PAIRS = [
-  ["factory", "warehouse"],
-  ["factory", "power"],
-  ["warehouse", "store"],
-  ["store", "office"],
-  ["office", "rnd"],
-] as const satisfies readonly (readonly [BuildingType, BuildingType])[];
+export interface BuildingComboDef {
+  id: string;
+  name: string;
+  emoji: string;
+  pair: readonly [BuildingType, BuildingType];
+  description: string;
+  effects: Partial<CompanyCapabilities>;
+}
+
+/** Each side-by-side combination has its own strategic purpose. */
+export const BUILDING_COMBOS: readonly BuildingComboDef[] = [
+  { id: "make-and-move", name: "생산·배송 팀", emoji: "🚚", pair: ["factory", "warehouse"], description: "만든 물건을 빠르게 보냅니다.", effects: { productionEfficiency: 0.04, logistics: 10 } },
+  { id: "smart-energy", name: "절약 생산 팀", emoji: "⚡", pair: ["factory", "power"], description: "에너지를 아껴 생산비를 줄입니다.", effects: { productionEfficiency: 0.06 } },
+  { id: "quick-store", name: "빠른 판매 팀", emoji: "📦", pair: ["warehouse", "store"], description: "재고를 매장으로 빠르게 옮깁니다.", effects: { logistics: 12, marketingReach: 4 } },
+  { id: "brand-center", name: "브랜드 팀", emoji: "📣", pair: ["store", "office"], description: "고객의 목소리를 회사에 전달합니다.", effects: { marketingReach: 10, reputation: 2 } },
+  { id: "idea-lab", name: "아이디어 팀", emoji: "💡", pair: ["office", "rnd"], description: "좋은 아이디어를 제품으로 발전시킵니다.", effects: { rndPower: 7, productionEfficiency: 0.02 } },
+  { id: "happy-lunch", name: "즐거운 점심 팀", emoji: "🍱", pair: ["office", "cafeteria"], description: "직원들이 편하게 쉬고 힘을 냅니다.", effects: { morale: 7, productionEfficiency: 0.01 } },
+  { id: "family-campus", name: "가족 친화 팀", emoji: "🧸", pair: ["daycare", "cafeteria"], description: "일과 돌봄을 함께 돕습니다.", effects: { morale: 9, hiringCap: 2, reputation: 2 } },
+  { id: "green-break", name: "초록 휴식 팀", emoji: "🌿", pair: ["park", "cafeteria"], description: "휴식 공간이 직원과 이웃을 웃게 합니다.", effects: { morale: 6, reputation: 3 } },
+  { id: "deep-research", name: "첨단 연구 팀", emoji: "🧪", pair: ["rnd", "lab"], description: "두 연구 시설이 어려운 문제를 함께 풉니다.", effects: { rndPower: 10 } },
+  { id: "healthy-work", name: "건강한 일터 팀", emoji: "💪", pair: ["clinic", "gym"], description: "건강을 챙겨 꾸준히 일할 수 있습니다.", effects: { morale: 8, productionEfficiency: 0.02 } },
+];
+
+/** Backward-compatible pair list used by learning content. */
+export const ADJACENCY_PAIRS = BUILDING_COMBOS.map((combo) => combo.pair);
 
 const ADJACENCY_PAIR_KEYS = new Set<string>(
-  ADJACENCY_PAIRS.map(([a, b]) => adjacencyPairKey(a, b)),
+  BUILDING_COMBOS.map(({ pair: [a, b] }) => adjacencyPairKey(a, b)),
+);
+
+const COMBO_BY_PAIR = new Map(
+  BUILDING_COMBOS.map((combo) => [adjacencyPairKey(combo.pair[0], combo.pair[1]), combo]),
 );
 
 /** Cost to construct or upgrade a building to the next level. */
@@ -224,9 +246,11 @@ export function aggregateBuildingCaps(
   }
 
   if (adjacencyBonus) {
-    const pairCount = countAdjacencyPairs(operational);
-    caps.productionEfficiency += pairCount * 0.05;
-    caps.logistics *= 1 + pairCount * 0.1;
+    for (const combo of getActiveBuildingCombos(operational)) {
+      for (const key of Object.keys(combo.effects) as (keyof CompanyCapabilities)[]) {
+        caps[key] += combo.effects[key] ?? 0;
+      }
+    }
   }
 
   return caps;
@@ -234,11 +258,16 @@ export function aggregateBuildingCaps(
 
 /** Count each operational, complementary orthogonal-neighbour pair once. */
 export function countAdjacencyPairs(buildings: PlacedBuilding[]): number {
+  return getActiveBuildingCombos(buildings).length;
+}
+
+/** Return one entry for every operational physical combination. */
+export function getActiveBuildingCombos(buildings: PlacedBuilding[]): BuildingComboDef[] {
   const operational = buildings.filter((building) => building.turnsLeft <= 0);
   const grid = new Map<string, PlacedBuilding>();
   for (const building of operational) grid.set(`${building.x},${building.y}`, building);
 
-  let pairs = 0;
+  const combos: BuildingComboDef[] = [];
   for (const building of operational) {
     // Only inspect right and down. Every physical neighbour pair is therefore
     // considered exactly once, including rules whose definition is asymmetric
@@ -248,15 +277,66 @@ export function countAdjacencyPairs(buildings: PlacedBuilding[]): number {
       grid.get(`${building.x},${building.y + 1}`),
     ];
     for (const neighbour of neighbours) {
-      if (
-        neighbour &&
-        ADJACENCY_PAIR_KEYS.has(adjacencyPairKey(building.type, neighbour.type))
-      ) {
-        pairs += 1;
-      }
+      if (!neighbour) continue;
+      const key = adjacencyPairKey(building.type, neighbour.type);
+      const combo = COMBO_BY_PAIR.get(key);
+      if (combo && ADJACENCY_PAIR_KEYS.has(key)) combos.push(combo);
     }
   }
-  return pairs;
+  return combos;
+}
+
+/** Repeating one building is allowed, but a varied campus is the better buy. */
+export function buildingConstructionCost(company: Company, type: BuildingType): number {
+  const sameTypeCount = company.buildings.filter((building) => building.type === type).length;
+  return Math.round(buildingCostFor(type, 1) * (1 + sameTypeCount * 0.12));
+}
+
+export interface BuildingPlacement {
+  x: number;
+  y: number;
+  score: number;
+  combos: BuildingComboDef[];
+  isValid: boolean;
+}
+
+/** Explain the combinations a new building would make in one grid cell. */
+export function evaluateBuildingPlacement(
+  company: Company,
+  type: BuildingType,
+  x: number,
+  y: number,
+  mapSize: number,
+): BuildingPlacement {
+  const inBounds = x >= 0 && y >= 0 && x < mapSize && y < mapSize;
+  const occupied = company.buildings.some((building) => building.x === x && building.y === y);
+  if (!inBounds || occupied) return { x, y, score: -1, combos: [], isValid: false };
+
+  const neighbours = company.buildings.filter(
+    (building) => Math.abs(building.x - x) + Math.abs(building.y - y) === 1,
+  );
+  const combos = neighbours
+    .map((building) => COMBO_BY_PAIR.get(adjacencyPairKey(type, building.type)))
+    .filter((combo): combo is BuildingComboDef => Boolean(combo));
+  const newVariety = company.buildings.some((building) => building.type === type) ? 0 : 3;
+  return { x, y, score: combos.length * 10 + newVariety, combos, isValid: true };
+}
+
+/** Best empty cell, with stable tie-breaking for both players and AI. */
+export function findBestBuildingCell(
+  company: Company,
+  type: BuildingType,
+  mapSize: number,
+): BuildingPlacement | null {
+  let best: BuildingPlacement | null = null;
+  for (let y = 0; y < mapSize; y += 1) {
+    for (let x = 0; x < mapSize; x += 1) {
+      const candidate = evaluateBuildingPlacement(company, type, x, y, mapSize);
+      if (!candidate.isValid) continue;
+      if (!best || candidate.score > best.score) best = candidate;
+    }
+  }
+  return best;
 }
 
 function adjacencyPairKey(a: BuildingType, b: BuildingType): string {

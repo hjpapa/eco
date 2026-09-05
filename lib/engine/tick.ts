@@ -11,6 +11,11 @@ import { decayRelations } from "./relations";
 import { recordNetWorth } from "./ranking";
 import { topUpTalentPool } from "./characters";
 import { getCampaignGrowthMultiplier, isFeatureUnlocked } from "./campaign";
+import {
+  getTurnTenRecoveryPlan,
+  shouldDeclareInsolvent,
+  type RecoveryPlan,
+} from "./health";
 
 export interface TurnSummary {
   turn: number;
@@ -18,6 +23,7 @@ export interface TurnSummary {
   rateChange: number;
   phaseChanged: boolean;
   events: NewsItem[];
+  recoveryPlan: RecoveryPlan | null;
 }
 
 let monetaryCounter = 0;
@@ -25,7 +31,7 @@ let monetaryCounter = 0;
 /** Advance the whole simulation by one turn. Mutates and returns a summary. */
 export function advanceTurn(state: GameState): TurnSummary {
   if (state.status === "ended") {
-    return { turn: state.turn, playerResult: null, rateChange: 0, phaseChanged: false, events: [] };
+    return { turn: state.turn, playerResult: null, rateChange: 0, phaseChanged: false, events: [], recoveryPlan: null };
   }
 
   const homeCountry = getCountry(
@@ -119,7 +125,15 @@ export function advanceTurn(state: GameState): TurnSummary {
 
   // 8) Advance the clock.
   state.turn += 1;
-  if (state.turn >= state.maxTurns) state.status = "ended";
+  const recoveryPlan = getTurnTenRecoveryPlan(state);
+  const player = state.companies.find((company) => company.id === state.playerCompanyId);
+  if (state.turn >= state.maxTurns) {
+    state.status = "ended";
+    state.endReason = "completed";
+  } else if (player && shouldDeclareInsolvent(state, player)) {
+    state.status = "ended";
+    state.endReason = "insolvent";
+  }
   state.updatedAt = Date.now();
 
   // The simulation may prepare news in the background, but guided players do
@@ -133,7 +147,7 @@ export function advanceTurn(state: GameState): TurnSummary {
     ? events.filter((event) => event.layer !== "visitor" || visitsUnlocked)
     : [];
 
-  return { turn: state.turn, playerResult, rateChange, phaseChanged, events: visibleEvents };
+  return { turn: state.turn, playerResult, rateChange, phaseChanged, events: visibleEvents, recoveryPlan };
 }
 
 function pushNews(state: GameState, item: Omit<NewsItem, "id" | "turn">): void {

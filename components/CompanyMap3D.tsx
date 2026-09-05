@@ -5,7 +5,14 @@ import { Canvas, useFrame } from "@react-three/fiber";
 import { Html, OrbitControls, RoundedBox } from "@react-three/drei";
 import * as THREE from "three";
 import { useGameStore } from "@/store/gameStore";
-import { BUILDING_LIST, buildingCostFor, countAdjacencyPairs } from "@/lib/engine";
+import {
+  BUILDING_COMBOS,
+  BUILDING_LIST,
+  buildingConstructionCost,
+  countAdjacencyPairs,
+  findBestBuildingCell,
+  getActiveBuildingCombos,
+} from "@/lib/engine";
 import type { BuildingType, Company, GameState, PlacedBuilding } from "@/lib/engine";
 import { formatMoney } from "@/lib/format";
 import { pickCityVoice, pickVisitorVoices } from "@/lib/data/cityVoices";
@@ -987,11 +994,12 @@ function buildPaths(n: number, childBias = false, companySeed = 0, buildings: { 
 
 /* ── scene ───────────────────────────────────────────────────────────────── */
 function Scene({
-  game, company, readOnly, overview, selectedType, selectedBuildingId, onCell,
+  game, company, readOnly, overview, selectedType, selectedBuildingId, recommendedCell, onCell,
 }: {
   game: GameState; company: Company; readOnly: boolean; overview: boolean;
   selectedType: BuildingType | null;
   selectedBuildingId: string | null;
+  recommendedCell: { x: number; y: number } | null;
   onCell: (x: number, y: number) => void;
 }) {
   const n = game.config.mapSize;
@@ -1069,7 +1077,7 @@ function Scene({
               {!b && (
                 <Tile
                   x={x} z={z} grass={grass}
-                  highlight={!readOnly && !!selectedType && hover === key}
+                  highlight={!readOnly && !!selectedType && (hover === key || (recommendedCell?.x === gx && recommendedCell?.y === gy))}
                   onClick={() => onCell(gx, gy)}
                   onHover={(on) => setHover(on ? key : null)}
                 />
@@ -1136,6 +1144,10 @@ export function CompanyMap3D({
   const [selectedBuildingId, setSelectedBuildingId] = useState<string | null>(null);
   const n = game.config.mapSize;
   const adjacencyCount = countAdjacencyPairs(company.buildings);
+  const activeCombos = getActiveBuildingCombos(company.buildings);
+  const recommended = selectedType
+    ? findBestBuildingCell(company, selectedType, game.config.mapSize)
+    : null;
 
   const onCell = (gx: number, gy: number) => {
     if (readOnly) return;
@@ -1174,6 +1186,7 @@ export function CompanyMap3D({
             overview={overview}
             selectedType={selectedType}
             selectedBuildingId={selectedBuildingId}
+            recommendedCell={recommended}
             onCell={onCell}
           />
         </Canvas>
@@ -1193,18 +1206,25 @@ export function CompanyMap3D({
           {game.config.adjacencyBonus ? (
             <div className="mb-3 rounded-xl bg-emerald-50 px-3 py-2 text-sm leading-relaxed text-emerald-900 ring-1 ring-emerald-200">
               ✨ <b>인접 보너스 {adjacencyCount}개</b>
-              <span className="block text-xs text-emerald-800">
-                공장+창고, 창고+매장, 매장+본사, 본사+연구소를 상하좌우로 붙이면 회사 효율이 올라요.
-              </span>
+              <span className="block text-xs text-emerald-800">서로 돕는 건물을 상하좌우로 붙이면 조합마다 다른 능력이 올라요.</span>
+              {activeCombos.length > 0 && (
+                <span className="mt-1 flex flex-wrap gap-1">
+                  {activeCombos.map((combo, index) => (
+                    <span key={`${combo.id}-${index}`} className="rounded-full bg-white/80 px-2 py-0.5 text-xs font-bold">
+                      {combo.emoji} {combo.name}
+                    </span>
+                  ))}
+                </span>
+              )}
             </div>
           ) : null}
           <div className="mb-1 text-xs font-semibold text-slate-500">
-            건물을 선택하고 빈 타일을 클릭하세요 · 드래그로 회전, 휠로 확대 · 사람을 누르면 생각이 보여요
+            건물을 고른 뒤 빛나는 추천 칸이나 원하는 빈칸을 누르세요 · 같은 건물을 반복하면 건설비가 조금 올라요
           </div>
           <div className="flex flex-wrap gap-2">
             {BUILDING_LIST.filter((d) => game.config.enabledBuildings.includes(d.type)).map((d) => {
               const active = selectedType === d.type;
-              const cost = buildingCostFor(d.type, 1);
+              const cost = buildingConstructionCost(company, d.type);
               const canAfford = company.cash >= cost;
               return (
                 <button
@@ -1225,6 +1245,40 @@ export function CompanyMap3D({
               );
             })}
           </div>
+          {selectedType && recommended && (
+            <div className="mt-3 rounded-xl bg-amber-50 p-3 ring-1 ring-amber-200" aria-live="polite">
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-black text-amber-900">✨ 추천 칸이 지도에서 빛나고 있어요</div>
+                  <div className="mt-0.5 text-xs text-amber-800">
+                    {recommended.combos.length > 0
+                      ? recommended.combos.map((combo) => `${combo.emoji} ${combo.name}: ${combo.description}`).join(" · ")
+                      : "첫 건물은 원하는 곳에 짓고, 다음 조합이 들어갈 옆 칸을 남겨 두세요."}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="btn-primary whitespace-nowrap !px-3 !py-2 text-xs"
+                  onClick={() => {
+                    build(selectedType, recommended.x, recommended.y);
+                    setSelectedType(null);
+                  }}
+                >
+                  추천 칸에 짓기
+                </button>
+              </div>
+            </div>
+          )}
+          <details className="mt-3 rounded-xl bg-slate-50 p-3 text-xs text-slate-600">
+            <summary className="cursor-pointer font-bold text-slate-700">🧩 만들 수 있는 건물 조합 보기</summary>
+            <div className="mt-2 grid gap-1.5 sm:grid-cols-2">
+              {BUILDING_COMBOS.filter((combo) => combo.pair.every((type) => game.config.enabledBuildings.includes(type))).map((combo) => (
+                <div key={combo.id} className="rounded-lg bg-white px-2.5 py-2 ring-1 ring-slate-200">
+                  <b>{combo.emoji} {combo.name}</b> · {combo.description}
+                </div>
+              ))}
+            </div>
+          </details>
         </div>
       )}
     </div>

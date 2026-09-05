@@ -149,7 +149,7 @@ export function BuildingInteriorModal({
 
         {underConstruction ? (
           <div className="mt-4 rounded-xl bg-amber-50 p-3 text-center text-sm text-amber-700">
-            🏗️ 공사 중입니다 · {building.turnsLeft}분기 남음
+            🏗️ 공사 중입니다 · {building.turnsLeft}턴(분기) 남음
           </div>
         ) : (
           <div className="mt-4 space-y-3">

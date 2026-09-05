@@ -52,7 +52,7 @@ function buildItems(game: GameState, company: Company): Item[] {
   if (company.lastRevenue > 0) {
     const margin = company.lastProfit / company.lastRevenue;
     if (margin < -0.1) {
-      items.push({ text: `📉 지난 분기 수익률 ${Math.round(margin * 100)}% — 비용 구조 점검이 필요합니다`, tone: "neg" });
+      items.push({ text: `📉 지난 턴(분기) 수익률 ${Math.round(margin * 100)}% — 비용 구조 점검이 필요합니다`, tone: "neg" });
     } else if (margin > 0.3) {
       items.push({ text: `📈 수익률 ${Math.round(margin * 100)}% 달성 — 효율적인 경영이 성과를 내고 있습니다`, tone: "pos" });
     }

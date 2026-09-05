@@ -20,7 +20,7 @@ export function EconomyIndicators({ game }: { game: GameState }) {
     <div className="card p-4">
       <h3 className="text-base font-bold text-slate-800">🌍 세상의 돈 흐름</h3>
       <p className="mb-3 mt-1 text-xs leading-relaxed text-slate-500">
-        숫자를 외우지 않아도 괜찮아요. 아래의 쉬운 뜻을 보고 이번 분기 결정을 생각해 보세요.
+        숫자를 외우지 않아도 괜찮아요. 아래의 쉬운 뜻을 보고 이번 턴(분기) 결정을 생각해 보세요.
       </p>
 
       <div className="mb-3 flex items-center gap-2 rounded-xl bg-slate-50 p-3">

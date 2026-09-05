@@ -174,7 +174,7 @@ export default function LearnPage() {
             )}
             {selectedCourse.id === "basics" && !mayComplete && !completed && (
               <p className="mt-2 text-sm text-slate-600">
-                연습장에서 2분기를 진행하고 한 번 이상 이익을 내면 완료 버튼이 열려요.
+                연습장에서 2턴(분기)을 진행하고 한 번 이상 이익을 내면 완료 버튼이 열려요.
               </p>
             )}
             <div className="mt-4 flex flex-wrap gap-3">
@@ -247,7 +247,7 @@ const PracticeLab = forwardRef<HTMLDivElement, PracticeLabProps>(function Practi
       </div>
 
       <div className="mt-5 grid gap-3 sm:grid-cols-4">
-        <PracticeStat label="연습 분기" value={`${Math.min(state.turn, state.maxTurns)}/${state.maxTurns}`} />
+        <PracticeStat label="연습 턴(분기)" value={`${Math.min(state.turn, state.maxTurns)}/${state.maxTurns}`} />
         <PracticeStat label="연습 현금" value={`${state.cash.toLocaleString()}만 원`} />
         <PracticeStat label="예상 수요" value={finished ? "연습 종료" : `약 ${expectedDemand}개`} />
         <PracticeStat label="남은 재고" value={`${state.inventory}개`} />
@@ -285,7 +285,7 @@ const PracticeLab = forwardRef<HTMLDivElement, PracticeLabProps>(function Practi
           onClick={() => onChange(advancePracticeTurn(state))}
           className="btn-primary min-h-12 px-6 text-base"
         >
-          다음 연습 분기 ▶
+          다음 연습 턴(분기) ▶
         </button>
         <span className="text-sm text-slate-500">생산비는 개당 5만 원, 기본 비용은 12만 원이에요.</span>
       </div>
@@ -297,7 +297,7 @@ const PracticeLab = forwardRef<HTMLDivElement, PracticeLabProps>(function Practi
               ? "border-emerald-200 bg-emerald-50"
               : "border-rose-200 bg-rose-50"
           }`}>
-            <h4 className="font-black text-slate-800">방금 분기 결과</h4>
+            <h4 className="font-black text-slate-800">방금 턴(분기) 결과</h4>
             <div className="mt-2 grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
               <ResultCell label="손님 수(수요)" value={`${state.lastResult.demand}명`} />
               <ResultCell label="판매량" value={`${state.lastResult.sold}개`} />
@@ -319,7 +319,7 @@ const PracticeLab = forwardRef<HTMLDivElement, PracticeLabProps>(function Practi
           </div>
         ) : (
           <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600">
-            가격과 생산량을 정한 뒤 다음 연습 분기를 눌러 결과를 확인하세요.
+            가격과 생산량을 정한 뒤 다음 연습 턴(분기)을 눌러 결과를 확인하세요.
           </div>
         )}
       </div>

@@ -6,7 +6,6 @@ import {
   buildBuilding,
   buyAsset,
   buyStock,
-  emptyCell,
   hireCharacter,
   poachCharacter,
   raiseSalary,
@@ -14,8 +13,13 @@ import {
   upgradeBuilding,
 } from "./actions";
 import { fundamentalValue } from "./market";
+import { netWorth } from "./ranking";
 import { type RngState, nextFloat, nextRange, pick, shuffle } from "./rng";
 import { isFeatureUnlocked } from "./campaign";
+import {
+  buildingConstructionCost,
+  findBestBuildingCell,
+} from "./buildings";
 
 // Heuristic AI that runs each turn for non-player companies: it tunes its
 // operating decisions, expands its campus, hires talent and invests — so the
@@ -24,9 +28,11 @@ import { isFeatureUnlocked } from "./campaign";
 export function runAiTurn(state: GameState, company: Company): void {
   const rng = state.rng;
   const industry = getIndustry(company.industryId);
-  // Stronger, more driven competitors: higher baseline aggression so AIs keep
-  // investing in the things that win market share (quality, marketing, scale).
-  const aggression = 0.5 + nextFloat(rng) * 0.4; // per-AI personality
+  // Stable personalities plus a modest catch-up response create recognisable
+  // rivals without secretly handing them free money. Better decisions, not
+  // stat boosts, let a few challengers lead while laggards close the gap.
+  const strength = competitiveStrength(state, company);
+  const aggression = clamp(strength + (nextFloat(rng) - 0.5) * 0.12, 0.78, 1.35);
 
   // --- Operating decisions ---
   const capacity = productionCapacity(company, state.config);
@@ -35,7 +41,7 @@ export function runAiTurn(state: GameState, company: Company): void {
   // market), so steady, sustainable pricing beats a fixed list price over time.
   const moodAdj = 1 + state.macro.sentiment * 0.05;
   const qualityPremium = Math.max(0, (company.quality - 35) / 400);
-  const undercut = 0.97 + (1 - aggression) * 0.02; // 0.97–0.99 of base
+  const undercut = 0.96 + (1.1 - aggression) * 0.025;
   company.decisions.price = Math.max(
     industry.unitCost * 1.25,
     industry.basePrice * (undercut + qualityPremium) * moodAdj,
@@ -45,7 +51,7 @@ export function runAiTurn(state: GameState, company: Company): void {
   // it can sell, capped by capacity. Existing inventory offsets what to make.
   const country = getCountry(company.countryId);
   const expectedDemand = estimateDemand(company, industry, country, state.macro, state.config);
-  const targetStock = expectedDemand * (1.02 + aggression * 0.06);
+  const targetStock = expectedDemand * (1.01 + aggression * 0.04);
   company.decisions.productionTarget = Math.round(
     Math.max(0, Math.min(capacity, targetStock - company.inventory)),
   );
@@ -53,22 +59,24 @@ export function runAiTurn(state: GameState, company: Company): void {
   // Reinvest into the things that drive share (quality, marketing, morale).
   // Floors keep early-game AIs competitive; the revenue share scales them up.
   // Kept sustainable so the wider field stays roughly break-even, not bankrupt.
-  const opBudget = Math.max(50_000, company.lastRevenue * 0.22);
-  company.decisions.marketingBudget = Math.round(opBudget * 0.4);
+  const desiredBudget = Math.max(38_000, company.lastRevenue * (0.14 + aggression * 0.055));
+  const opBudget = Math.min(desiredBudget, Math.max(18_000, company.cash * 0.14));
+  company.decisions.marketingBudget = Math.round(opBudget * 0.36);
   company.decisions.rndBudget = isFeatureUnlocked(state, "buildingsResearch")
-    ? Math.round(opBudget * 0.4 * (0.6 + industry.rndDependence))
+    ? Math.round(opBudget * 0.36 * (0.7 + industry.rndDependence * 0.5))
     : 0;
-  company.decisions.welfareBudget = Math.round(opBudget * 0.2);
+  company.decisions.welfareBudget = Math.round(opBudget * 0.18);
+  company.decisions.safetyBudget = Math.round(opBudget * 0.1);
 
   // --- Expansion: build through the game, more when flush with cash. ---
-  if (company.cash > 500_000 && company.debt < company.cash * 1.4 && nextFloat(rng) < 0.62) {
+  const expansionChance = clamp(0.28 + aggression * 0.22, 0.4, 0.66);
+  if (company.cash > 430_000 && company.debt < company.cash * 1.25 && nextFloat(rng) < expansionChance) {
     expand(state, company);
-    // A cash-rich AI puts a second building down the same quarter to compound.
-    if (company.cash > 1_800_000 && nextFloat(rng) < 0.45) expand(state, company);
+    if (company.cash > 1_400_000 && nextFloat(rng) < aggression * 0.32) expand(state, company);
   }
 
   // --- Hiring: keep a solid bench of strong talent ---
-  if (company.cash > 350_000 && company.debt < company.cash && company.hired.length < 5 && nextFloat(rng) < 0.5) {
+  if (company.cash > 350_000 && company.debt < company.cash && company.hired.length < 5 && nextFloat(rng) < aggression * 0.48) {
     const affordable = state.talentPool
       .filter((c) => c.salary < Math.max(18_000, company.lastRevenue * 0.25))
       .sort((a, b) => statSum(b) - statSum(a));
@@ -101,10 +109,10 @@ export function runAiTurn(state: GameState, company: Company): void {
 
 /** Build the most useful available building, or upgrade if the map is full. */
 function expand(state: GameState, company: Company): void {
-  const cell = emptyCell(company, state.config.mapSize);
-  if (cell) {
-    const want = chooseBuilding(company, state);
-    if (want) buildBuilding(state, company, want, cell.x, cell.y);
+  const want = chooseBuilding(company, state);
+  const cell = want ? findBestBuildingCell(company, want, state.config.mapSize) : null;
+  if (cell && want) {
+    buildBuilding(state, company, want, cell.x, cell.y);
   } else {
     const b = company.buildings.find((b) => b.turnsLeft <= 0);
     if (b) upgradeBuilding(state, company, b.id);
@@ -124,7 +132,51 @@ function chooseBuilding(company: Company, state: GameState): BuildingType | null
     capacity < company.decisions.productionTarget * 1.1
       ? ["factory", "warehouse", "store", "rnd", "lab", "office", "hr", "power", "cafeteria", "gym", "park"]
       : ["store", "rnd", "lab", "office", "factory", "warehouse", "hr", "cafeteria", "gym", "dorm", "power", "park"];
-  return order.find((t) => enabled.includes(t)) ?? null;
+  const reserve = Math.max(180_000, company.lastRevenue * 0.45);
+  const affordable = order.filter(
+    (type) => enabled.includes(type) && company.cash - buildingConstructionCost(company, type) >= reserve,
+  );
+  if (!affordable.length) return null;
+
+  // Prefer a strategically useful combination over blindly repeating the
+  // first item in the priority list. The original order is still the tie-break.
+  return affordable
+    .map((type, index) => ({
+      type,
+      score: (findBestBuildingCell(company, type, state.config.mapSize)?.score ?? -1) * 2 - index,
+    }))
+    .sort((a, b) => b.score - a.score)[0]?.type ?? null;
+}
+
+function competitiveStrength(state: GameState, company: Company): number {
+  const player = state.companies.find((candidate) => candidate.id === state.playerCompanyId);
+  const stable = stableCompanyNumber(`${state.seed}:${company.basedOn ?? company.id}`);
+  const personality = ((stable % 101) / 100 - 0.5) * 0.2;
+  const challenger = stable % 5 === 0 ? 0.1 : 0;
+  if (!player) return 0.95 + personality + challenger;
+
+  const playerWorth = netWorth(player, state);
+  const ownWorth = netWorth(company, state);
+  const relativeGap = clamp(
+    (playerWorth - ownWorth) / Math.max(250_000, Math.abs(playerWorth)),
+    -0.5,
+    1,
+  );
+  const catchUp = Math.max(0, relativeGap) * 0.28;
+  const lateGamePressure = (state.turn / Math.max(1, state.maxTurns)) * 0.08;
+  return clamp(0.94 + personality + challenger + catchUp + lateGamePressure, 0.82, 1.32);
+}
+
+function stableCompanyNumber(value: string): number {
+  let hash = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash * 31 + value.charCodeAt(index)) >>> 0;
+  }
+  return hash;
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
 }
 
 function investSpareCash(

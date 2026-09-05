@@ -32,12 +32,9 @@ describe("economy concepts", () => {
     const adjacentCaps = aggregateBuildingCaps(adjacent, true);
     const separatedCaps = aggregateBuildingCaps(separated, true);
 
-    expect(adjacentCaps.productionEfficiency).toBeGreaterThan(
-      separatedCaps.productionEfficiency,
-    );
-    expect(
-      adjacentCaps.productionEfficiency - separatedCaps.productionEfficiency,
-    ).toBeCloseTo(0.05, 8);
+    expect(adjacentCaps.marketingReach).toBeGreaterThan(separatedCaps.marketingReach);
+    expect(adjacentCaps.marketingReach - separatedCaps.marketingReach).toBeCloseTo(10, 8);
+    expect(adjacentCaps.reputation - separatedCaps.reputation).toBeCloseTo(2, 8);
     expect(aggregateBuildingCaps(adjacent, false)).toEqual(
       aggregateBuildingCaps(separated, false),
     );
