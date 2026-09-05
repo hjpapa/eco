@@ -65,7 +65,7 @@ function SetupInner() {
     setIndustryId(p.industryId);
     setCountryId(p.countryId);
     setColor(p.logoColor);
-    if (!name) setName(p.name);
+    setName(p.name);
     playSfx("click");
   };
 
