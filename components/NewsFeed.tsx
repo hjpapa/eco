@@ -23,7 +23,7 @@ export function NewsFeed({ game }: { game: GameState }) {
         {items.length === 0 && (
           <div className="relative overflow-hidden rounded-xl bg-slate-50 py-8 text-center">
             <CampusStrip className="absolute inset-x-0 bottom-0 h-14" opacity={0.15} />
-            <p className="relative text-sm text-slate-400">아직 큰 사건이 없습니다. 턴을 진행해 보세요.</p>
+            <p className="relative text-sm text-slate-500">아직 큰 사건이 없습니다. 턴(분기)을 진행해 보세요.</p>
           </div>
         )}
         {items.map((n) => (

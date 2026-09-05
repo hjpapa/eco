@@ -85,6 +85,177 @@ body {
   animation: bubble-pop 0.18s ease-out;
 }
 
+/* ── Dragon Mountain game presentation ─────────────────────────────────── */
+@keyframes hud-dragon-breathe {
+  0%, 100% { transform: translateY(0) rotate(-1deg); }
+  50% { transform: translateY(-3px) rotate(1deg); }
+}
+
+@keyframes journey-shine {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+@keyframes sky-drift {
+  from { transform: translate3d(-8px, 0, 0); }
+  to { transform: translate3d(18px, -3px, 0); }
+}
+
+@keyframes weather-fall {
+  from { background-position: 0 0; }
+  to { background-position: 18px 42px; }
+}
+
+@keyframes result-sparkle {
+  0%, 100% { transform: scale(0.75) rotate(0deg); opacity: 0.35; }
+  50% { transform: scale(1.15) rotate(18deg); opacity: 0.9; }
+}
+
+@keyframes result-step-hop {
+  0% { transform: translateY(8px) scale(0.9); opacity: 0; }
+  70% { transform: translateY(-2px) scale(1.04); opacity: 1; }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+.game-shell {
+  position: relative;
+  isolation: isolate;
+  background: linear-gradient(180deg, #eef2ff 0%, #f8fafc 30rem, #f1f5f9 100%);
+  transition: background 500ms ease;
+}
+
+.game-shell--boom { background: linear-gradient(180deg, #fef3c7 0%, #eff6ff 30rem, #f8fafc 100%); }
+.game-shell--recession { background: linear-gradient(180deg, #dbeafe 0%, #e2e8f0 30rem, #f1f5f9 100%); }
+.game-shell--inflation { background: linear-gradient(180deg, #ffedd5 0%, #fef2f2 30rem, #f8fafc 100%); }
+.game-shell--deflation { background: linear-gradient(180deg, #ecfeff 0%, #e0f2fe 30rem, #f8fafc 100%); }
+.game-shell--stagflation { background: linear-gradient(180deg, #e2e8f0 0%, #ede9fe 30rem, #f8fafc 100%); }
+
+.economic-ambience {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: 0.3;
+}
+
+.economic-orb {
+  position: absolute;
+  top: 5rem;
+  right: 6%;
+  width: 12rem;
+  height: 12rem;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(253, 224, 71, 0.7), rgba(253, 224, 71, 0) 68%);
+}
+
+.economic-cloud {
+  position: absolute;
+  width: 15rem;
+  height: 4rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.65);
+  filter: blur(18px);
+  animation: sky-drift 8s ease-in-out infinite alternate;
+}
+.economic-cloud--one { top: 12rem; left: -3rem; }
+.economic-cloud--two { top: 22rem; right: -4rem; animation-delay: -3s; }
+.economic-ambience--rain .economic-orb,
+.economic-ambience--fog .economic-orb { opacity: 0.16; }
+.economic-ambience--heat .economic-orb { background: radial-gradient(circle, rgba(251, 146, 60, 0.78), rgba(239, 68, 68, 0) 68%); }
+.economic-ambience--snow .economic-orb { background: radial-gradient(circle, rgba(255, 255, 255, 0.95), rgba(186, 230, 253, 0) 68%); }
+
+.hud-dragon { animation: hud-dragon-breathe 3.2s ease-in-out infinite; }
+.journey-progress-fill {
+  background: linear-gradient(90deg, #22c55e, #38bdf8, #8b5cf6, #f59e0b, #22c55e);
+  background-size: 220% 100%;
+  animation: journey-shine 5s linear infinite;
+}
+
+.hud-stat { background: rgba(255, 255, 255, 0.7); }
+.hud-stat--wealth { border-color: #c7d2fe; background: #eef2ff; }
+.hud-stat--cash { border-color: #bbf7d0; background: #f0fdf4; }
+.hud-stat--rank { border-color: #fde68a; background: #fffbeb; }
+.economy-chip { border: 1px solid rgba(148, 163, 184, 0.3); }
+.economy-chip--sun,
+.economy-chip--heat { background: #fff7ed; }
+.economy-chip--clear { background: #eff6ff; }
+.economy-chip--rain,
+.economy-chip--fog { background: #f1f5f9; }
+.economy-chip--snow { background: #ecfeff; }
+.next-turn-button { box-shadow: 0 6px 18px rgba(79, 70, 229, 0.25); }
+
+.economy-weather-scene--sun { background: linear-gradient(145deg, #f59e0b, #0ea5e9); }
+.economy-weather-scene--clear { background: linear-gradient(145deg, #2563eb, #38bdf8); }
+.economy-weather-scene--rain { background: linear-gradient(145deg, #334155, #64748b); }
+.economy-weather-scene--heat { background: linear-gradient(145deg, #dc2626, #fb923c); }
+.economy-weather-scene--snow { background: linear-gradient(145deg, #0891b2, #60a5fa); }
+.economy-weather-scene--fog { background: linear-gradient(145deg, #475569, #7c3aed); }
+
+.weather-sun {
+  position: absolute;
+  top: -1.5rem;
+  right: 1rem;
+  width: 7rem;
+  height: 7rem;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(254, 240, 138, 0.95), rgba(253, 224, 71, 0.2) 48%, transparent 70%);
+}
+.economy-weather-scene--rain .weather-sun,
+.economy-weather-scene--fog .weather-sun { opacity: 0.15; }
+.economy-weather-scene--snow .weather-sun { filter: saturate(0); opacity: 0.55; }
+.weather-cloud {
+  position: absolute;
+  width: 8rem;
+  height: 2.4rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.25);
+  filter: blur(8px);
+  animation: sky-drift 7s ease-in-out infinite alternate;
+}
+.weather-cloud--front { right: -1rem; bottom: 1.5rem; }
+.weather-cloud--back { left: -2rem; top: 2rem; animation-delay: -4s; }
+.weather-particles { position: absolute; inset: 0; opacity: 0; }
+.economy-weather-scene--rain .weather-particles {
+  opacity: 0.36;
+  background-image: repeating-linear-gradient(110deg, transparent 0 17px, rgba(255,255,255,0.8) 18px 19px, transparent 20px 34px);
+  animation: weather-fall 1.4s linear infinite;
+}
+.economy-weather-scene--snow .weather-particles {
+  opacity: 0.6;
+  background-image: radial-gradient(circle, white 0 2px, transparent 2.5px), radial-gradient(circle, white 0 1.5px, transparent 2px);
+  background-position: 0 0, 18px 13px;
+  background-size: 36px 36px, 28px 28px;
+  animation: weather-fall 5s linear infinite;
+}
+.economy-weather-scene--fog .weather-particles {
+  opacity: 0.25;
+  background: repeating-linear-gradient(0deg, transparent 0 15px, white 16px 21px, transparent 22px 38px);
+}
+
+.result-story--win { background: linear-gradient(135deg, #047857, #2563eb 58%, #6d28d9); }
+.result-story--challenge { background: linear-gradient(135deg, #b45309, #ea580c 55%, #7c2d12); }
+.result-dragon { animation: hud-dragon-breathe 2.6s ease-in-out infinite; }
+.result-spark {
+  position: absolute;
+  animation: result-sparkle 1.8s ease-in-out infinite;
+}
+.result-spark--one { top: 12%; left: 6%; font-size: 1.3rem; }
+.result-spark--two { right: 8%; top: 18%; color: #fde68a; animation-delay: -0.8s; }
+.result-spark--three { right: 30%; bottom: 10%; animation-delay: -1.2s; }
+.result-step { background: linear-gradient(180deg, white, #f8fafc); animation: result-step-hop 360ms ease-out both; }
+.result-step:nth-child(2) { animation-delay: 70ms; }
+.result-step:nth-child(3) { animation-delay: 140ms; }
+.result-step:nth-child(4) { animation-delay: 210ms; }
+.result-step--good { background: linear-gradient(180deg, #ecfdf5, #f0fdf4); border-color: #a7f3d0; }
+.result-step--bad { background: linear-gradient(180deg, #fff7ed, #fef2f2); border-color: #fed7aa; }
+.result-step-icon { filter: drop-shadow(0 3px 3px rgba(15, 23, 42, 0.12)); }
+.result-clue--good { background: #ecfdf5; box-shadow: inset 3px 0 #10b981; }
+.result-clue--warning { background: #fff7ed; box-shadow: inset 3px 0 #f59e0b; }
+.result-clue--info { background: #eff6ff; box-shadow: inset 3px 0 #3b82f6; }
+.rank-movement { animation: result-step-hop 420ms 220ms ease-out both; }
+.mission-stamp--done { background: linear-gradient(135deg, rgba(16, 185, 129, 0.35), rgba(250, 204, 21, 0.22)); box-shadow: inset 0 0 0 1px rgba(167, 243, 208, 0.35); }
+
 /* thin scrollbars for panels */
 .scroll-thin::-webkit-scrollbar {
   width: 8px;
@@ -93,6 +264,17 @@ body {
 .scroll-thin::-webkit-scrollbar-thumb {
   background: rgba(148, 163, 184, 0.4);
   border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 @layer components {

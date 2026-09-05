@@ -196,7 +196,7 @@ function IsoTile({
           textAnchor="middle" fontSize="8" fill="#374151"
           style={{ pointerEvents: "none" }}
         >
-          {building.turnsLeft}턴
+          {building.turnsLeft}턴(분기)
         </text>
       )}
     </g>

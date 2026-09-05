@@ -3,7 +3,6 @@
 import {
   netWorth,
   playerRank,
-  rankings,
   portfolioValue,
   fundamentalValue,
   getFeatureUnlockTurn,
@@ -19,8 +18,18 @@ import { CompanyCity } from "./CompanyCity";
 import { CampusStrip } from "./CampusStrip";
 import { Term } from "./Term";
 import { FINANCE_ICONS, FACT_ICONS } from "@/lib/assetMap";
+import { MountainJourney } from "./MountainJourney";
+import { TurnMissionCard } from "./TurnMissionCard";
+import { RivalChase } from "./RivalChase";
+import type { MissionDestination } from "@/lib/ui/gameExperience";
 
-export function Dashboard({ game }: { game: GameState }) {
+export function Dashboard({
+  game,
+  onNavigate,
+}: {
+  game: GameState;
+  onNavigate: (destination: MissionDestination) => void;
+}) {
   const p = game.companies.find((c) => c.id === game.playerCompanyId)!;
   const nw = netWorth(p, game);
   const rank = playerRank(game);
@@ -30,12 +39,11 @@ export function Dashboard({ game }: { game: GameState }) {
   const nwChange = changePct(nw, hist[hist.length - 2] ?? nw);
   const rankingUnlocked = isFeatureUnlocked(game, "talentNewsRanking");
   const advancedInfoUnlocked = isFeatureUnlocked(game, "visitsPartnershipsAdvanced");
-  const board = rankingUnlocked ? rankings(game) : [];
-  const playerIndex = board.findIndex((entry) => entry.isPlayer);
-  const rival = playerIndex === 0 ? board[1] : playerIndex > 0 ? board[playerIndex - 1] : undefined;
 
   return (
     <div className="space-y-4">
+      <MountainJourney game={game} />
+
       {/* Hero */}
       <div className="card overflow-hidden">
         <div className="relative overflow-hidden bg-gradient-to-br from-brand-600 to-indigo-500 p-5 text-white">
@@ -70,23 +78,9 @@ export function Dashboard({ game }: { game: GameState }) {
         </div>
       </div>
 
-      {rankingUnlocked && rival && (
-        <div className="card overflow-hidden ring-1 ring-violet-200">
-          <div className="flex flex-wrap items-center gap-3 bg-gradient-to-r from-violet-50 to-amber-50 p-4">
-            <div className="text-3xl" aria-hidden>{playerIndex === 0 ? "🛡️" : "⚔️"}</div>
-            <div className="min-w-0 flex-1">
-              <div className="text-xs font-black uppercase tracking-wide text-violet-600">오늘의 라이벌</div>
-              <div className="truncate font-black text-slate-800">{rival.name}</div>
-              <p className="mt-0.5 text-xs text-slate-600">
-                {playerIndex === 0
-                  ? `내가 ${formatMoney(Math.max(0, nw - rival.netWorth))} 앞서요. 경쟁사가 따라오고 있으니 1위를 지켜 보세요.`
-                  : `바로 앞 회사와 ${formatMoney(Math.max(0, rival.netWorth - nw))} 차이예요. 가격·품질·건물 조합으로 따라잡아 보세요.`}
-              </p>
-            </div>
-            <span className="pill bg-white font-bold text-violet-700">나 {playerIndex + 1}위</span>
-          </div>
-        </div>
-      )}
+      <TurnMissionCard game={game} onNavigate={onNavigate} />
+
+      {rankingUnlocked ? <RivalChase game={game} /> : null}
 
       {/* Our stock */}
       <OurStock game={game} showExpert={advancedInfoUnlocked} />

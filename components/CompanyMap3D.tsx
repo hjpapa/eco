@@ -50,6 +50,54 @@ const PHASE_GRASS: Record<string, string> = {
 
 const TILE = 1; // world units per grid cell
 
+type BuildingCombo = (typeof BUILDING_COMBOS)[number];
+
+interface ActiveComboLink {
+  key: string;
+  combo: BuildingCombo;
+  from: PlacedBuilding;
+  to: PlacedBuilding;
+}
+
+function visualPairKey(a: BuildingType, b: BuildingType): string {
+  return a < b ? `${a}|${b}` : `${b}|${a}`;
+}
+
+const VISUAL_COMBO_BY_PAIR = new Map<string, BuildingCombo>(
+  BUILDING_COMBOS.map((combo) => [visualPairKey(combo.pair[0], combo.pair[1]), combo]),
+);
+
+/**
+ * Return the exact physical links represented by the engine's adjacency rules.
+ * Like getActiveBuildingCombos, this only checks operational buildings and
+ * inspects right/down neighbours so every pair is counted once.
+ */
+function getActiveComboLinks(buildings: PlacedBuilding[]): ActiveComboLink[] {
+  const operational = buildings.filter((building) => building.turnsLeft <= 0);
+  const grid = new Map<string, PlacedBuilding>();
+  for (const building of operational) grid.set(`${building.x},${building.y}`, building);
+
+  const links: ActiveComboLink[] = [];
+  for (const building of operational) {
+    const neighbours = [
+      grid.get(`${building.x + 1},${building.y}`),
+      grid.get(`${building.x},${building.y + 1}`),
+    ];
+    for (const neighbour of neighbours) {
+      if (!neighbour) continue;
+      const combo = VISUAL_COMBO_BY_PAIR.get(visualPairKey(building.type, neighbour.type));
+      if (!combo) continue;
+      links.push({
+        key: `${building.id}|${neighbour.id}|${combo.id}`,
+        combo,
+        from: building,
+        to: neighbour,
+      });
+    }
+  }
+  return links;
+}
+
 /* Blend two hex colors (t=0 → a, t=1 → b). */
 function blend(a: string, b: string, t: number): string {
   return new THREE.Color(a).lerp(new THREE.Color(b), t).getStyle();
@@ -886,6 +934,57 @@ function Tile({
   );
 }
 
+/** A lightweight, static glow between two buildings whose combo is active. */
+function ComboConnection({
+  link,
+  mapSize,
+  highlighted,
+}: {
+  link: ActiveComboLink;
+  mapSize: number;
+  highlighted: boolean;
+}) {
+  const toWorld = (building: PlacedBuilding) => ({
+    x: (building.x - (mapSize - 1) / 2) * TILE,
+    z: (building.y - (mapSize - 1) / 2) * TILE,
+  });
+  const from = toWorld(link.from);
+  const to = toWorld(link.to);
+  const dx = to.x - from.x;
+  const dz = to.z - from.z;
+  const length = Math.hypot(dx, dz) * 0.82;
+  const rotationY = Math.atan2(-dz, dx);
+  const color = highlighted ? "#fde047" : "#a7f3d0";
+
+  return (
+    <group
+      position={[(from.x + to.x) / 2, 0.035, (from.z + to.z) / 2]}
+      rotation={[0, rotationY, 0]}
+    >
+      <mesh renderOrder={1}>
+        <boxGeometry args={[length, 0.018, highlighted ? 0.12 : 0.08]} />
+        <meshBasicMaterial
+          color={color}
+          transparent
+          opacity={highlighted ? 0.95 : 0.62}
+          depthWrite={false}
+          toneMapped={false}
+        />
+      </mesh>
+      <mesh position={[0, -0.006, 0]} renderOrder={0}>
+        <boxGeometry args={[length * 0.94, 0.01, highlighted ? 0.26 : 0.18]} />
+        <meshBasicMaterial
+          color={color}
+          transparent
+          opacity={highlighted ? 0.25 : 0.13}
+          depthWrite={false}
+          toneMapped={false}
+        />
+      </mesh>
+    </group>
+  );
+}
+
 /* ── agent path helpers ──────────────────────────────────────────────────── */
 type PersonKind = "man" | "woman" | "child";
 type Activity = "walk" | "chat" | "rest" | "exercise" | "wave";
@@ -994,12 +1093,23 @@ function buildPaths(n: number, childBias = false, companySeed = 0, buildings: { 
 
 /* ── scene ───────────────────────────────────────────────────────────────── */
 function Scene({
-  game, company, readOnly, overview, selectedType, selectedBuildingId, recommendedCell, onCell,
+  game,
+  company,
+  readOnly,
+  overview,
+  selectedType,
+  selectedBuildingId,
+  recommendedCell,
+  comboLinks,
+  highlightedComboKeys,
+  onCell,
 }: {
   game: GameState; company: Company; readOnly: boolean; overview: boolean;
   selectedType: BuildingType | null;
   selectedBuildingId: string | null;
   recommendedCell: { x: number; y: number } | null;
+  comboLinks: ActiveComboLink[];
+  highlightedComboKeys: string[];
   onCell: (x: number, y: number) => void;
 }) {
   const n = game.config.mapSize;
@@ -1065,6 +1175,16 @@ function Scene({
         <planeGeometry args={[n * TILE, n * TILE]} />
         <meshStandardMaterial color={grass} />
       </mesh>
+
+      {/* Static combo links add visual payoff without another animation loop. */}
+      {comboLinks.map((link) => (
+        <ComboConnection
+          key={link.key}
+          link={link}
+          mapSize={n}
+          highlighted={highlightedComboKeys.includes(link.key)}
+        />
+      ))}
 
       {/* tiles + buildings */}
       {Array.from({ length: n }).map((_, gy) =>
@@ -1142,12 +1262,62 @@ export function CompanyMap3D({
   const build = useGameStore((s) => s.build);
   const [selectedType, setSelectedType] = useState<BuildingType | null>(null);
   const [selectedBuildingId, setSelectedBuildingId] = useState<string | null>(null);
+  const [comboFeedback, setComboFeedback] = useState<{
+    linkKeys: string[];
+    title: string;
+    detail: string;
+  } | null>(null);
+  const knownComboKeysRef = useRef<Set<string> | null>(null);
+  const knownComboCompanyRef = useRef(company.id);
   const n = game.config.mapSize;
   const adjacencyCount = countAdjacencyPairs(company.buildings);
   const activeCombos = getActiveBuildingCombos(company.buildings);
+  const comboLinks = game.config.adjacencyBonus
+    ? getActiveComboLinks(company.buildings)
+    : [];
+  const comboSignature = comboLinks.map((link) => link.key).join(",");
   const recommended = selectedType
     ? findBestBuildingCell(company, selectedType, game.config.mapSize)
     : null;
+
+  useEffect(() => {
+    const currentKeys = new Set(comboLinks.map((link) => link.key));
+    const companyChanged = knownComboCompanyRef.current !== company.id;
+    const previousKeys = knownComboKeysRef.current;
+
+    knownComboCompanyRef.current = company.id;
+    knownComboKeysRef.current = currentKeys;
+
+    // Existing combinations should not celebrate merely because a map opened.
+    if (companyChanged || previousKeys === null || readOnly || overview) {
+      setComboFeedback(null);
+      return;
+    }
+
+    const freshLinks = comboLinks.filter((link) => !previousKeys.has(link.key));
+    if (freshLinks.length === 0) {
+      setComboFeedback(null);
+      return;
+    }
+
+    const distinctCombos = Array.from(
+      new Map(freshLinks.map((link) => [link.combo.id, link.combo])).values(),
+    );
+    setComboFeedback({
+      linkKeys: freshLinks.map((link) => link.key),
+      title: freshLinks.length === 1
+        ? `${freshLinks[0].combo.emoji} ${freshLinks[0].combo.name} 완성!`
+        : `✨ 새 건물 조합 ${freshLinks.length}개 완성!`,
+      detail: freshLinks.length === 1
+        ? freshLinks[0].combo.description
+        : distinctCombos.map((combo) => `${combo.emoji} ${combo.name}`).join(" · "),
+    });
+
+    const timer = window.setTimeout(() => setComboFeedback(null), 2100);
+    return () => window.clearTimeout(timer);
+    // The signature tracks the in-place mutations relevant to physical links.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [comboSignature, company.id, readOnly, overview]);
 
   const onCell = (gx: number, gy: number) => {
     if (readOnly) return;
@@ -1166,13 +1336,26 @@ export function CompanyMap3D({
   return (
     <div className="space-y-3">
       <div
-        className="w-full overflow-hidden rounded-2xl"
+        className={`relative w-full overflow-hidden rounded-2xl ${overview ? "" : "h-[290px] sm:h-auto"}`}
         style={{
           aspectRatio: overview ? "16 / 10" : "16 / 9",
           maxHeight: overview ? 320 : 560,
           background: PHASE_BG[game.macro.phase] ?? PHASE_BG.normal,
         }}
       >
+        <div
+          className="pointer-events-none absolute inset-x-3 top-3 z-10 flex justify-center"
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+        >
+          {comboFeedback && (
+            <div className="max-w-sm rounded-2xl bg-slate-950/90 px-4 py-2.5 text-center text-white shadow-xl ring-1 ring-amber-200/70 motion-safe:animate-popin">
+              <div className="text-sm font-black">{comboFeedback.title}</div>
+              <div className="mt-0.5 text-xs leading-relaxed text-slate-200">{comboFeedback.detail}</div>
+            </div>
+          )}
+        </div>
         <Canvas
           shadows
           dpr={[1, 1.8]}
@@ -1187,6 +1370,8 @@ export function CompanyMap3D({
             selectedType={selectedType}
             selectedBuildingId={selectedBuildingId}
             recommendedCell={recommended}
+            comboLinks={comboLinks}
+            highlightedComboKeys={comboFeedback?.linkKeys ?? []}
             onCell={onCell}
           />
         </Canvas>
