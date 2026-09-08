@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useGameStore } from "@/store/gameStore";
 import {
   estimateDemand,
-  factoryCapacity,
+  productionCapacity,
   isFeatureUnlocked,
+  roleBonuses,
   type Company,
   type GameState,
 } from "@/lib/engine";
@@ -25,6 +26,7 @@ const ACTION_SECTIONS = [
     label: "마케팅",
     icon: MGMT_ICONS.marketing,
     actions: [
+      { id: "promo", label: "프로모션", cost: 50_000 },
       { id: "mkt_basic",     label: "기본 마케팅",     cost: 30_000 },
       { id: "mkt_active",    label: "적극 마케팅",     cost: 80_000 },
       { id: "mkt_intensive", label: "집중 캠페인",     cost: 150_000 },
@@ -36,6 +38,7 @@ const ACTION_SECTIONS = [
     label: "연구개발",
     icon: MGMT_ICONS.rnd,
     actions: [
+      { id: "research", label: "집중 연구", cost: 60_000 },
       { id: "rnd_basic",  label: "기초 연구", cost: 30_000 },
       { id: "rnd_active", label: "기술 개발", cost: 80_000 },
       { id: "rnd_patent", label: "특허 출원", cost: 100_000 },
@@ -46,6 +49,8 @@ const ACTION_SECTIONS = [
     label: "직원 복지",
     icon: MGMT_ICONS.welfare,
     actions: [
+      { id: "training", label: "직원 교육", cost: 50_000 },
+      { id: "welfare", label: "복지 강화", cost: 40_000 },
       { id: "wlf_dinner",   label: "직원 회식", cost: 20_000 },
       { id: "wlf_training", label: "사내 교육", cost: 40_000 },
       { id: "wlf_workshop", label: "워크숍",    cost: 60_000 },
@@ -56,6 +61,7 @@ const ACTION_SECTIONS = [
     label: "안전 관리",
     icon: MGMT_ICONS.safety,
     actions: [
+      { id: "inspect", label: "라인 점검", cost: 40_000 },
       { id: "sft_inspect",  label: "안전 점검", cost: 15_000 },
       { id: "sft_training", label: "안전 교육", cost: 30_000 },
     ],
@@ -72,23 +78,29 @@ const ACTION_SECTIONS = [
   },
 ] as const;
 
-export function CompanyPanel({ game, company }: { game: GameState; company: Company }) {
+export function CompanyPanel({ game, company, task }: { game: GameState; company: Company; task?: "production" | "sales" | "research" | "staff" | "finance" }) {
   const setDecisions = useGameStore((s) => s.setDecisions);
   const companyAction = useGameStore((s) => s.companyAction);
   const loan = useGameStore((s) => s.loan);
   const setProductPrice = useGameStore((s) => s.setProductPrice);
   const toggleProduct = useGameStore((s) => s.toggleProduct);
   const [loanAmt, setLoanAmt] = useState(0);
+  const actionUntil = useRef(0);
+  const once = (action: () => void) => {
+    if (Date.now() < actionUntil.current) return;
+    actionUntil.current = Date.now() + 500;
+    action();
+  };
 
   // Per-quarter interest ≈ debt × (annual rate / 4). (engine: company.ts)
-  const quarterlyRate = game.macro.interestRate / 100 / 4;
+  const quarterlyRate = game.macro.interestRate / 100 / 4 * roleBonuses(company).financeCostMult;
   const currentInterest = Math.round(company.debt * quarterlyRate);
   const loanInterest = Math.round(loanAmt * quarterlyRate);
   const lastCost = Math.max(0, company.lastRevenue - company.lastProfit);
 
   const industry = getIndustry(company.industryId);
   const country = getCountry(company.countryId);
-  const facCap = factoryCapacity(company, game.config);
+  const facCap = productionCapacity(company, game.config);
   const demand = estimateDemand(company, industry, country, game.macro, game.config);
   const d = company.decisions;
   const buildingsResearchUnlocked = isFeatureUnlocked(game, "buildingsResearch");
@@ -126,17 +138,17 @@ export function CompanyPanel({ game, company }: { game: GameState; company: Comp
   return (
     <div className="space-y-4">
       {/* ── Ticker ─────────────────────────────────────────────────────── */}
-      <div className="overflow-hidden rounded-2xl shadow-sm">
+      {!task && <div className="overflow-hidden rounded-2xl shadow-sm">
         <CompanyTicker game={game} company={company} />
-      </div>
+      </div>}
 
-      <div className="rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 p-4 ring-1 ring-amber-200">
+      <div hidden={!!task} className="rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 p-4 ring-1 ring-amber-200">
         <div className="text-xs font-black uppercase tracking-wide text-amber-700">💡 이번 턴(분기) 추천 행동</div>
         <p className="mt-1 text-sm font-semibold leading-relaxed text-slate-700">{recommendation}</p>
       </div>
 
       {/* ── 상품 라인업 탭 (최상단) ────────────────────────────────────── */}
-      <div className="card p-4">
+      <div hidden={!!task && task !== "sales"} className="card p-4">
         <div className="mb-3 flex items-center justify-between">
           <h3 className="flex items-center gap-2 text-base font-bold text-slate-800">
             📦 상품 라인업
@@ -215,6 +227,7 @@ export function CompanyPanel({ game, company }: { game: GameState; company: Comp
                 </div>
                 {/* Toggle */}
                 <button
+                  aria-label={`${activeDef.name} 판매 ${isOn ? "중지" : "시작"}`}
                   disabled={!canEnable}
                   onClick={() => toggleProduct(activeIdx)}
                   className={`relative h-6 w-11 shrink-0 rounded-full transition-colors focus:outline-none ${
@@ -237,6 +250,7 @@ export function CompanyPanel({ game, company }: { game: GameState; company: Comp
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-slate-500 shrink-0 w-10">판매가</span>
                     <input
+                      aria-label={`${activeDef.name} 판매 가격`}
                       type="number"
                       value={activePrice}
                       min={1}
@@ -292,13 +306,13 @@ export function CompanyPanel({ game, company }: { game: GameState; company: Comp
       </div>
 
       {/* ── 경영 결정 ──────────────────────────────────────────────────── */}
-      <div className="card p-5">
+      <div hidden={task === "finance"} className="card p-5">
         <h3 className="mb-4 flex items-center gap-2 text-base font-bold text-slate-800">
           {BUILDING_IMG.office && <img src={BUILDING_IMG.office} alt="" className="h-7 w-7 object-contain" />}
           경영 결정
         </h3>
 
-        <Slider
+        {(!task || task === "production") && <Slider
           icon={MGMT_ICONS.production}
           label="생산 목표 (수량)"
           value={d.productionTarget}
@@ -307,18 +321,20 @@ export function CompanyPanel({ game, company }: { game: GameState; company: Comp
           step={10}
           format={(v) => `${formatNum(v)}개`}
           onChange={(v) => setDecisions({ productionTarget: Math.min(v, facCap) })}
-          hint={facCap > 0 ? `공장 최대 ${formatNum(facCap)}개 (공장 건설로 늘리기)` : undefined}
-        />
+          hint={facCap > 0 ? `현재 생산 한도 ${formatNum(facCap)}개${d.productionTarget > facCap ? " · 목표가 한도보다 높아도 한도까지만 생산해요" : " (공장 건설로 늘리기)"}` : undefined}
+        />}
+        {task === "sales" && <Slider label="다음 턴 마케팅 예산" value={d.marketingBudget} min={0} max={200000} step={5000} format={formatMoney} onChange={(v) => setDecisions({ marketingBudget: v })} />}
+        {task === "research" && buildingsResearchUnlocked && <Slider label="다음 턴 연구 예산" value={d.rndBudget} min={0} max={200000} step={5000} format={formatMoney} onChange={(v) => setDecisions({ rndBudget: v })} />}
 
         {/* Management action buttons */}
-        <details className="group mt-4 rounded-xl border border-slate-200 bg-white p-3">
+        <details open={!!task && task !== "production"} className="group mt-4 rounded-xl border border-slate-200 bg-white p-3">
           <summary className="cursor-pointer list-none text-sm font-bold text-slate-700">
-            더 많은 활동
+            {task === "production" ? "생산 수치 자세히 보기" : "경영 활동 선택"}
             <span className="float-right text-slate-400 transition group-open:rotate-180">⌄</span>
           </summary>
           <div className="mt-4 space-y-4">
           <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">마케팅·연구·직원·안전</div>
-          {ACTION_SECTIONS.filter((section) => buildingsResearchUnlocked || section.key !== "rnd").map((section) => (
+          {ACTION_SECTIONS.filter((section) => (buildingsResearchUnlocked || section.key !== "rnd") && (!task || (task === "sales" ? section.key === "marketing" : task === "research" ? section.key === "rnd" : task === "staff" ? ["welfare", "safety", "extra"].includes(section.key) : false))).map((section) => (
             <div key={section.key}>
               <div className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-slate-600">
                 {section.icon && <img src={section.icon} alt="" className="h-4 w-4 object-contain" />}
@@ -331,7 +347,7 @@ export function CompanyPanel({ game, company }: { game: GameState; company: Comp
                     <button
                       key={action.id}
                       disabled={!canAfford}
-                      onClick={() => companyAction(action.id)}
+                      onClick={() => once(() => companyAction(action.id))}
                       className={`rounded-lg border px-2 py-1.5 text-left text-xs transition-colors ${
                         canAfford
                           ? "border-brand-200 bg-brand-50 text-brand-700 hover:bg-brand-100 active:bg-brand-200"
@@ -340,7 +356,7 @@ export function CompanyPanel({ game, company }: { game: GameState; company: Comp
                     >
                       <div className="font-semibold leading-tight">{action.label}</div>
                       <div className={`mt-0.5 text-xs ${canAfford ? "text-brand-500" : "text-slate-400"}`}>
-                        {formatMoney(action.cost)}
+                        즉시 실행 · {formatMoney(action.cost)}
                       </div>
                     </button>
                   );
@@ -375,8 +391,8 @@ export function CompanyPanel({ game, company }: { game: GameState; company: Comp
       </details>
 
       {/* Finance */}
-      {game.config.showAdvancedMetrics && advancedInfoUnlocked && (
-        <details className="card group p-5">
+      {game.config.showAdvancedMetrics && advancedInfoUnlocked && (!task || task === "finance") && (
+        <details open={task === "finance"} className="card group p-5">
           <summary className="flex cursor-pointer list-none items-center gap-2 text-base font-bold text-slate-800">
             {BUILDING_IMG.office && <img src={BUILDING_IMG.office} alt="" className="h-7 w-7 object-contain" />}
             우리 회사 돈 살펴보기(재무)
@@ -417,10 +433,10 @@ export function CompanyPanel({ game, company }: { game: GameState; company: Comp
               onChange={(e) => setLoanAmt(Math.max(0, Number(e.target.value)))}
               className="w-32 rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-800"
             />
-            <button className="btn-ghost" onClick={() => loan(loanAmt, "borrow")}>
+            <button className="btn-ghost" disabled={!Number.isFinite(loanAmt) || loanAmt <= 0} onClick={() => once(() => loan(loanAmt, "borrow"))}>
               돈 빌리기(대출)
             </button>
-            <button className="btn-ghost" onClick={() => loan(loanAmt, "repay")}>
+            <button className="btn-ghost" disabled={!Number.isFinite(loanAmt) || loanAmt <= 0 || loanAmt > company.cash || loanAmt > company.debt} onClick={() => once(() => loan(loanAmt, "repay"))}>
               갚기(상환)
             </button>
           </div>
@@ -469,6 +485,7 @@ function Slider({
         <div className="flex items-center gap-1">
           <input
             type="number"
+            aria-label={typeof label === "string" ? label : "경영 수량"}
             value={Math.round(value)}
             min={min}
             max={max}
@@ -481,6 +498,7 @@ function Slider({
       </div>
       <input
         type="range"
+        aria-label={typeof label === "string" ? `${label} 슬라이더` : "경영 수량 슬라이더"}
         min={min}
         max={sliderMax}
         step={step}

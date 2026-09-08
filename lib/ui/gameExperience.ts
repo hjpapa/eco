@@ -77,6 +77,7 @@ export interface TurnPresentationSnapshot {
   cash: number;
   inventory: number;
   productionTarget: number;
+  productPrices?: number[];
   phase: EconomyPhase;
   rankingUnlocked: boolean;
   /** Detached values only: never retain a Company/RankingEntry from mutable state. */
@@ -321,6 +322,7 @@ export function captureTurnSnapshot(game: GameState): TurnPresentationSnapshot {
     cash: player.cash,
     inventory: player.inventory,
     productionTarget: player.decisions.productionTarget,
+    productPrices: (player.productPrices ?? []).filter((price, index) => price > 0 && (player.productEnabled?.[index] ?? index === 0)),
     phase: game.macro.phase,
     rankingUnlocked: isFeatureUnlocked(game, "talentNewsRanking"),
     ranking: board,

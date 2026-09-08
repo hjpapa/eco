@@ -27,9 +27,8 @@ import {
   type TurnPresentationSnapshot,
 } from "@/lib/ui/gameExperience";
 
-import { Dashboard } from "@/components/Dashboard";
 import { CompanyCity } from "@/components/CompanyCity";
-import { CompanyPanel } from "@/components/CompanyPanel";
+import { CompanyWorkspace } from "@/components/CompanyWorkspace";
 import { InvestmentDesk } from "@/components/InvestmentDesk";
 import { TalentMarket } from "@/components/TalentMarket";
 import { NewsFeed } from "@/components/NewsFeed";
@@ -47,8 +46,7 @@ type Tab = "home" | "company" | "invest" | "talent" | "more";
 type MorePage = "news" | "rank" | "visit";
 
 const TABS: { id: Tab; label: string; emoji: string }[] = [
-  { id: "home", label: "홈", emoji: "🏠" },
-  { id: "company", label: "회사", emoji: "🏙️" },
+  { id: "company", label: "우리 회사", emoji: "🏙️" },
   { id: "invest", label: "투자", emoji: "📈" },
   { id: "talent", label: "인재", emoji: "👔" },
   { id: "more", label: "더보기", emoji: "•••" },
@@ -63,7 +61,7 @@ export default function PlayPage() {
   const loadSave = useGameStore((s) => s.loadSave);
   const acknowledgeLearningIntro = useGameStore((s) => s.acknowledgeLearningIntro);
 
-  const [tab, setTab] = useState<Tab>("home");
+  const [tab, setTab] = useState<Tab>("company");
   const [morePage, setMorePage] = useState<MorePage | null>(null);
   const [visitId, setVisitId] = useState<string | null>(null);
   const [muted, setMutedState] = useState(false);
@@ -208,7 +206,7 @@ export default function PlayPage() {
         />
 
         {/* Tabs */}
-        <nav className="mx-auto grid max-w-5xl grid-cols-5 gap-1 px-2 pb-2" aria-label="게임 메뉴">
+        <nav className="mx-auto grid max-w-7xl grid-cols-4 gap-1 px-2 pb-2" aria-label="게임 메뉴">
           {TABS.map((t) => {
             const locked = (t.id === "invest" && !investmentUnlocked) || (t.id === "talent" && !talentUnlocked);
             return (
@@ -238,31 +236,9 @@ export default function PlayPage() {
       </header>
 
       {/* Body */}
-      <main className="relative z-10 mx-auto grid max-w-5xl gap-4 px-3 py-4 sm:px-4 lg:grid-cols-[1fr_320px]">
+      <main className={`relative z-10 mx-auto grid gap-4 px-3 py-4 sm:px-4 ${tab === "company" || tab === "home" ? "max-w-[1600px]" : "max-w-5xl lg:grid-cols-[1fr_320px]"}`}>
         <div className="min-w-0">
-          {tab === "home" && <Dashboard game={game} onNavigate={navigateFromMission} />}
-          {tab === "company" && (
-            <div className="space-y-4">
-              <CompanyPanel game={game} company={player} />
-              {buildingsUnlocked ? (
-                <details className="card group p-4">
-                  <summary className="cursor-pointer list-none text-base font-bold text-slate-800">
-                    <span className="inline-flex items-center gap-2">🏙️ 더 많은 활동: 건물과 연구</span>
-                    <span className="float-right text-slate-400 transition group-open:rotate-180">⌄</span>
-                  </summary>
-                  <div className="mt-3">
-                    <CompanyCity game={game} company={player} />
-                  </div>
-                </details>
-              ) : (
-                <FeatureLockCard
-                  emoji="🏗️"
-                  title="건물과 연구는 곧 열려요"
-                  turn={getFeatureUnlockTurn(game.gameLength, "buildingsResearch")}
-                />
-              )}
-            </div>
-          )}
+          {(tab === "home" || tab === "company") && <CompanyWorkspace game={game} company={player} onNavigate={navigateFromMission} />}
           {tab === "invest" && <InvestmentDesk />}
           {tab === "talent" && <TalentMarket game={game} company={player} />}
           {tab === "more" && (
@@ -279,7 +255,7 @@ export default function PlayPage() {
         </div>
 
         {/* Sidebar */}
-        <aside className="space-y-4 lg:sticky lg:top-32 lg:self-start">
+        {tab !== "home" && tab !== "company" && <aside className="space-y-4 lg:sticky lg:top-32 lg:self-start">
           <EconomyIndicators game={game} />
           <details className="card group p-4">
             <summary className="cursor-pointer list-none text-sm font-bold text-slate-700">
@@ -291,7 +267,7 @@ export default function PlayPage() {
               <CompanyStatusCard game={game} company={player} />
             </div>
           </details>
-        </aside>
+        </aside>}
       </main>
 
       {/* Toast */}
@@ -587,6 +563,8 @@ function ResultsPopup({
         <div className="p-5">
           <section aria-labelledby="turn-flow-title">
             <h3 id="turn-flow-title" className="text-sm font-black text-slate-800">물건과 돈은 이렇게 움직였어요</h3>
+            {!!snapshot.productPrices?.length && <p className="mt-2 text-xs text-slate-600">판매 중인 상품의 가격 계획: {snapshot.productPrices.map(price => formatMoney(price)).join(" / ")}</p>}
+            <p className="mt-2 rounded-xl bg-blue-50 p-3 text-sm text-blue-950">내 생산 계획 {snapshot.productionTarget.toLocaleString()}개 → 실제 생산 {r.unitsProduced.toLocaleString()}개 → 판매 {r.unitsSold.toLocaleString()}개. 재고는 {snapshot.inventory.toLocaleString()}개에서 {player.inventory.toLocaleString()}개로 바뀌었어요. 자금과 생산 한도, 상품 가격, 경기와 경쟁사의 선택이 함께 영향을 줘요.</p>
             <div className="mt-2 grid grid-cols-4 gap-1.5 text-center">
               <ResultStep emoji="🏭" label="생산" value={`${r.unitsProduced.toLocaleString()}개`} />
               <ResultStep emoji="🛍️" label="판매" value={`${r.unitsSold.toLocaleString()}개`} />

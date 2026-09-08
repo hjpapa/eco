@@ -5,15 +5,12 @@ import Link from "next/link";
 import type { RefObject } from "react";
 import type { Company, GameState } from "@/lib/engine";
 import { formatMoney } from "@/lib/format";
-import { getDragonStage, getEconomyWeather } from "@/lib/ui/gameExperience";
+import { getEconomyWeather } from "@/lib/ui/gameExperience";
 import { MASCOT_IMG } from "@/lib/assetMap";
 
 export function GameHud({
   game,
   player,
-  netWorthValue,
-  rank,
-  rankingUnlocked,
   muted,
   nextDisabled,
   nextButtonRef,
@@ -31,12 +28,11 @@ export function GameHud({
   onToggleMute: () => void;
   onNext: () => void;
 }) {
-  const stage = getDragonStage(game);
   const weather = getEconomyWeather(game.macro.phase);
   const campaignProgress = Math.min(100, Math.max(0, (game.turn / Math.max(1, game.maxTurns)) * 100));
 
   return (
-    <div className="relative mx-auto max-w-5xl px-3 pb-2 pt-2 sm:px-4">
+    <div className="relative mx-auto max-w-7xl px-3 pb-2 pt-2 sm:px-4">
       <div className="flex items-center gap-2 sm:gap-3">
         <div className="hud-dragon relative hidden h-12 w-12 shrink-0 overflow-hidden rounded-2xl bg-gradient-to-br from-amber-100 to-emerald-100 ring-2 ring-white sm:block">
           <Image src={MASCOT_IMG} alt="" fill sizes="48px" loading="eager" className="object-contain object-top" />
@@ -49,8 +45,6 @@ export function GameHud({
               <div className="truncate text-sm font-black text-slate-900">{player.name}</div>
               <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500 sm:text-xs">
                 <span>{game.turn}/{game.maxTurns}턴(분기)</span>
-                <span aria-hidden>·</span>
-                <span className="text-violet-700">Lv.{stage.level} {stage.label}</span>
               </div>
             </div>
           </div>
@@ -58,16 +52,12 @@ export function GameHud({
             <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-200">
               <div className="journey-progress-fill h-full rounded-full" style={{ width: `${campaignProgress}%` }} />
             </div>
-            <span className="hidden text-[10px] font-bold text-slate-400 md:block">
-              {stage.nextLabel ? `${stage.nextLabel}까지 ${stage.turnsToNext}턴(분기)` : "정상 도착"}
-            </span>
           </div>
         </div>
 
         <div className="hidden items-stretch gap-1.5 lg:flex">
-          <HudStat label="내 총재산(순자산)" value={formatMoney(netWorthValue)} tone="wealth" />
           <HudStat label="쓸 수 있는 돈(현금)" value={formatMoney(player.cash)} tone="cash" />
-          <HudStat label="회사 순위" value={rankingUnlocked ? `${rank}위` : "🔒 준비 중"} tone="rank" />
+          <HudStat label="지난 이익" value={formatMoney(player.lastProfit)} tone="wealth" />
         </div>
 
         <div
@@ -100,10 +90,9 @@ export function GameHud({
         </button>
       </div>
 
-      <div className="mt-2 grid grid-cols-3 gap-1.5 lg:hidden">
-        <HudStat label="총재산" value={formatMoney(netWorthValue)} tone="wealth" compact />
-        <HudStat label="현금" value={formatMoney(player.cash)} tone="cash" compact />
-        <HudStat label="순위" value={rankingUnlocked ? `${rank}위` : "잠김"} tone="rank" compact />
+      <div className="mt-2 grid grid-cols-2 gap-1.5 lg:hidden">
+        <HudStat label="쓸 수 있는 돈" value={formatMoney(player.cash)} tone="cash" compact />
+        <HudStat label="지난 이익" value={formatMoney(player.lastProfit)} tone="wealth" compact />
       </div>
     </div>
   );

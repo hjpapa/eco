@@ -26,6 +26,18 @@ function makeGame(maxTurns: 20 | 50 | 100 = 20) {
 }
 
 describe("game experience presentation", () => {
+  it("keeps only active product prices and detaches them from later decisions", () => {
+    const game = makeGame();
+    const player = game.companies.find(c => c.id === game.playerCompanyId)!;
+    player.productPrices = [100, 200, 300, 0];
+    player.productEnabled = [true, false, true, false];
+    const before = JSON.stringify(game);
+    const snapshot = captureTurnSnapshot(game);
+    expect(JSON.stringify(game)).toBe(before);
+    player.productPrices[0] = 150;
+    player.productEnabled[2] = false;
+    expect(snapshot.productPrices).toEqual([100, 300]);
+  });
   it("builds a guided mountain journey from the campaign unlock table", () => {
     const game = makeGame(20);
     const milestones = getJourneyMilestones(game);

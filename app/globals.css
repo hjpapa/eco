@@ -2,6 +2,14 @@
 @tailwind components;
 @tailwind utilities;
 
+.company-workspace button, .company-workspace input:not([type="range"]) { min-height: 44px; }
+.company-workspace input { min-width: 0; max-width: 100%; }
+.company-workspace input[type="range"] { height: 44px; }
+.company-workspace .card { box-shadow: none; }
+.company-workspace button:focus-visible { outline: 3px solid #6366f1; outline-offset: 2px; }
+.company-workspace [hidden] { display: none !important; }
+.company-workspace .flex:has(> input[aria-label="빌리거나 갚을 금액"]) { flex-wrap: wrap; }
+
 /* ── Gmarket Sans ─────────────────────────────────────────────────────── */
 @font-face {
   font-family: 'GmarketSans';

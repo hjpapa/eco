@@ -1,6 +1,7 @@
 "use client";
 
 import type { GameState } from "@/lib/engine/types";
+import { useState } from "react";
 import {
   getTurnMissions,
   type MissionDestination,
@@ -9,10 +10,15 @@ import {
 export function TurnMissionCard({
   game,
   onNavigate,
+  compact = false,
+  onCompanyTask,
 }: {
   game: GameState;
   onNavigate: (destination: MissionDestination) => void;
+  compact?: boolean;
+  onCompanyTask?: (id: string) => void;
 }) {
+  const [expanded, setExpanded] = useState(false);
   const missions = getTurnMissions(game);
   const completedCount = missions.filter((mission) => mission.done).length;
 
@@ -43,8 +49,9 @@ export function TurnMissionCard({
         </div>
       </div>
 
-      <ul className="grid gap-3 p-4 sm:grid-cols-2">
-        {missions.map((mission) => {
+      {compact && <button className="btn-ghost m-3" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>{expanded ? "첫 도전만 보기" : "다른 도전도 보기"}</button>}
+      <ul className={`grid gap-3 p-4 ${compact && !expanded ? "" : "sm:grid-cols-2"}`}>
+        {(compact && !expanded ? missions.slice(0, 1) : missions).map((mission) => {
           const descriptionId = `mission-${mission.id}-description`;
           return (
             <li
@@ -93,7 +100,7 @@ export function TurnMissionCard({
 
               <button
                 type="button"
-                onClick={() => onNavigate(mission.destination)}
+                onClick={() => { if (onCompanyTask && (mission.destination === "company" || mission.destination === "home")) onCompanyTask(mission.id); else onNavigate(mission.destination); }}
                 aria-describedby={descriptionId}
                 className={`mt-3 inline-flex min-h-11 w-full items-center justify-center gap-1 rounded-xl px-3 py-2 text-sm font-black transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 active:scale-[0.98] ${
                   mission.done

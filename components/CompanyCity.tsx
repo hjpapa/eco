@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import type { Company, GameState } from "@/lib/engine";
+import type { ComponentProps } from "react";
 
 // WebGL can't render during SSR, so load the 3D campus only on the client.
 const CompanyMap3D = dynamic(() => import("./CompanyMap3D").then((m) => m.CompanyMap3D), {
@@ -13,11 +13,6 @@ const CompanyMap3D = dynamic(() => import("./CompanyMap3D").then((m) => m.Compan
   ),
 });
 
-export function CompanyCity(props: {
-  game: GameState;
-  company: Company;
-  readOnly?: boolean;
-  overview?: boolean;
-}) {
+export function CompanyCity(props: ComponentProps<typeof CompanyMap3D>) {
   return <CompanyMap3D {...props} />;
 }

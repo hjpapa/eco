@@ -11,6 +11,7 @@ import { PriceChart } from "./PriceChart";
 import { ASSET_ICONS } from "@/lib/assetMap";
 import { PRESET_MAP } from "@/lib/data/companyPresets";
 import { CompanyMark } from "./CompanyMark";
+import { WORK_LESSONS } from "@/lib/learning/catalog";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -122,6 +123,7 @@ export function InvestmentDesk() {
       className="overflow-hidden rounded-2xl text-white shadow-2xl"
       style={{ background: "#080e1a", border: "1px solid rgba(148,163,184,0.08)" }}
     >
+      {tab === "assets" && <div className="bg-blue-950 p-4 text-sm text-blue-100"><b>📘 {WORK_LESSONS.fx.term}</b><p>{WORK_LESSONS.fx.text}</p><p className="mt-1 text-xs">{WORK_LESSONS.fx.impact}</p></div>}
       {/* ── Status bar ── */}
       <div
         className="flex items-center justify-between px-4 py-2"

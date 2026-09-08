@@ -6,6 +6,16 @@ import {
 
 export const LEARNING_CATALOG_VERSION = 1 as const;
 
+export const WORK_LESSONS = {
+  fx: { term: "환율", text: "환율은 다른 나라 돈의 가격이에요. 달러를 가진 뒤 달러 가격이 오르면 평가액이 늘고, 내려가면 줄어요.", impact: "이 게임에서는 달러 자산의 가격과 평가액으로 환율 변화를 경험해요. 회사 상품 가격이나 원가가 환율에 직접 연동되지는 않아요." },
+  production: { term: "재고", text: "팔리지 않은 상품은 재고예요. 너무 많이 만들면 재료에 쓴 돈이 창고에 묶일 수 있어요.", impact: "현실에서는 물가가 오르면 재료비도 오를 수 있어요. 이 게임의 생산비는 업종·국가·생산 효율로 계산돼요. 생산 목표와 예상 수요를 비교하세요." },
+  sales: { term: "매출", text: "판매한 수량과 가격이 매출을 만들어요. 가격을 내리면 더 팔릴 수 있지만 한 개당 남는 돈은 줄 수 있어요.", impact: "가격과 상품 선택은 다음 턴 판매에 반영돼요. 경기와 경쟁사도 판매량에 영향을 줘요." },
+  research: { term: "투자", text: "연구는 앞으로 더 좋은 상품을 만들기 위해 돈을 쓰는 투자예요. 품질이 좋아져도 판매가 반드시 늘지는 않아요.", impact: "연구 행동은 즉시 비용을 쓰고, 연구 예산은 다음 턴에 반영돼요. 운영할 돈도 남겨 두세요." },
+  staff: { term: "생산성", text: "직원의 사기와 안전은 회사 운영에 영향을 줘요. 교육과 안전에 쓰는 돈도 경영의 일부예요.", impact: "버튼의 활동은 즉시 비용이 들어요. 직원 상태를 보고 필요한 활동을 골라 보세요." },
+  finance: { term: "이자", text: "돈을 빌리면 원금뿐 아니라 이자도 내요. 금리가 높아지면 같은 빚에도 이자가 늘어요.", impact: "매출에서 비용을 빼면 이익이에요. 현금, 빚, 다음 턴 이자를 함께 살펴보세요." },
+  construction: { term: "인접 보너스", text: "서로 돕는 건물을 상하좌우로 붙이면 인접 보너스가 생겨요. 건물은 지을 때뿐 아니라 운영할 때도 돈이 들어요.", impact: "건설비는 즉시 지불하고 건물은 공사가 끝난 뒤 작동해요. 배치 전 비용과 유지비를 확인하세요." },
+} as const;
+
 export type LearningCourseId =
   | "basics"
   | "growth"
@@ -271,7 +281,8 @@ const UPDATED_MANUAL = MANUAL_SECTIONS.map((section) => section.id === "goal"
  */
 export const LEARNING_CATALOG = {
   version: LEARNING_CATALOG_VERSION,
-  courses: COURSES,
+  courses: COURSES.map((course) => course.id === "basics" ? { ...course, sections: [...course.sections, ...Object.values(WORK_LESSONS).map((lesson) => ({ title: lesson.term, body: lesson.text, tip: lesson.impact }))] } : course),
+  workLessons: WORK_LESSONS,
   quickStart: QUICK_START,
   spotlight: SPOTLIGHT_TUTORIAL,
   manual: UPDATED_MANUAL,

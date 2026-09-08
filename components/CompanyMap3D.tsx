@@ -1103,6 +1103,10 @@ function Scene({
   comboLinks,
   highlightedComboKeys,
   onCell,
+  cameraEnabled = true,
+  workspace = false,
+  reducedMotion = false,
+  buildingLabels = {},
 }: {
   game: GameState; company: Company; readOnly: boolean; overview: boolean;
   selectedType: BuildingType | null;
@@ -1111,10 +1115,14 @@ function Scene({
   comboLinks: ActiveComboLink[];
   highlightedComboKeys: string[];
   onCell: (x: number, y: number) => void;
+  cameraEnabled?: boolean;
+  workspace?: boolean;
+  reducedMotion?: boolean;
+  buildingLabels?: Record<string, string>;
 }) {
   const n = game.config.mapSize;
   const half = (n * TILE) / 2;
-  const grass = PHASE_GRASS[game.macro.phase] ?? PHASE_GRASS.normal;
+  const grass = workspace ? "#a9d98a" : PHASE_GRASS[game.macro.phase] ?? PHASE_GRASS.normal;
   // Deterministic per-company seed so each campus's skyline & crowd look distinct.
   const companySeed = [...company.id].reduce((a, c) => a + c.charCodeAt(0), 0);
   const [hover, setHover] = useState<string | null>(null);
@@ -1214,6 +1222,11 @@ function Scene({
                     tint={company.logoColor}
                     seed={companySeed + b.x * 7 + b.y * 13}
                   />
+                  {buildingLabels[b.id] && <Html position={[0, 1.6 + Object.keys(buildingLabels).indexOf(b.id) * 1.8, 0]} center zIndexRange={[15, 0]} calculatePosition={(object, camera, size) => {
+                    const point = new THREE.Vector3().setFromMatrixPosition(object.matrixWorld).project(camera);
+                    const lane = 2 - Object.keys(buildingLabels).indexOf(b.id);
+                    return [Math.max(60, Math.min(size.width - 60, (point.x + 1) * size.width / 2)), Math.max(18 + lane * 32, Math.min(size.height - 18, (1 - point.y) * size.height / 2))];
+                  }}><div className="pointer-events-none whitespace-nowrap rounded-lg border border-emerald-200 bg-white/95 px-2 py-1 text-xs font-bold text-slate-800 shadow">{buildingLabels[b.id]}</div></Html>}
                 </group>
               )}
             </group>
@@ -1222,8 +1235,8 @@ function Scene({
       )}
 
       {/* agents */}
-      {cars.map((a, i) => <Car key={`c${i}`} a={a} />)}
-      {people.map((a, i) => (
+      {!reducedMotion && cars.map((a, i) => <Car key={`c${i}`} a={a} />)}
+      {!reducedMotion && people.map((a, i) => (
         <Person
           key={`p${i}`}
           a={a}
@@ -1235,17 +1248,18 @@ function Scene({
 
       <IndustryLandmark industryId={company.industryId} color={company.logoColor} x={-(half + 0.35)} z={half + 0.35} />
 
-      {company.visitor && (
+      {!reducedMotion && company.visitor && (
         <VisitorAgent visitor={company.visitor} half={half} company={company} />
       )}
 
       <OrbitControls
+        enabled={cameraEnabled}
         enablePan={false}
         minDistance={n * 0.9}
         maxDistance={n * 2.4}
         minPolarAngle={0.2}
         maxPolarAngle={Math.PI / 2.4}
-        autoRotate={overview}
+        autoRotate={overview && !reducedMotion && !workspace}
         autoRotateSpeed={0.6}
         target={[0, 0.3, 0]}
       />
@@ -1256,8 +1270,15 @@ function Scene({
 /* ── main component ──────────────────────────────────────────────────────── */
 export function CompanyMap3D({
   game, company, readOnly = false, overview = false,
+  onWorkspaceCell, pendingType = null, inspectedId = null, cameraEnabled = true, reducedMotion = false, buildingLabels = {},
 }: {
   game: GameState; company: Company; readOnly?: boolean; overview?: boolean;
+  onWorkspaceCell?: (x: number, y: number) => void;
+  pendingType?: BuildingType | null;
+  inspectedId?: string | null;
+  cameraEnabled?: boolean;
+  reducedMotion?: boolean;
+  buildingLabels?: Record<string, string>;
 }) {
   const build = useGameStore((s) => s.build);
   const [selectedType, setSelectedType] = useState<BuildingType | null>(null);
@@ -1320,6 +1341,7 @@ export function CompanyMap3D({
   }, [comboSignature, company.id, readOnly, overview]);
 
   const onCell = (gx: number, gy: number) => {
+    if (onWorkspaceCell) { onWorkspaceCell(gx, gy); return; }
     if (readOnly) return;
     const existing = company.buildings.find((b) => b.x === gx && b.y === gy);
     if (existing) {
@@ -1336,10 +1358,10 @@ export function CompanyMap3D({
   return (
     <div className="space-y-3">
       <div
-        className={`relative w-full overflow-hidden rounded-2xl ${overview ? "" : "h-[290px] sm:h-auto"}`}
+        className={`relative w-full overflow-hidden rounded-2xl ${onWorkspaceCell ? "h-[300px] md:h-[400px] xl:h-[clamp(320px,48vh,560px)]" : overview ? "" : "h-[290px] sm:h-auto"}`}
         style={{
           aspectRatio: overview ? "16 / 10" : "16 / 9",
-          maxHeight: overview ? 320 : 560,
+          maxHeight: onWorkspaceCell ? undefined : overview ? 320 : 560,
           background: PHASE_BG[game.macro.phase] ?? PHASE_BG.normal,
         }}
       >
@@ -1349,7 +1371,7 @@ export function CompanyMap3D({
           aria-live="polite"
           aria-atomic="true"
         >
-          {comboFeedback && (
+          {comboFeedback && !onWorkspaceCell && (
             <div className="max-w-sm rounded-2xl bg-slate-950/90 px-4 py-2.5 text-center text-white shadow-xl ring-1 ring-amber-200/70 motion-safe:animate-popin">
               <div className="text-sm font-black">{comboFeedback.title}</div>
               <div className="mt-0.5 text-xs leading-relaxed text-slate-200">{comboFeedback.detail}</div>
@@ -1358,18 +1380,23 @@ export function CompanyMap3D({
         </div>
         <Canvas
           shadows
+          frameloop={reducedMotion ? "demand" : "always"}
           dpr={[1, 1.8]}
           camera={{ position: [n * 1.15, n * 0.95, n * 1.2], fov: 40 }}
         >
-          <color attach="background" args={[PHASE_BG[game.macro.phase] ?? PHASE_BG.normal]} />
+          <color attach="background" args={[onWorkspaceCell ? "#e4f4ed" : PHASE_BG[game.macro.phase] ?? PHASE_BG.normal]} />
           <Scene
             game={game}
             company={company}
             readOnly={readOnly}
             overview={overview}
-            selectedType={selectedType}
-            selectedBuildingId={selectedBuildingId}
-            recommendedCell={recommended}
+            selectedType={onWorkspaceCell ? pendingType : selectedType}
+            selectedBuildingId={onWorkspaceCell ? inspectedId : selectedBuildingId}
+            recommendedCell={onWorkspaceCell && pendingType ? findBestBuildingCell(company, pendingType, n) : recommended}
+            workspace={!!onWorkspaceCell}
+            cameraEnabled={cameraEnabled}
+            reducedMotion={reducedMotion}
+            buildingLabels={buildingLabels}
             comboLinks={comboLinks}
             highlightedComboKeys={comboFeedback?.linkKeys ?? []}
             onCell={onCell}
@@ -1377,7 +1404,7 @@ export function CompanyMap3D({
         </Canvas>
       </div>
 
-      {!readOnly && !overview && inspected && (
+      {!onWorkspaceCell && !readOnly && !overview && inspected && (
         <BuildingInteriorModal
           game={game}
           company={company}
@@ -1386,7 +1413,7 @@ export function CompanyMap3D({
         />
       )}
 
-      {!readOnly && !overview && (
+      {!onWorkspaceCell && !readOnly && !overview && (
         <div>
           {game.config.adjacencyBonus ? (
             <div className="mb-3 rounded-xl bg-emerald-50 px-3 py-2 text-sm leading-relaxed text-emerald-900 ring-1 ring-emerald-200">
