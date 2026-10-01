@@ -56,6 +56,19 @@ body {
   box-sizing: border-box;
 }
 
+/* construction celebration: pop in, hold, float away */
+@keyframes build-pop {
+  0% { opacity: 0; transform: translateY(12px) scale(0.6); }
+  14% { opacity: 1; transform: translateY(0) scale(1.08); }
+  24% { transform: scale(1); }
+  82% { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(-10px) scale(0.98); }
+}
+.build-celebration { animation: build-pop 1.8s ease-out both; }
+@media (prefers-reduced-motion: reduce) {
+  .build-celebration { animation: none; }
+}
+
 /* isometric campus agents — SVG shapes that slide along diagonal paths */
 @keyframes iso-agent-move {
   from { transform: translate(0px, 0px); }

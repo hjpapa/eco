@@ -4,9 +4,8 @@ import { Component, useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import {
   BUILDINGS,
-  BUILDING_LIST,
-  buildingConstructionCost,
-  buildingCostFor,
+  estimateBuildingImpact,
+  evaluateBuildingPlacement,
   findBestBuildingCell,
   getActiveBuildingCombos,
   estimateDemand,
@@ -23,12 +22,15 @@ import { formatMoney, formatNum } from "@/lib/format";
 import {
   COMPANY_TASKS,
   taskForBuilding,
+  taskForMission,
   type CompanyTask,
 } from "@/lib/ui/companyWorkspace";
+import { getCityProgress } from "@/lib/ui/cityBuilder";
 import { WORK_LESSONS } from "@/lib/learning/catalog";
 import { useGameStore } from "@/store/gameStore";
 import { CompanyCity } from "./CompanyCity";
 import { CompanyPanel } from "./CompanyPanel";
+import { BuildingIcon, ConstructionPanel } from "./ConstructionPanel";
 import { Dashboard } from "./Dashboard";
 import { EconomyIndicators } from "./EconomyIndicators";
 import { RivalChase } from "./RivalChase";
@@ -48,6 +50,8 @@ class MapBoundary extends Component<
   }
 }
 
+type Celebration = { key: number; emoji: string; title: string; detail?: string; big?: boolean };
+
 export function CompanyWorkspace({
   game,
   company,
@@ -57,20 +61,20 @@ export function CompanyWorkspace({
   company: Company;
   onNavigate: (destination: MissionDestination) => void;
 }) {
-  const [task, setTask] = useState<CompanyTask>("production");
+  const [task, setTask] = useState<CompanyTask>("construction");
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [pending, setPending] = useState<BuildingType | null>(null);
+  const [pending, setPendingState] = useState<BuildingType | null>(null);
+  const [confirmCell, setConfirmCell] = useState<{ x: number; y: number } | null>(null);
   const [flat, setFlat] = useState(false);
   const [camera, setCamera] = useState(false);
   const [reduced, setReduced] = useState(false);
   const [report, setReport] = useState(false);
-  const [comboNotice, setComboNotice] = useState("");
+  const [celebration, setCelebration] = useState<Celebration | null>(null);
   const actionLock = useRef(0);
   const panel = useRef<HTMLElement>(null);
+  const mapSection = useRef<HTMLElement>(null);
   const build = useGameStore((s) => s.build);
-  const upgrade = useGameStore((s) => s.upgrade);
-  const demolish = useGameStore((s) => s.demolish);
-  const unlocked = isFeatureUnlocked(game, "buildingsResearch");
+  const researchUnlocked = isFeatureUnlocked(game, "research");
   const advanced =
     game.config.showAdvancedMetrics &&
     isFeatureUnlocked(game, "visitsPartnershipsAdvanced");
@@ -84,21 +88,50 @@ export function CompanyWorkspace({
     game.config,
   );
   const combos = getActiveBuildingCombos(company.buildings);
-  const comboKey = combos
-    .map((c) => c.id)
-    .sort()
-    .join(",");
-  const previousCombo = useRef(comboKey);
+  const city = getCityProgress(company);
+
+  const setPending = (type: BuildingType | null) => {
+    setPendingState(type);
+    setConfirmCell(null);
+    if (!type) return;
+    setSelectedId(null);
+    // On tablets the cards sit below the map: bring the map back into view.
+    if (window.innerWidth < 1280) {
+      window.requestAnimationFrame(() =>
+        mapSection.current?.scrollIntoView({ block: "start", behavior: "smooth" }),
+      );
+    }
+  };
+
+  // Celebrate new buildings, upgrades, combinations and city growth. The
+  // signature covers in-place engine mutations (the company object is reused).
+  const signature = company.buildings.map((b) => `${b.id}:${b.level}`).join("|");
+  const comboIds = combos.map((c) => c.id);
+  const previous = useRef({ signature, comboIds, stage: city.stage.id, count: company.buildings.length });
   useEffect(() => {
-    if (
-      comboKey !== previousCombo.current &&
-      comboKey.length > previousCombo.current.length
-    )
-      setComboNotice("✨ 새 인접 조합 완성! 서로 돕는 건물이 연결됐어요.");
-    previousCombo.current = comboKey;
-    const timer = window.setTimeout(() => setComboNotice(""), 3500);
+    const before = previous.current;
+    previous.current = { signature, comboIds, stage: city.stage.id, count: company.buildings.length };
+    if (before.signature === signature) return;
+    const newCombos = combos.filter((c) => !before.comboIds.includes(c.id));
+    const grew = city.stage.id !== before.stage && city.score > 0;
+    let next: Omit<Celebration, "key"> | null = null;
+    if (grew) {
+      next = { emoji: city.stage.emoji, title: `${city.stage.label}로 성장했어요!`, detail: "도시가 한 단계 커졌어요", big: true };
+    } else if (newCombos.length > 0) {
+      next = { emoji: newCombos[0].emoji, title: `${newCombos[0].name} 완성!`, detail: newCombos[0].description };
+    } else if (company.buildings.length > before.count) {
+      const newest = company.buildings[company.buildings.length - 1];
+      next = { emoji: BUILDINGS[newest.type].emoji, title: `${BUILDINGS[newest.type].name} 완성!` };
+    } else if (company.buildings.length === before.count) {
+      next = { emoji: "⬆️", title: "업그레이드 완료!", detail: "건물이 더 커지고 튼튼해졌어요" };
+    }
+    if (!next) return;
+    setCelebration({ ...next, key: Date.now() });
+    const timer = window.setTimeout(() => setCelebration(null), next.big ? 2600 : 1800);
     return () => window.clearTimeout(timer);
-  }, [comboKey]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [signature]);
+
   useEffect(() => {
     const media = window.matchMedia("(prefers-reduced-motion: reduce)");
     const update = () => setReduced(media.matches);
@@ -111,12 +144,13 @@ export function CompanyWorkspace({
     }
     return () => media.removeEventListener("change", update);
   }, []);
-  const locked = (id: CompanyTask) =>
-    (id === "research" || id === "construction") && !unlocked;
+
+  const locked = (id: CompanyTask) => id === "research" && !researchUnlocked;
   const choose = (id: CompanyTask, buildingId: string | null = null) => {
     setTask(id);
     setSelectedId(buildingId);
-    setPending(null);
+    setPendingState(null);
+    setConfirmCell(null);
     window.requestAnimationFrame(() => {
       panel.current?.focus({ preventScroll: true });
       if (window.innerWidth < 1280)
@@ -128,22 +162,47 @@ export function CompanyWorkspace({
     actionLock.current = Date.now() + 500;
     action();
   };
+
+  const recommendation = pending
+    ? findBestBuildingCell(company, pending, game.config.mapSize)
+    : null;
+  const previewCell = confirmCell ?? recommendation;
+  const preview = pending && previewCell
+    ? estimateBuildingImpact(game, company, pending, previewCell)
+    : null;
+
+  /** Build right away, unless it would drain the emergency fund: then ask once. */
+  const tryBuild = (x: number, y: number) => {
+    if (!pending) return;
+    const impact = estimateBuildingImpact(game, company, pending, { x, y });
+    if (!impact) return;
+    const confirmed = confirmCell?.x === x && confirmCell?.y === y;
+    if (impact.belowSafetyLine && !confirmed) {
+      setConfirmCell({ x, y });
+      return;
+    }
+    once(() => {
+      build(pending, x, y);
+      setPending(null);
+    });
+  };
+
   const onCell = (x: number, y: number) => {
     const b = company.buildings.find((b) => b.x === x && b.y === y);
     if (b) {
-      choose(
-        task === "construction" ? "construction" : taskForBuilding(b.type),
-        b.id,
-      );
+      if (pending) return; // keep placing; tapping a building does nothing
+      if (task === "construction") {
+        setSelectedId(b.id === selectedId ? null : b.id);
+        window.requestAnimationFrame(() => {
+          if (window.innerWidth < 1280) panel.current?.scrollIntoView({ block: "start", behavior: "smooth" });
+        });
+      } else choose(taskForBuilding(b.type), b.id);
       return;
     }
-    if (task === "construction" && pending && unlocked) {
-      once(() => {
-        build(pending, x, y);
-        setPending(null);
-      });
-    } else choose("construction");
+    if (task === "construction" && pending) tryBuild(x, y);
+    else choose("construction");
   };
+
   const labels: Record<string, string> = {};
   for (const type of ["factory", "warehouse", "hr"] as const) {
     const b = company.buildings.find(
@@ -157,11 +216,12 @@ export function CompanyWorkspace({
           ? `🏭 계획 ${formatNum(company.decisions.productionTarget)}개`
           : type === "warehouse"
             ? `📦 재고 ${formatNum(company.inventory)}개`
-            : `👥 사기 ${Math.round(company.morale)}점`;
+            : `😊 행복 ${Math.round(company.morale)}점`;
   }
+
   const flatMap = (
     <div
-      className="overflow-auto rounded-2xl bg-emerald-100 p-4"
+      className="overflow-auto rounded-2xl bg-emerald-100 p-3"
       aria-label="2D 회사 지도"
     >
       <div
@@ -174,19 +234,39 @@ export function CompanyWorkspace({
           const x = i % game.config.mapSize,
             y = Math.floor(i / game.config.mapSize);
           const b = company.buildings.find((b) => b.x === x && b.y === y);
+          const placement = !b && pending
+            ? evaluateBuildingPlacement(company, pending, x, y, game.config.mapSize)
+            : null;
+          const isRecommended = !!pending && recommendation?.x === x && recommendation?.y === y;
+          const isConfirm = confirmCell?.x === x && confirmCell?.y === y;
+          const tone = b
+            ? `border-emerald-300 bg-white ${b.id === selectedId ? "ring-2 ring-indigo-500" : ""}`
+            : isConfirm
+              ? "border-amber-500 bg-amber-200 ring-2 ring-amber-500"
+              : isRecommended
+                ? "border-emerald-500 bg-emerald-300 ring-2 ring-emerald-500"
+                : placement?.combos.length
+                  ? "border-amber-300 bg-amber-100"
+                  : pending
+                    ? "border-emerald-300 bg-emerald-50"
+                    : "border-emerald-200 bg-emerald-50/70";
           return (
             <button
               key={i}
-              className={`min-h-14 rounded-lg border p-1 text-xs ${b ? "border-emerald-300 bg-white" : "border-emerald-200 bg-emerald-50"} ${b?.id === selectedId ? "ring-2 ring-indigo-500" : ""}`}
+              className={`relative flex min-h-16 flex-col items-center justify-center rounded-lg border p-1 text-[11px] leading-tight ${tone}`}
               onClick={() => onCell(x, y)}
-              aria-label={`${x + 1}행 ${y + 1}열 ${b ? BUILDINGS[b.type].name : "빈 땅"}`}
+              aria-label={`${x + 1}열 ${y + 1}줄 ${b ? `${BUILDINGS[b.type].name} 레벨 ${b.level}` : placement?.combos.length ? "빈 땅, 조합 보너스 칸" : "빈 땅"}`}
             >
-              <span className="block text-xl">
-                {b ? BUILDINGS[b.type].emoji : "＋"}
-              </span>
-              {b ? BUILDINGS[b.type].name : "빈 땅"}
-              {b && labels[b.id] && (
-                <span className="block">{labels[b.id]}</span>
+              {b ? (
+                <>
+                  <BuildingIcon type={b.type} size="h-8 w-8" />
+                  <span className="font-bold text-slate-700">{BUILDINGS[b.type].name.split("·")[0]}</span>
+                  {b.level > 1 && <span className="absolute right-0.5 top-0.5 text-[10px] text-amber-500">{"★".repeat(b.level)}</span>}
+                </>
+              ) : (
+                <span className="text-lg text-emerald-700/70" aria-hidden>
+                  {isRecommended ? "⭐" : placement?.combos.length ? "✨" : "＋"}
+                </span>
               )}
             </button>
           );
@@ -194,10 +274,9 @@ export function CompanyWorkspace({
       </div>
     </div>
   );
-  const recommendation = pending
-    ? findBestBuildingCell(company, pending, game.config.mapSize)
-    : null;
+
   const lesson = WORK_LESSONS[task];
+  const taskInfo = COMPANY_TASKS.find((t) => t.id === task);
 
   return (
     <div className="company-workspace space-y-4" onKeyDown={(event) => {
@@ -209,10 +288,10 @@ export function CompanyWorkspace({
             DRAGON MOUNTAIN CITY
           </p>
           <h1 className="text-2xl font-black text-slate-900">
-            우리 회사에서 시작하는 하루
+            우리 회사 도시 만들기
           </h1>
           <p className="text-sm text-slate-600">
-            건물이나 업무를 눌러 이번 턴의 계획을 세워요.
+            건물을 지어 도시를 키우고, 생산·판매 계획을 세워요.
           </p>
         </div>
         <button
@@ -236,12 +315,28 @@ export function CompanyWorkspace({
         </div>
       ) : (
         <>
-          <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,7fr)_minmax(340px,3fr)]">
-            <section className="min-w-0 space-y-3 rounded-3xl border border-emerald-200 bg-white/90 p-3 shadow-sm">
+          <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,7fr)_minmax(360px,3fr)]">
+            <section ref={mapSection} className="min-w-0 scroll-mt-40 space-y-3 rounded-3xl border border-emerald-200 bg-white/90 p-3 shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-2 px-2">
-                <h2 className="font-black text-emerald-950">
-                  🏙️ {company.name}
-                </h2>
+                <div className="flex min-w-0 items-center gap-2">
+                  <h2 className="truncate font-black text-emerald-950">
+                    🏙️ {company.name}
+                  </h2>
+                  <button
+                    type="button"
+                    onClick={() => choose("construction")}
+                    className="flex items-center gap-1.5 rounded-full bg-violet-100 px-2.5 py-1 text-xs font-black text-violet-800 ring-1 ring-violet-200"
+                    title="도시 점수: 건물 레벨 1점, 조합 2점"
+                  >
+                    <span aria-hidden>{city.stage.emoji}</span>
+                    {city.stage.label}
+                    {city.next && (
+                      <span className="hidden h-1.5 w-12 overflow-hidden rounded-full bg-white sm:block" aria-hidden>
+                        <span className="block h-full rounded-full bg-violet-500" style={{ width: `${Math.round(city.progress * 100)}%` }} />
+                      </span>
+                    )}
+                  </button>
+                </div>
                 <div className="flex gap-2">
                   <button
                     className="btn-ghost"
@@ -261,31 +356,50 @@ export function CompanyWorkspace({
                   )}
                 </div>
               </div>
-              {flat ? (
-                flatMap
-              ) : (
-                <MapBoundary fallback={flatMap}>
-                  <CompanyCity
-                    game={game}
-                    company={company}
-                    onWorkspaceCell={onCell}
-                    pendingType={pending}
-                    inspectedId={selectedId}
-                    cameraEnabled={camera}
-                    reducedMotion={reduced}
-                    buildingLabels={labels}
-                  />
-                </MapBoundary>
-              )}
-              <div
-                role="status"
-                className="min-h-6 px-2 text-sm font-bold text-emerald-800"
-              >
-                {comboNotice ||
-                  (pending
-                    ? `${BUILDINGS[pending].name}: 빈 땅을 눌러 건설하세요.`
-                    : "건물을 누르면 관련 업무가 열려요.")}
+              <div className="relative">
+                {flat ? (
+                  flatMap
+                ) : (
+                  <MapBoundary fallback={flatMap}>
+                    <CompanyCity
+                      game={game}
+                      company={company}
+                      onWorkspaceCell={onCell}
+                      pendingType={pending}
+                      inspectedId={selectedId}
+                      confirmCell={confirmCell}
+                      cameraEnabled={camera}
+                      reducedMotion={reduced}
+                      buildingLabels={labels}
+                    />
+                  </MapBoundary>
+                )}
+                {celebration && (
+                  <div
+                    key={celebration.key}
+                    className="pointer-events-none absolute inset-x-0 top-6 z-20 flex justify-center"
+                    aria-hidden
+                  >
+                    <div className={`build-celebration rounded-2xl bg-slate-950/90 px-5 py-3 text-center text-white shadow-2xl ring-2 ${celebration.big ? "ring-violet-300" : "ring-amber-300"}`}>
+                      <div className={celebration.big ? "text-5xl" : "text-4xl"}>{celebration.emoji}</div>
+                      <div className="mt-1 text-lg font-black">{celebration.title}</div>
+                      {celebration.detail && <div className="text-xs text-slate-200">{celebration.detail}</div>}
+                    </div>
+                  </div>
+                )}
               </div>
+              <PlacementBar
+                pending={pending}
+                previewProfit={preview?.profitDelta ?? null}
+                previewPayback={preview?.paybackTurns ?? null}
+                comboCount={preview?.combos.length ?? 0}
+                confirm={confirmCell && preview ? { cashAfter: preview.cashAfter, safetyLine: preview.safetyLine } : null}
+                canRecommend={!!recommendation}
+                onRecommend={() => recommendation && tryBuild(recommendation.x, recommendation.y)}
+                onConfirm={() => confirmCell && tryBuild(confirmCell.x, confirmCell.y)}
+                onCancel={() => setPending(null)}
+                idleText={task === "construction" ? "지을 건물을 고르세요. 지도의 건물을 누르면 업그레이드할 수 있어요." : "건물을 누르면 관련 업무가 열려요."}
+              />
               <nav
                 className="grid grid-cols-3 gap-2 sm:grid-cols-6"
                 aria-label="회사 업무"
@@ -294,7 +408,13 @@ export function CompanyWorkspace({
                   <button
                     key={t.id}
                     aria-pressed={task === t.id}
-                    className={`min-h-16 rounded-2xl px-2 py-3 text-sm font-bold ${task === t.id ? "bg-emerald-700 text-white shadow" : "bg-slate-100 text-slate-700"}`}
+                    className={`min-h-16 rounded-2xl px-2 py-3 text-sm font-bold ${
+                      task === t.id
+                        ? "bg-emerald-700 text-white shadow"
+                        : t.id === "construction"
+                          ? "bg-amber-100 text-amber-900 ring-2 ring-amber-300"
+                          : "bg-slate-100 text-slate-700"
+                    }`}
                     onClick={() => choose(t.id)}
                   >
                     <span className="block text-xl">
@@ -306,16 +426,16 @@ export function CompanyWorkspace({
               </nav>
               <details className="rounded-xl bg-slate-50 p-3">
                 <summary className="cursor-pointer text-sm font-bold">
-                  건물 목록으로 선택하기
+                  건물 목록으로 선택하기 ({company.buildings.length}개)
                 </summary>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {company.buildings.map((b) => (
                     <button
                       className="btn-ghost"
                       key={b.id}
-                      onClick={() => choose(taskForBuilding(b.type), b.id)}
+                      onClick={() => choose("construction", b.id)}
                     >
-                      {BUILDINGS[b.type].emoji} {BUILDINGS[b.type].name} (
+                      {BUILDINGS[b.type].emoji} {BUILDINGS[b.type].name} Lv.{b.level} (
                       {b.x + 1}, {b.y + 1})
                     </button>
                   ))}
@@ -326,156 +446,52 @@ export function CompanyWorkspace({
               ref={panel}
               tabIndex={-1}
               aria-label="선택한 경영 업무"
-              className="min-w-0 scroll-mt-40 space-y-3 rounded-3xl border border-slate-200 bg-white p-4 outline-none xl:sticky xl:top-36"
+              className="min-w-0 scroll-mt-40 space-y-3 rounded-3xl border border-slate-200 bg-white p-4 outline-none xl:sticky xl:top-36 xl:max-h-[calc(100vh-10rem)] xl:overflow-y-auto"
             >
               <div className="flex justify-between gap-2">
                 <h2 className="text-xl font-black">
-                  {COMPANY_TASKS.find((t) => t.id === task)?.icon}{" "}
-                  {COMPANY_TASKS.find((t) => t.id === task)?.label}
+                  {taskInfo?.icon} {taskInfo?.label}
                 </h2>
-                {selected && (
+                {selected && task !== "construction" && (
                   <span className="text-xs text-slate-500">
                     {BUILDINGS[selected.type].name} Lv.{selected.level}
                   </span>
                 )}
               </div>
-              <div className="rounded-xl bg-slate-50 p-3 text-sm">
-                <b>현재 상황</b>
-                <p className="mt-1">
-                  {task === "production"
-                    ? `생산 한도 ${formatNum(capacity)}개 · 이전 가격 기준 예상 수요 ${formatNum(demand)}개 · 재고 ${formatNum(company.inventory)}개`
-                    : task === "finance"
-                      ? `현금 ${formatMoney(company.cash)} · 지난 이익 ${formatMoney(company.lastProfit)}`
-                      : task === "research"
-                        ? `품질 ${Math.round(company.quality)}점`
-                        : task === "staff"
-                          ? `사기 ${Math.round(company.morale)}점 · 안전 ${Math.round(company.safety)}점`
-                          : task === "sales"
-                            ? `지난 매출 ${formatMoney(company.lastRevenue)}`
-                            : `건물 ${company.buildings.length}개 · 인접 조합 ${combos.length}개`}
-                </p>
-              </div>
+              {task !== "construction" && (
+                <div className="rounded-xl bg-slate-50 p-3 text-sm">
+                  <b>현재 상황</b>
+                  <p className="mt-1">
+                    {task === "production"
+                      ? `생산 한도 ${formatNum(capacity)}개 · 이전 가격 기준 예상 수요 ${formatNum(demand)}개 · 재고 ${formatNum(company.inventory)}개`
+                      : task === "finance"
+                        ? `현금 ${formatMoney(company.cash)} · 지난 이익 ${formatMoney(company.lastProfit)}`
+                        : task === "research"
+                          ? `품질 ${Math.round(company.quality)}점`
+                          : task === "staff"
+                            ? `직원 행복 ${Math.round(company.morale)}점 · 안전 ${Math.round(company.safety)}점`
+                            : `지난 매출 ${formatMoney(company.lastRevenue)}`}
+                  </p>
+                </div>
+              )}
               {locked(task) ? (
                 <p className="rounded-xl bg-amber-50 p-4 text-sm">
                   🔒{" "}
-                  {getFeatureUnlockTurn(game.gameLength, "buildingsResearch")}
-                  턴(분기)에 열려요. 지금은 생산과 판매를 해 보세요.
+                  {getFeatureUnlockTurn(game.gameLength, "research")}
+                  턴(분기)에 열려요. 지금은 건물을 짓고 생산과 판매를 해 보세요.
                 </p>
               ) : task === "construction" ? (
-                <div className="space-y-3">
-                  <p className="text-sm font-bold">
-                    내 선택 · 건물과 빈 땅을 차례로 선택하세요
-                  </p>
-                  {selected && (
-                    <div className="rounded-xl border p-3 text-sm">
-                      <b>{BUILDINGS[selected.type].name}</b>
-                      <p>
-                        유지비{" "}
-                        {formatMoney(
-                          BUILDINGS[selected.type].upkeep * selected.level,
-                        )}
-                        /턴 ·{" "}
-                        {selected.turnsLeft > 0
-                          ? `공사 ${selected.turnsLeft}턴 남음`
-                          : "운영 중"}
-                      </p>
-                      <button
-                        className="btn-primary mt-2"
-                        disabled={
-                          selected.turnsLeft > 0 ||
-                          selected.level >= BUILDINGS[selected.type].maxLevel ||
-                          company.cash <
-                            buildingCostFor(selected.type, selected.level + 1)
-                        }
-                        onClick={() => once(() => upgrade(selected.id))}
-                      >
-                        업그레이드 ·{" "}
-                        {formatMoney(
-                          buildingCostFor(selected.type, selected.level + 1),
-                        )}{" "}
-                        즉시 지불
-                      </button>
-                      <button
-                        className="btn-ghost mt-2"
-                        onClick={() => {
-                          if (
-                            window.confirm(
-                              `${BUILDINGS[selected.type].name}을 매각할까요?`,
-                            )
-                          )
-                            once(() => {
-                              demolish(selected.id);
-                              setSelectedId(null);
-                            });
-                        }}
-                      >
-                        건물 매각
-                      </button>
-                    </div>
-                  )}
-                  <div className="grid grid-cols-2 gap-2">
-                    {BUILDING_LIST.filter((b) =>
-                      game.config.enabledBuildings.includes(b.type),
-                    ).map((b) => (
-                      <button
-                        key={b.type}
-                        disabled={
-                          company.cash <
-                          buildingConstructionCost(company, b.type)
-                        }
-                        aria-pressed={pending === b.type}
-                        className={`min-h-20 rounded-xl border p-2 text-left text-xs disabled:opacity-40 ${pending === b.type ? "border-emerald-600 bg-emerald-50 ring-2 ring-emerald-300" : "border-slate-200"}`}
-                        onClick={() => setPending(b.type)}
-                      >
-                        <b className="block text-sm">
-                          {b.emoji} {b.name}
-                        </b>
-                        {formatMoney(buildingConstructionCost(company, b.type))}{" "}
-                        즉시 지불
-                        <br />
-                        유지비 {formatMoney(b.upkeep)}/턴 · 공사{" "}
-                        {game.config.instantBuild ? 0 : b.buildTurns}턴
-                      </button>
-                    ))}
-                  </div>
-                  {pending && (
-                    <div className="rounded-xl bg-emerald-50 p-3 text-sm">
-                      <p>{BUILDINGS[pending].description}</p>
-                      {!recommendation && <p className="mt-2">빈 땅이 없어요. 기존 건물을 업그레이드하거나 공간을 확보하세요.</p>}
-                      {recommendation && (
-                        <p className="mt-2">
-                          예상 인접 효과:{" "}
-                          {recommendation.combos.length
-                            ? recommendation.combos
-                                .map((c) => `${c.name} · ${c.description}`)
-                                .join(" / ")
-                            : "이 칸에서는 새 조합이 없어요."}
-                        </p>
-                      )}
-                      {recommendation && (
-                        <button
-                          className="btn-primary mt-2"
-                          onClick={() =>
-                            onCell(recommendation.x, recommendation.y)
-                          }
-                        >
-                          추천 칸에 짓기
-                        </button>
-                      )}
-                      <button
-                        className="btn-ghost mt-2"
-                        onClick={() => setPending(null)}
-                      >
-                        건설 취소
-                      </button>
-                    </div>
-                  )}
-                  {combos.map((c, i) => (
-                    <p key={i} className="text-sm text-emerald-800">
-                      {c.emoji} {c.name} · {c.description}
-                    </p>
-                  ))}
-                </div>
+                <ConstructionPanel
+                  game={game}
+                  company={company}
+                  pending={pending}
+                  onPick={setPending}
+                  selected={selected}
+                  onCloseSelected={() => setSelectedId(null)}
+                  preview={preview}
+                  needsConfirm={!!confirmCell}
+                  onBuildPreview={() => preview && tryBuild(preview.x, preview.y)}
+                />
               ) : (
                 <>
                   <p className="text-xs font-bold text-slate-500">
@@ -499,7 +515,7 @@ export function CompanyWorkspace({
                       task={task}
                     />
                   )}
-                  {selected && unlocked && (
+                  {selected && (
                     <button
                       className="btn-ghost w-full"
                       onClick={() => choose("construction", selected.id)}
@@ -542,9 +558,9 @@ export function CompanyWorkspace({
           <TurnMissionCard
             game={game}
             compact
-            onCompanyTask={(id) => choose(id === "workplace" ? "staff" : id === "quality" ? "research" : id === "building-combo" ? "construction" : id === "healthy-debt" ? "finance" : "production")}
+            onCompanyTask={(id) => choose(taskForMission(id))}
             onNavigate={(d) => {
-              if (d === "company" || d === "home") choose("production");
+              if (d === "company" || d === "home") choose("construction");
               else onNavigate(d);
             }}
           />
@@ -553,6 +569,79 @@ export function CompanyWorkspace({
           )}
         </>
       )}
+    </div>
+  );
+}
+
+function PlacementBar({
+  pending,
+  previewProfit,
+  previewPayback,
+  comboCount,
+  confirm,
+  canRecommend,
+  onRecommend,
+  onConfirm,
+  onCancel,
+  idleText,
+}: {
+  pending: BuildingType | null;
+  previewProfit: number | null;
+  previewPayback: number | null;
+  comboCount: number;
+  confirm: { cashAfter: number; safetyLine: number } | null;
+  canRecommend: boolean;
+  onRecommend: () => void;
+  onConfirm: () => void;
+  onCancel: () => void;
+  idleText: string;
+}) {
+  if (!pending) {
+    return (
+      <div role="status" className="min-h-6 px-2 text-sm font-bold text-emerald-800">
+        {idleText}
+      </div>
+    );
+  }
+  const def = BUILDINGS[pending];
+  if (confirm) {
+    return (
+      <div role="status" className="rounded-2xl bg-amber-100 p-3 text-sm text-amber-950 ring-2 ring-amber-300">
+        <p className="font-black">⚠️ 지으면 남는 돈 {formatMoney(confirm.cashAfter)}원</p>
+        <p className="text-xs">
+          비상금 선 {formatMoney(confirm.safetyLine)}원보다 적어져요. 갑자기 손해가 나면 회사가 위험할 수 있어요.
+        </p>
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          <button type="button" className="btn-bull !bg-amber-500" onClick={onConfirm}>
+            그래도 짓기
+          </button>
+          <button type="button" className="btn-ghost" onClick={onCancel}>
+            그만두기
+          </button>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div role="status" className="rounded-2xl bg-emerald-50 p-3 text-sm text-emerald-950 ring-2 ring-emerald-300">
+      <p className="font-black">
+        📍 {def.emoji} {def.name}: 지도에서 빈 땅을 눌러 지어요
+      </p>
+      <p className="text-xs text-emerald-900">
+        ⭐ 초록 칸 = 추천 · ✨ 금색 칸 = 조합 보너스
+        {previewProfit != null &&
+          ` · 추천 칸 이익 ${previewProfit >= 0 ? "+" : "−"}${formatMoney(Math.abs(Math.round(previewProfit)))}원/턴`}
+        {previewPayback != null && ` · 본전 약 ${previewPayback}턴`}
+        {comboCount > 0 && ` · 조합 ${comboCount}개`}
+      </p>
+      <div className="mt-2 grid grid-cols-[1fr_auto] gap-2">
+        <button type="button" className="btn-primary" disabled={!canRecommend} onClick={onRecommend}>
+          ⭐ 추천 칸에 짓기
+        </button>
+        <button type="button" className="btn-ghost" onClick={onCancel}>
+          취소
+        </button>
+      </div>
     </div>
   );
 }

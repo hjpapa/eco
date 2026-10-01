@@ -63,7 +63,7 @@ describe("campaign defaults and feature reveals", () => {
   it("uses the exact fixed unlock schedule at each boundary", () => {
     const expected: Record<CampaignFeature, Record<GameLength, number>> = {
       company: { 20: 0, 50: 0, 100: 0 },
-      buildingsResearch: { 20: 2, 50: 5, 100: 10 },
+      research: { 20: 2, 50: 5, 100: 10 },
       investment: { 20: 4, 50: 10, 100: 20 },
       talentNewsRanking: { 20: 7, 50: 18, 100: 35 },
       visitsPartnershipsAdvanced: { 20: 10, 50: 25, 100: 50 },
@@ -94,9 +94,12 @@ describe("campaign defaults and feature reveals", () => {
     const company = state.companies[0];
     company.cash = 10_000_000;
 
-    expect(buildBuilding(state, company, "store", 2, 0).ok).toBe(false);
+    // Construction is the favourite activity, so it is open from the very
+    // first turn. Research spending still waits for its lesson.
+    expect(buildBuilding(state, company, "store", 0, 0).ok).toBe(true);
+    expect(applyCompanyAction(state, company, "rnd_basic").ok).toBe(false);
     state.turn = 2;
-    expect(buildBuilding(state, company, "store", 2, 0).ok).toBe(true);
+    expect(applyCompanyAction(state, company, "rnd_basic").ok).toBe(true);
 
     state.turn = 3;
     expect(buyStock(state, company, state.companies[1].id, 1).ok).toBe(false);
@@ -167,7 +170,9 @@ describe("campaign defaults and feature reveals", () => {
       .map((item) => item.text)
       .join(" ");
 
-    expect(earlyAdvice).not.toMatch(/현재 \d+위|1위|R&D|연구동|건물을|인재 시장|투자 탭|기준금리|인플레이션|불황기|강세장/);
+    // Construction is open from the first turn, so building tips are fine;
+    // research, ranking, talent and investment talk must still wait.
+    expect(earlyAdvice).not.toMatch(/현재 \d+위|1위|R&D|연구동|인재 시장|투자 탭|기준금리|인플레이션|불황기|강세장/);
 
     state.turn = 4;
     const player = state.companies.find((company) => company.isPlayer)!;

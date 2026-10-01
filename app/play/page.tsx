@@ -10,12 +10,13 @@ import {
   isFeatureUnlocked,
   netWorth,
   playerRank,
+  productionCapacity,
   rankings,
   LAYER_LABELS,
 } from "@/lib/engine";
 import type { GameState, NewsItem } from "@/lib/engine";
 import type { TurnSummary } from "@/lib/engine/tick";
-import { formatMoney } from "@/lib/format";
+import { formatMoney, withJosa } from "@/lib/format";
 import { initAudio, isMuted, setMuted, startBgm, stopBgm } from "@/lib/audio";
 import {
   captureTurnSnapshot,
@@ -71,6 +72,9 @@ export default function PlayPage() {
   const [showLearningChoice, setShowLearningChoice] = useState(false);
   const [showSpotlight, setShowSpotlight] = useState(false);
   const lockUntil = useRef(0);
+  // Campus size when the current turn began, so the result can show what the
+  // buildings placed during this turn changed.
+  const turnStartCampus = useRef<{ buildingCount: number; capacity: number } | null>(null);
   const nextTurnButtonRef = useRef<HTMLButtonElement>(null);
 
   // Advance one turn (quarter). Guards against rapid double-clicks force-skipping
@@ -84,8 +88,11 @@ export default function PlayPage() {
     if (!prevGame) return;
     // The engine mutates the current game object. Capture primitive presentation
     // values before advancing so rank, inventory and missions remain truthful.
-    const snapshot = captureTurnSnapshot(prevGame);
+    const captured = captureTurnSnapshot(prevGame);
+    const snapshot = { ...captured, ...(turnStartCampus.current ?? {}) };
     next();
+    const afterGame = useGameStore.getState().game;
+    if (afterGame) turnStartCampus.current = campusSize(afterGame);
     const summary = useGameStore.getState().lastSummary;
     if (summary?.playerResult) setResultsPopup({ summary, snapshot });
     else {
@@ -116,6 +123,8 @@ export default function PlayPage() {
         return;
       }
     }
+    const loadedGame = useGameStore.getState().game;
+    if (loadedGame) turnStartCampus.current = campusSize(loadedGame);
     setReady(true);
     // Offer the choice once for every newly-created game. A legacy tutorial or
     // a course completed in another game must not silently skip this game's
@@ -139,7 +148,7 @@ export default function PlayPage() {
   // Auto-dismiss toast.
   useEffect(() => {
     if (!toast) return;
-    const t = setTimeout(dismissToast, 2200);
+    const t = setTimeout(dismissToast, 3200);
     return () => clearTimeout(t);
   }, [toast, dismissToast]);
 
@@ -151,7 +160,7 @@ export default function PlayPage() {
   const nw = netWorth(player, game);
   const rank = playerRank(game);
   const ended = game.status === "ended";
-  const buildingsUnlocked = isFeatureUnlocked(game, "buildingsResearch");
+  const buildingsUnlocked = isFeatureUnlocked(game, "research");
   const investmentUnlocked = isFeatureUnlocked(game, "investment");
   const talentUnlocked = isFeatureUnlocked(game, "talentNewsRanking");
   const visitUnlocked = isFeatureUnlocked(game, "visitsPartnershipsAdvanced");
@@ -312,6 +321,11 @@ export default function PlayPage() {
       )}
     </div>
   );
+}
+
+function campusSize(game: GameState) {
+  const player = game.companies.find((c) => c.id === game.playerCompanyId)!;
+  return { buildingCount: player.buildings.length, capacity: productionCapacity(player, game.config) };
 }
 
 function FeatureLockCard({ emoji, title, turn }: { emoji: string; title: string; turn: number }) {
@@ -590,8 +604,8 @@ function ResultsPopup({
                 <div className="font-black text-slate-900">{rankingChange.rankGain > 0 ? "라이벌 추월!" : "라이벌의 역습!"}</div>
                 <div className="text-xs text-slate-600">
                   {rankingChange.beforeRank}위 → <b>{rankingChange.afterRank}위</b>
-                  {rankingChange.rankGain > 0 && rankingChange.overtaken.length > 0 ? ` · ${rankingChange.overtaken.map((item) => item.name).join("·")}을 앞질렀어요.` : null}
-                  {rankingChange.rankGain < 0 && rankingChange.passedBy.length > 0 ? ` · ${rankingChange.passedBy.map((item) => item.name).join("·")}이 앞서갔어요.` : null}
+                  {rankingChange.rankGain > 0 && rankingChange.overtaken.length > 0 ? ` · ${withJosa(rankingChange.overtaken.map((item) => item.name).join("·"), "을", "를")} 앞질렀어요.` : null}
+                  {rankingChange.rankGain < 0 && rankingChange.passedBy.length > 0 ? ` · ${withJosa(rankingChange.passedBy.map((item) => item.name).join("·"), "이", "가")} 앞서갔어요.` : null}
                 </div>
               </div>
             </div>

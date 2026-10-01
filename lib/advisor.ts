@@ -27,7 +27,7 @@ export function generateAdvice(game: GameState): Advice[] {
   const p = game.companies.find((c) => c.id === game.playerCompanyId)!;
   const industry = getIndustry(p.industryId);
   const country = getCountry(p.countryId);
-  const buildingsUnlocked = isFeatureUnlocked(game, "buildingsResearch");
+  const researchUnlocked = isFeatureUnlocked(game, "research");
   const investmentUnlocked = isFeatureUnlocked(game, "investment");
   const talentUnlocked = isFeatureUnlocked(game, "talentNewsRanking");
   const advancedUnlocked = isFeatureUnlocked(game, "visitsPartnershipsAdvanced");
@@ -58,7 +58,7 @@ export function generateAdvice(game: GameState): Advice[] {
   if (lossStreak) {
     warns.push(r([
       "여러 턴(분기) 연속 적자예요. 판매가가 원가보다 충분히 높은지 점검해 주세요.",
-      buildingsUnlocked
+      researchUnlocked
         ? "적자가 이어지고 있어요. 마케팅·R&D 예산이 과한지 살펴보면 좋겠어요."
         : "적자가 이어지고 있어요. 생산량과 판매 가격을 다시 살펴보세요.",
       "계속 손해를 보고 있어요. 가격을 올리거나 비용을 줄여 흑자 전환을 노려요.",
@@ -77,21 +77,19 @@ export function generateAdvice(game: GameState): Advice[] {
     ]));
   }
   if (p.safety < 40) {
-    warns.push(buildingsUnlocked
+    warns.push(researchUnlocked
       ? r([
           "안전 수준이 낮아요. 안전 예산이나 R&D를 늘리지 않으면 사고가 날 수 있어요.",
-          "공장 안전이 걱정돼요. 의무실·안전 투자로 사고를 예방하세요.",
+          "공장 안전이 걱정돼요. 안전 점검·안전 교육으로 사고를 예방하세요.",
         ])
       : "안전 수준이 낮아요. 당분간 무리하게 생산량을 늘리지 말고 비용을 아껴보세요.");
   }
   if (p.morale < 45) {
-    warns.push(buildingsUnlocked
-      ? r([
-          "직원 사기가 낮아요. 복지 예산을 늘리거나 인사센터를 지어보세요.",
-          "사기가 떨어졌어요. 구내식당·헬스장 같은 복지 건물이 도움이 돼요.",
-          "직원들이 지쳐 있어요. 복지 활동으로 힘을 북돋아 주세요.",
-        ])
-      : "직원들이 지쳐 있어요. 무리한 생산을 피하고 회사의 현금을 안정시켜 보세요.");
+    warns.push(r([
+      "직원 행복이 낮아요. 구내식당이나 공원을 지어 보세요. 행복한 직원이 더 많이 만들어요.",
+      "직원들이 지쳐 있어요. 구내식당·공원·어린이집 같은 복지 건물이 도움이 돼요.",
+      "직원들이 지쳐 있어요. 복지 활동으로 힘을 북돋아 주세요.",
+    ]));
   }
 
   // ===== Operational tips =====
@@ -101,7 +99,7 @@ export function generateAdvice(game: GameState): Advice[] {
       "안 팔린 물건이 창고에 가득해요. 생산 목표를 잠시 낮춰도 좋겠어요.",
     ]));
   }
-  if (buildingsUnlocked && demand > capacity * 1.2) {
+  if (demand > capacity * 1.2) {
     tips.push(r([
       "수요가 생산 능력을 넘어서요. 공장을 더 지으면 매출을 키울 수 있어요.",
       "물건이 없어서 못 파는 상황이에요. 생산 설비를 늘릴 때예요.",
@@ -113,13 +111,13 @@ export function generateAdvice(game: GameState): Advice[] {
       "지금 가격으로는 남는 게 적어요. 품질이 받쳐준다면 가격 인상을 고려하세요.",
     ]));
   }
-  if (buildingsUnlocked && p.decisions.rndBudget < 8000 && industry.rndDependence > 0.6) {
+  if (researchUnlocked && p.decisions.rndBudget < 8000 && industry.rndDependence > 0.6) {
     tips.push(r([
       `${industry.name}은(는) 기술이 핵심이에요. R&D 투자를 늘려 품질을 끌어올려요.`,
       "연구개발이 부족해요. R&D 예산을 늘리면 품질과 신제품에 도움이 돼요.",
     ]));
   }
-  if (buildingsUnlocked && p.quality < 35) {
+  if (researchUnlocked && p.quality < 35) {
     tips.push(r([
       "제품 품질이 낮아요. R&D와 연구동 투자로 경쟁력을 키우세요.",
       "품질이 아쉬워요. 기술 투자를 늘리면 더 비싸게 팔 수 있어요.",
@@ -131,7 +129,7 @@ export function generateAdvice(game: GameState): Advice[] {
       "브랜드 평판을 키워야 해요. 꾸준한 마케팅이 도움이 돼요.",
     ]));
   }
-  if (buildingsUnlocked && p.buildings.length < 3) {
+  if (p.buildings.length < 3) {
     tips.push(r([
       "캠퍼스가 아직 작아요. 건물을 더 지어 생산·연구 역량을 키워보세요.",
       "빈 땅이 많아요. 다양한 건물을 지어 회사를 키워봐요.",
@@ -185,7 +183,7 @@ export function generateAdvice(game: GameState): Advice[] {
     ]));
   }
   if (profitStreak) {
-    goods.push(r(buildingsUnlocked && talentUnlocked
+    goods.push(r(researchUnlocked && talentUnlocked
       ? [
           "흑자가 이어지고 있어요. 번 돈을 재투자해 더 키워봐요! 📈",
           "실적이 탄탄해요. 이 기세로 설비와 인재에 투자하면 좋겠어요.",

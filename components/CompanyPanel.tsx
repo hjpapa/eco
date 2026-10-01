@@ -103,7 +103,7 @@ export function CompanyPanel({ game, company, task }: { game: GameState; company
   const facCap = productionCapacity(company, game.config);
   const demand = estimateDemand(company, industry, country, game.macro, game.config);
   const d = company.decisions;
-  const buildingsResearchUnlocked = isFeatureUnlocked(game, "buildingsResearch");
+  const researchUnlocked = isFeatureUnlocked(game, "research");
   const advancedInfoUnlocked = isFeatureUnlocked(game, "visitsPartnershipsAdvanced");
 
   const productDefs = getIndustryProducts(company.industryId);
@@ -124,14 +124,12 @@ export function CompanyPanel({ game, company, task }: { game: GameState; company
   const activeInventory = productInventory[activeIdx] ?? 0;
   const recommendation = (() => {
     if (facCap <= 0) {
-      return buildingsResearchUnlocked
-        ? "먼저 캠퍼스에서 공장을 지어 생산할 수 있게 해 보세요."
-        : "건물 기능이 열릴 때까지 상품 가격과 다음 턴(분기) 계획을 살펴보세요.";
+      return "먼저 캠퍼스에서 공장을 지어 생산할 수 있게 해 보세요.";
     }
     if (company.inventory > demand) return "재고가 예상 수요보다 많아요. 생산 목표를 낮추거나 판매 가격을 조금 내려 보세요.";
     if (activePrice > activeTierRef * 1.3) return "현재 상품 가격이 높은 편이에요. 가격을 낮추면 더 많이 팔릴 수 있어요.";
     if (company.lastProfit < 0) return "지난 턴(분기)에 손해가 났어요. 생산 목표를 예상 수요와 비슷하게 맞춰 보세요.";
-    if (company.quality < 45 && buildingsResearchUnlocked) return "기초 연구로 품질을 높이면 더 좋은 상품과 높은 가격을 사용할 수 있어요.";
+    if (company.quality < 45 && researchUnlocked) return "기초 연구로 품질을 높이면 더 좋은 상품과 높은 가격을 사용할 수 있어요.";
     return `예상 수요 ${formatNum(demand)}개에 맞춰 생산 목표를 조절해 보세요.`;
   })();
 
@@ -324,7 +322,7 @@ export function CompanyPanel({ game, company, task }: { game: GameState; company
           hint={facCap > 0 ? `현재 생산 한도 ${formatNum(facCap)}개${d.productionTarget > facCap ? " · 목표가 한도보다 높아도 한도까지만 생산해요" : " (공장 건설로 늘리기)"}` : undefined}
         />}
         {task === "sales" && <Slider label="다음 턴 마케팅 예산" value={d.marketingBudget} min={0} max={200000} step={5000} format={formatMoney} onChange={(v) => setDecisions({ marketingBudget: v })} />}
-        {task === "research" && buildingsResearchUnlocked && <Slider label="다음 턴 연구 예산" value={d.rndBudget} min={0} max={200000} step={5000} format={formatMoney} onChange={(v) => setDecisions({ rndBudget: v })} />}
+        {task === "research" && researchUnlocked && <Slider label="다음 턴 연구 예산" value={d.rndBudget} min={0} max={200000} step={5000} format={formatMoney} onChange={(v) => setDecisions({ rndBudget: v })} />}
 
         {/* Management action buttons */}
         <details open={!!task && task !== "production"} className="group mt-4 rounded-xl border border-slate-200 bg-white p-3">
@@ -334,7 +332,7 @@ export function CompanyPanel({ game, company, task }: { game: GameState; company
           </summary>
           <div className="mt-4 space-y-4">
           <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">마케팅·연구·직원·안전</div>
-          {ACTION_SECTIONS.filter((section) => (buildingsResearchUnlocked || section.key !== "rnd") && (!task || (task === "sales" ? section.key === "marketing" : task === "research" ? section.key === "rnd" : task === "staff" ? ["welfare", "safety", "extra"].includes(section.key) : false))).map((section) => (
+          {ACTION_SECTIONS.filter((section) => (researchUnlocked || section.key !== "rnd") && (!task || (task === "sales" ? section.key === "marketing" : task === "research" ? section.key === "rnd" : task === "staff" ? ["welfare", "safety", "extra"].includes(section.key) : false))).map((section) => (
             <div key={section.key}>
               <div className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-slate-600">
                 {section.icon && <img src={section.icon} alt="" className="h-4 w-4 object-contain" />}

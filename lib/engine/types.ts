@@ -17,7 +17,7 @@ export type GameEndReason = "completed" | "insolvent";
 /** Coarse feature groups used by navigation and the guided reveal schedule. */
 export type CampaignFeature =
   | "company"
-  | "buildingsResearch"
+  | "research"
   | "investment"
   | "talentNewsRanking"
   | "visitsPartnershipsAdvanced";

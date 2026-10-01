@@ -152,7 +152,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (!game) return;
     const company = player(game);
     const allowed: Partial<CompanyDecisions> = { ...partial };
-    if (!isFeatureUnlocked(game, "buildingsResearch")) {
+    if (!isFeatureUnlocked(game, "research")) {
       delete allowed.rndBudget;
       company.decisions.rndBudget = 0;
     }
@@ -181,7 +181,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (!res.ok) return showToast(set, res.error ?? "업그레이드 실패", "bad");
     playSfx("build");
     persist(game);
-    set({ game: { ...game }, toast: { text: "업그레이드 완료!", tone: "good" } });
+    set({ game: { ...game }, toast: { text: res.message ?? "업그레이드 완료!", tone: "good" } });
   },
 
   demolish: (buildingId) => {
@@ -191,7 +191,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (!res.ok) return showToast(set, res.error ?? "매각 실패", "bad");
     playSfx("click");
     persist(game);
-    set({ game: { ...game }, toast: { text: `건물 매각 · +${formatMoney(res.refund ?? 0)} 환급`, tone: "good" } });
+    set({ game: { ...game }, toast: { text: `건물을 팔았어요 · ${formatMoney(res.refund ?? 0)}원 돌려받음`, tone: "info" } });
   },
 
   companyAction: (actionId) => {

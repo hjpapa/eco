@@ -126,6 +126,50 @@ bright friendly palette, large readable Korean title text
 
 ---
 
+## 6. ⭐ 도시 성장 단계 배지 6종 (건설 강화)
+배치: `public/assets/icons/` · 사이즈: **128×128px, 투명 배경**, 같은 톤의 세트
+용도: 건설 패널의 "우리 도시" 진행도와 지도 위 도시 단계 배지, 성장 축하 팝업
+(`lib/ui/cityBuilder.ts`의 `CITY_STAGES`, `components/ConstructionPanel.tsx`, `components/CompanyWorkspace.tsx`).
+현재 🏡🏘️🏙️🌆🌃🐉 이모지.
+
+```
+A set of 6 round badge icons (128x128 each, transparent background) showing a
+cute isometric company town growing step by step, same camera angle and palette:
+- village (작은 마을): two tiny buildings and a tree on a grassy tile
+- town (마을): a handful of small houses and a shop
+- small-city (소도시): a few mid-rise offices, a factory chimney, a park
+- city (도시): a dense cluster of office towers and warehouses
+- metropolis (대도시): tall glowing skyscrapers at dusk
+- dragon-city (드래곤 시티): a grand skyline on a mountain with the friendly dragon mascot curled around it
+Korean educational game art style, bright, clean outlines
+```
+파일명: `city_village.png`, `city_town.png`, `city_small-city.png`, `city_city.png`, `city_metropolis.png`, `city_dragon-city.png`
+
+## 7. ☆ 건물 역할 아이콘 3종 · 조합 배지 10종
+배치: `public/assets/icons/` · 사이즈: **96×96px, 투명 배경**
+용도: 건물 카드 위쪽 역할 색 띠(💰돈 버는 건물 / 💡똑똑한 건물 / 😊행복한 건물)와
+조합 도감 항목(`BUILDING_COMBOS`의 🚚⚡📦📣💡🍱🧸🌿🧪💪). 현재 이모지·색 띠.
+
+```
+Simple flat game-UI icons (96x96, transparent), consistent stroke weight:
+- role_money: gold coin stack with an upward arrow
+- role_smart: light bulb with a gear
+- role_happy: smiling heart
+- 10 combo badges, each two small buildings joined by a glowing link, with a
+  symbol for the team: delivery truck, lightning, box, megaphone, light bulb,
+  lunch box, teddy bear, leaf, test tube, flexed arm
+```
+파일명: `role_money.png`, `role_smart.png`, `role_happy.png`, `combo_<combo-id>.png`
+(combo-id: `make-and-move`, `smart-energy`, `quick-store`, `brand-center`, `idea-lab`,
+`happy-lunch`, `family-campus`, `green-break`, `deep-research`, `healthy-work`)
+
+## 8. ☆ 건물 레벨 2·3 이미지 (선택)
+배치: `public/assets/buildings/` · 기존 건물 이미지와 같은 규격
+용도: 업그레이드한 건물 카드·2D 지도. 지금은 같은 이미지 위에 ★ 표시만 붙여요.
+파일명: `<type>_lv2.png`, `<type>_lv3.png` (예: `factory_lv2.png`) — 같은 건물을 더 크고 화려하게.
+
+---
+
 ## 처리 & 반영
 
 ```bash

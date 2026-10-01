@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { Html, OrbitControls, RoundedBox } from "@react-three/drei";
 import * as THREE from "three";
@@ -10,6 +10,7 @@ import {
   BUILDING_LIST,
   buildingConstructionCost,
   countAdjacencyPairs,
+  evaluateBuildingPlacement,
   findBestBuildingCell,
   getActiveBuildingCombos,
 } from "@/lib/engine";
@@ -913,12 +914,23 @@ function VisitorAgent({
 }
 
 /* ── tile ────────────────────────────────────────────────────────────────── */
+type TileTone = "none" | "valid" | "combo" | "recommended" | "confirm" | "hover";
+
+const TILE_TONE: Record<Exclude<TileTone, "none">, { color: string; opacity: number }> = {
+  valid: { color: "#d1fae5", opacity: 0.6 },
+  combo: { color: "#fcd34d", opacity: 0.95 },
+  recommended: { color: "#34d399", opacity: 1 },
+  confirm: { color: "#f59e0b", opacity: 1 },
+  hover: { color: "#ffffff", opacity: 0.95 },
+};
+
 function Tile({
-  x, z, grass, highlight, onClick, onHover,
+  x, z, grass, tone, onClick, onHover,
 }: {
-  x: number; z: number; grass: string; highlight: boolean;
+  x: number; z: number; grass: string; tone: TileTone;
   onClick: () => void; onHover: (on: boolean) => void;
 }) {
+  const style = tone === "none" ? { color: grass, opacity: 0.35 } : TILE_TONE[tone];
   return (
     <mesh
       position={[x, 0.012, z]}
@@ -929,8 +941,62 @@ function Tile({
       onPointerOut={() => onHover(false)}
     >
       <planeGeometry args={[TILE * 0.96, TILE * 0.96]} />
-      <meshStandardMaterial color={highlight ? "#a7f3d0" : grass} transparent opacity={highlight ? 1 : 0.35} />
+      <meshStandardMaterial color={style.color} transparent opacity={style.opacity} />
     </mesh>
+  );
+}
+
+/** Pops a freshly built or upgraded building up from the ground. */
+function PopIn({ bornAt, children }: { bornAt?: number; children: ReactNode }) {
+  const ref = useRef<THREE.Group>(null);
+  useFrame(() => {
+    if (!ref.current || bornAt === undefined) return;
+    const t = Math.min(1, (performance.now() - bornAt) / 650);
+    // easeOutBack: overshoot a little, then settle.
+    const c1 = 1.70158;
+    const scale = t >= 1 ? 1 : 1 + (c1 + 1) * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+    ref.current.scale.setScalar(Math.max(0.001, scale));
+  });
+  return <group ref={ref}>{children}</group>;
+}
+
+/** Approximate roof height so level stars float just above every model. */
+function buildingTop(type: BuildingType, level: number): number {
+  switch (type) {
+    case "office": return 0.78 + level * 0.55;
+    case "factory": return 1.0 + level * 0.18;
+    case "warehouse": return 0.75 + level * 0.12;
+    case "store": return 0.65 + level * 0.2;
+    case "rnd": return 1.25 + level * 0.25;
+    case "power": return 0.95 + level * 0.15;
+    case "hr": return 0.58 + level * 0.2;
+    case "cafeteria": return 0.61 + level * 0.15;
+    case "dorm": return 0.83 + level * 0.2;
+    case "gym": return 0.62 + level * 0.12;
+    case "daycare": return 0.85 + level * 0.16;
+    case "clinic": return 0.58 + level * 0.16;
+    case "lab": return 0.96 + level * 0.3;
+    default: return 0.5;
+  }
+}
+
+/** Golden stars above upgraded buildings: one per level beyond the first. */
+function LevelStars({ type, level }: { type: BuildingType; level: number }) {
+  const ref = useRef<THREE.Group>(null);
+  useFrame((state) => {
+    if (ref.current) ref.current.rotation.y = state.clock.elapsedTime * 0.8;
+  });
+  if (level < 2) return null;
+  const count = level - 1;
+  return (
+    <group ref={ref} position={[0, buildingTop(type, level) + 0.18, 0]}>
+      {Array.from({ length: count }).map((_, i) => (
+        <mesh key={i} position={[(i - (count - 1) / 2) * 0.2, 0, 0]}>
+          <octahedronGeometry args={[0.075, 0]} />
+          <meshStandardMaterial color="#fbbf24" emissive="#f59e0b" emissiveIntensity={0.9} />
+        </mesh>
+      ))}
+    </group>
   );
 }
 
@@ -1100,6 +1166,7 @@ function Scene({
   selectedType,
   selectedBuildingId,
   recommendedCell,
+  confirmCell = null,
   comboLinks,
   highlightedComboKeys,
   onCell,
@@ -1112,6 +1179,7 @@ function Scene({
   selectedType: BuildingType | null;
   selectedBuildingId: string | null;
   recommendedCell: { x: number; y: number } | null;
+  confirmCell?: { x: number; y: number } | null;
   comboLinks: ActiveComboLink[];
   highlightedComboKeys: string[];
   onCell: (x: number, y: number) => void;
@@ -1139,6 +1207,37 @@ function Scene({
   // memo keyed on the array reference would go stale and new builds wouldn't show.
   const grid = new Map<string, PlacedBuilding>();
   for (const b of company.buildings) grid.set(`${b.x},${b.y}`, b);
+
+  // Remember when each building (or level) first appeared after the map
+  // opened, so only real new construction pops up.
+  const bornAt = useRef<Map<string, number> | null>(null);
+  if (bornAt.current === null) {
+    bornAt.current = new Map(company.buildings.map((b) => [`${b.id}:${b.level}`, -Infinity]));
+  }
+  const born = bornAt.current;
+  for (const b of company.buildings) {
+    const key = `${b.id}:${b.level}`;
+    if (!born.has(key)) born.set(key, performance.now());
+  }
+
+  // While placing, every empty cell glows; cells that complete a combination glow gold.
+  const comboCells = new Set<string>();
+  if (!readOnly && selectedType) {
+    for (let gy = 0; gy < n; gy += 1) {
+      for (let gx = 0; gx < n; gx += 1) {
+        if (grid.has(`${gx},${gy}`)) continue;
+        if (evaluateBuildingPlacement(company, selectedType, gx, gy, n).combos.length > 0) comboCells.add(`${gx},${gy}`);
+      }
+    }
+  }
+  const tileTone = (gx: number, gy: number, key: string): TileTone => {
+    if (readOnly || !selectedType) return "none";
+    if (confirmCell?.x === gx && confirmCell?.y === gy) return "confirm";
+    if (hover === key) return "hover";
+    if (recommendedCell?.x === gx && recommendedCell?.y === gy) return "recommended";
+    if (comboCells.has(key)) return "combo";
+    return "valid";
+  };
 
   const hasDaycare = company.buildings.some((b) => b.type === "daycare" && b.turnsLeft <= 0);
   const { cars, people } = useMemo(
@@ -1205,7 +1304,7 @@ function Scene({
               {!b && (
                 <Tile
                   x={x} z={z} grass={grass}
-                  highlight={!readOnly && !!selectedType && (hover === key || (recommendedCell?.x === gx && recommendedCell?.y === gy))}
+                  tone={tileTone(gx, gy, key)}
                   onClick={() => onCell(gx, gy)}
                   onHover={(on) => setHover(on ? key : null)}
                 />
@@ -1216,12 +1315,15 @@ function Scene({
                   scale={[1, 0.85 + ((b.x * 7 + b.y * 13 + companySeed) % 7) * 0.055, 1]}
                   onClick={(e) => { e.stopPropagation(); onCell(gx, gy); }}
                 >
-                  <Building3D
-                    building={b}
-                    selected={b.id === selectedBuildingId}
-                    tint={company.logoColor}
-                    seed={companySeed + b.x * 7 + b.y * 13}
-                  />
+                  <PopIn bornAt={reducedMotion ? undefined : born.get(`${b.id}:${b.level}`)}>
+                    <Building3D
+                      building={b}
+                      selected={b.id === selectedBuildingId}
+                      tint={company.logoColor}
+                      seed={companySeed + b.x * 7 + b.y * 13}
+                    />
+                    {b.turnsLeft <= 0 && <LevelStars type={b.type} level={b.level} />}
+                  </PopIn>
                   {buildingLabels[b.id] && <Html position={[0, 1.6 + Object.keys(buildingLabels).indexOf(b.id) * 1.8, 0]} center zIndexRange={[15, 0]} calculatePosition={(object, camera, size) => {
                     const point = new THREE.Vector3().setFromMatrixPosition(object.matrixWorld).project(camera);
                     const lane = 2 - Object.keys(buildingLabels).indexOf(b.id);
@@ -1233,6 +1335,16 @@ function Scene({
           );
         }),
       )}
+
+      {/* placement marker on the recommended cell */}
+      {!readOnly && selectedType && recommendedCell && !confirmCell && (() => {
+        const { x, z } = tileWorld(recommendedCell.x, recommendedCell.y);
+        return (
+          <Html position={[x, 0.35, z]} center zIndexRange={[30, 0]} style={{ pointerEvents: "none" }}>
+            <div style={{ fontSize: 26, filter: "drop-shadow(0 2px 3px rgba(0,0,0,0.35))" }}>⭐</div>
+          </Html>
+        );
+      })()}
 
       {/* agents */}
       {!reducedMotion && cars.map((a, i) => <Car key={`c${i}`} a={a} />)}
@@ -1270,12 +1382,13 @@ function Scene({
 /* ── main component ──────────────────────────────────────────────────────── */
 export function CompanyMap3D({
   game, company, readOnly = false, overview = false,
-  onWorkspaceCell, pendingType = null, inspectedId = null, cameraEnabled = true, reducedMotion = false, buildingLabels = {},
+  onWorkspaceCell, pendingType = null, inspectedId = null, confirmCell = null, cameraEnabled = true, reducedMotion = false, buildingLabels = {},
 }: {
   game: GameState; company: Company; readOnly?: boolean; overview?: boolean;
   onWorkspaceCell?: (x: number, y: number) => void;
   pendingType?: BuildingType | null;
   inspectedId?: string | null;
+  confirmCell?: { x: number; y: number } | null;
   cameraEnabled?: boolean;
   reducedMotion?: boolean;
   buildingLabels?: Record<string, string>;
@@ -1340,6 +1453,14 @@ export function CompanyMap3D({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [comboSignature, company.id, readOnly, overview]);
 
+  // The canvas measures its box once on mount; when it re-mounts (e.g. the
+  // 2D/3D toggle) some browsers skip that first measurement, leaving a tiny
+  // default-sized canvas. One resize nudge after mount fixes it.
+  useEffect(() => {
+    const timer = window.setTimeout(() => window.dispatchEvent(new Event("resize")), 60);
+    return () => window.clearTimeout(timer);
+  }, []);
+
   const onCell = (gx: number, gy: number) => {
     if (onWorkspaceCell) { onWorkspaceCell(gx, gy); return; }
     if (readOnly) return;
@@ -1382,7 +1503,7 @@ export function CompanyMap3D({
           shadows
           frameloop={reducedMotion ? "demand" : "always"}
           dpr={[1, 1.8]}
-          camera={{ position: [n * 1.15, n * 0.95, n * 1.2], fov: 40 }}
+          camera={{ position: onWorkspaceCell ? [n * 0.95, n * 0.88, n * 1.0] : [n * 1.15, n * 0.95, n * 1.2], fov: 40 }}
         >
           <color attach="background" args={[onWorkspaceCell ? "#e4f4ed" : PHASE_BG[game.macro.phase] ?? PHASE_BG.normal]} />
           <Scene
@@ -1393,6 +1514,7 @@ export function CompanyMap3D({
             selectedType={onWorkspaceCell ? pendingType : selectedType}
             selectedBuildingId={onWorkspaceCell ? inspectedId : selectedBuildingId}
             recommendedCell={onWorkspaceCell && pendingType ? findBestBuildingCell(company, pendingType, n) : recommended}
+            confirmCell={onWorkspaceCell ? confirmCell : null}
             workspace={!!onWorkspaceCell}
             cameraEnabled={cameraEnabled}
             reducedMotion={reducedMotion}

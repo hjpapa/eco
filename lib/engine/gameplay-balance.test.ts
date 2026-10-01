@@ -37,7 +37,7 @@ describe("strategic campus building", () => {
     const state = game();
     const player = state.companies.find((company) => company.isPlayer)!;
     const firstStoreCost = buildingConstructionCost(player, "store");
-    player.buildings.push({ id: "store-test", type: "store", level: 1, x: 3, y: 3, turnsLeft: 0 });
+    player.buildings.push({ id: "store-test", type: "store", level: 1, x: 0, y: 0, turnsLeft: 0 });
     const secondStoreCost = buildingConstructionCost(player, "store");
 
     expect(secondStoreCost).toBeGreaterThan(firstStoreCost);
@@ -47,8 +47,9 @@ describe("strategic campus building", () => {
   it("explains every combination created by a placement", () => {
     const state = game();
     const player = state.companies.find((company) => company.isPlayer)!;
-    player.buildings.push({ id: "store-test", type: "store", level: 1, x: 0, y: 2, turnsLeft: 0 });
-    const placement = evaluateBuildingPlacement(player, "warehouse", 0, 1, state.config.mapSize);
+    const factory = player.buildings.find((building) => building.type === "factory")!;
+    player.buildings.push({ id: "store-test", type: "store", level: 1, x: factory.x, y: factory.y + 2, turnsLeft: 0 });
+    const placement = evaluateBuildingPlacement(player, "warehouse", factory.x, factory.y + 1, state.config.mapSize);
 
     expect(placement.combos.map((combo) => combo.id).sort()).toEqual([
       "make-and-move",

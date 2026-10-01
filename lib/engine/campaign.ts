@@ -17,7 +17,7 @@ export const GAME_LENGTHS = [20, 50, 100] as const satisfies readonly GameLength
 
 export const CAMPAIGN_FEATURES = [
   "company",
-  "buildingsResearch",
+  "research",
   "investment",
   "talentNewsRanking",
   "visitsPartnershipsAdvanced",
@@ -26,7 +26,7 @@ export const CAMPAIGN_FEATURES = [
 /** Fixed reveal schedule from the elementary guided-mode design. */
 export const FEATURE_UNLOCK_TURNS: Record<CampaignFeature, Record<GameLength, number>> = {
   company: { 20: 0, 50: 0, 100: 0 },
-  buildingsResearch: { 20: 2, 50: 5, 100: 10 },
+  research: { 20: 2, 50: 5, 100: 10 },
   investment: { 20: 4, 50: 10, 100: 20 },
   talentNewsRanking: { 20: 7, 50: 18, 100: 35 },
   visitsPartnershipsAdvanced: { 20: 10, 50: 25, 100: 50 },
@@ -252,6 +252,7 @@ export function migrateGameState(value: unknown): GameState | null {
     version: GAME_VERSION,
     config,
     assets,
+    companies: raw.companies.map(withUniqueBuildingIds),
     gameLength,
     revealMode,
     maxTurns: legacyCampaign ? 100 : raw.maxTurns,
@@ -265,6 +266,29 @@ export function migrateGameState(value: unknown): GameState | null {
     migrated.endReason = "completed";
   }
   return migrated;
+}
+
+/**
+ * Older builds numbered new buildings with a counter that restarted after a
+ * page reload, so a save can hold two buildings with the same id. Rename the
+ * later copies so selecting, upgrading and selling always hit one building.
+ */
+function withUniqueBuildingIds(company: Company): Company {
+  if (!Array.isArray(company.buildings)) return company;
+  const seen = new Set<string>();
+  let changed = false;
+  const buildings = company.buildings.map((building, index) => {
+    if (!seen.has(building.id)) {
+      seen.add(building.id);
+      return building;
+    }
+    changed = true;
+    let id = `${building.id}-r${index}`;
+    while (seen.has(id)) id = `${id}x`;
+    seen.add(id);
+    return { ...building, id };
+  });
+  return changed ? { ...company, buildings } : company;
 }
 
 /**

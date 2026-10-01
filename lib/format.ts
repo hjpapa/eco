@@ -24,3 +24,15 @@ export function changePct(curr: number, prev: number): number {
   if (!prev) return 0;
   return ((curr - prev) / prev) * 100;
 }
+
+/**
+ * Pick the Korean particle that fits the last syllable of a word, e.g.
+ * withJosa("닌텐도우", "을", "를") → "닌텐도우를". Non-Hangul endings use the
+ * vowel form.
+ */
+export function withJosa(word: string, afterConsonant: string, afterVowel: string): string {
+  const last = word.charCodeAt(word.length - 1);
+  const hangul = last >= 0xac00 && last <= 0xd7a3;
+  const hasFinal = hangul && (last - 0xac00) % 28 !== 0;
+  return `${word}${hasFinal ? afterConsonant : afterVowel}`;
+}

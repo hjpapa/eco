@@ -1,7 +1,8 @@
-import type { BuildingType, Character, Company, GameState } from "./types";
+import type { BuildingType, Character, Company, GameState, IndustryDef } from "./types";
 import { getIndustry } from "../data/industries";
+import { getIndustryProducts } from "../data/products";
 import { getCountry } from "../data/countries";
-import { estimateDemand, productionCapacity } from "./company";
+import { estimateDemand, productionCapacity, productMix } from "./company";
 import {
   buildBuilding,
   buyAsset,
@@ -20,6 +21,7 @@ import {
   buildingConstructionCost,
   findBestBuildingCell,
 } from "./buildings";
+import { estimateBuildingImpact } from "./planning";
 
 // Heuristic AI that runs each turn for non-player companies: it tunes its
 // operating decisions, expands its campus, hires talent and invests — so the
@@ -32,7 +34,10 @@ export function runAiTurn(state: GameState, company: Company): void {
   // rivals without secretly handing them free money. Better decisions, not
   // stat boosts, let a few challengers lead while laggards close the gap.
   const strength = competitiveStrength(state, company);
-  const aggression = clamp(strength + (nextFloat(rng) - 0.5) * 0.12, 0.78, 1.35);
+  const aggression = clamp(strength + (nextFloat(rng) - 0.5) * 0.12, 0.64, 1.35);
+  // A rival already well ahead of the student holds its position
+  // instead of pulling further away: first place stays reachable.
+  const comfortablyAhead = isComfortablyAhead(state, company);
 
   // --- Operating decisions ---
   const capacity = productionCapacity(company, state.config);
@@ -46,6 +51,11 @@ export function runAiTurn(state: GameState, company: Company): void {
     industry.unitCost * 1.25,
     industry.basePrice * (undercut + qualityPremium) * moodAdj,
   );
+  // The engine sells per-product price tags, so the plan above must reach
+  // them. AIs offer every tier their quality allows, priced a little under
+  // the quality ceiling — the same tools a player has in the sales panel.
+  setAiProductPrices(company, industry, (undercut + qualityPremium) * moodAdj);
+  company.decisions.price = productMix(company, industry).effectivePrice;
   // Produce to expected demand (not blindly to capacity): overstocking unsold
   // goods is the classic way to bleed cash, so a smart AI builds just above what
   // it can sell, capped by capacity. Existing inventory offsets what to make.
@@ -59,20 +69,27 @@ export function runAiTurn(state: GameState, company: Company): void {
   // Reinvest into the things that drive share (quality, marketing, morale).
   // Floors keep early-game AIs competitive; the revenue share scales them up.
   // Kept sustainable so the wider field stays roughly break-even, not bankrupt.
-  const desiredBudget = Math.max(38_000, company.lastRevenue * (0.14 + aggression * 0.055));
-  const opBudget = Math.min(desiredBudget, Math.max(18_000, company.cash * 0.14));
+  const desiredBudget = Math.max(10_000, company.lastRevenue * (0.11 + aggression * 0.05));
+  const opBudget = Math.min(desiredBudget, Math.max(6_000, company.cash * 0.1));
   company.decisions.marketingBudget = Math.round(opBudget * 0.36);
-  company.decisions.rndBudget = isFeatureUnlocked(state, "buildingsResearch")
+  company.decisions.rndBudget = isFeatureUnlocked(state, "research")
     ? Math.round(opBudget * 0.36 * (0.7 + industry.rndDependence * 0.5))
     : 0;
   company.decisions.welfareBudget = Math.round(opBudget * 0.18);
   company.decisions.safetyBudget = Math.round(opBudget * 0.1);
 
   // --- Expansion: build through the game, more when flush with cash. ---
-  const expansionChance = clamp(0.28 + aggression * 0.22, 0.4, 0.66);
-  if (company.cash > 430_000 && company.debt < company.cash * 1.25 && nextFloat(rng) < expansionChance) {
+  // Rivals grow at roughly the pace a thoughtful student can match.
+  const expansionChance = clamp(0.12 + aggression * 0.16, 0.14, 0.36);
+  const campusPace = 4 + Math.floor(state.turn * 0.36);
+  if (
+    !comfortablyAhead &&
+    company.buildings.length < campusPace &&
+    company.cash > 430_000 &&
+    company.debt < company.cash * 1.25 &&
+    nextFloat(rng) < expansionChance
+  ) {
     expand(state, company);
-    if (company.cash > 1_400_000 && nextFloat(rng) < aggression * 0.32) expand(state, company);
   }
 
   // --- Hiring: keep a solid bench of strong talent ---
@@ -104,7 +121,15 @@ export function runAiTurn(state: GameState, company: Company): void {
   }
 
   // --- Investing: deploy genuinely spare cash; take profits sometimes ---
-  if (company.cash > 550_000 && nextFloat(rng) < 0.45) investSpareCash(state, company, aggression, rng);
+  if (company.cash > 550_000 && nextFloat(rng) < (comfortablyAhead ? 0.15 : 0.45)) {
+    investSpareCash(state, company, aggression, rng);
+  }
+}
+
+function isComfortablyAhead(state: GameState, company: Company): boolean {
+  const player = state.companies.find((candidate) => candidate.id === state.playerCompanyId);
+  if (!player) return false;
+  return netWorth(company, state) > Math.max(2_000_000, netWorth(player, state) * 1.4);
 }
 
 /** Build the most useful available building, or upgrade if the map is full. */
@@ -117,6 +142,22 @@ function expand(state: GameState, company: Company): void {
     const b = company.buildings.find((b) => b.turnsLeft <= 0);
     if (b) upgradeBuilding(state, company, b.id);
   }
+}
+
+function setAiProductPrices(company: Company, industry: IndustryDef, priceLevel: number): void {
+  const products = getIndustryProducts(company.industryId);
+  const prices = products.map((_, index) => company.productPrices?.[index] ?? 0);
+  const enabled = products.map((_, index) => company.productEnabled?.[index] ?? index === 0);
+  products.forEach((def, index) => {
+    const tierRef = industry.basePrice * def.priceRatio;
+    const ceiling = tierRef * (1 + company.quality / 100);
+    const available =
+      company.quality >= def.qualityRequired && (!def.isRndUnlock || !!company.rndUnlockDone);
+    enabled[index] = index === 0 || available;
+    prices[index] = Math.round(clamp(tierRef * (0.95 + priceLevel * 0.2), tierRef * 0.8, ceiling * 0.97));
+  });
+  company.productPrices = prices;
+  company.productEnabled = enabled;
 }
 
 function statSum(c: Character): number {
@@ -137,6 +178,18 @@ function chooseBuilding(company: Company, state: GameState): BuildingType | null
     (type) => enabled.includes(type) && company.cash - buildingConstructionCost(company, type) >= reserve,
   );
   if (!affordable.length) return null;
+
+  // Like a careful student using the build preview, prefer what pays for
+  // itself; keep one research lab so quality can still grow.
+  const earning = affordable
+    .map((type) => ({ type, gain: estimateBuildingImpact(state, company, type)?.profitDelta ?? 0 }))
+    .filter((item) => item.gain > 0)
+    .sort((a, b) => b.gain - a.gain);
+  const hasLab = company.buildings.some((b) => b.type === "rnd" || b.type === "lab");
+  if (!hasLab && affordable.includes("rnd") && isFeatureUnlocked(state, "research") && nextFloat(state.rng) < 0.4) {
+    return "rnd";
+  }
+  if (earning.length && nextFloat(state.rng) < 0.35) return earning[0].type;
 
   // Prefer a strategically useful combination over blindly repeating the
   // first item in the priority list. The original order is still the tie-break.
@@ -159,12 +212,15 @@ function competitiveStrength(state: GameState, company: Company): number {
   const ownWorth = netWorth(company, state);
   const relativeGap = clamp(
     (playerWorth - ownWorth) / Math.max(250_000, Math.abs(playerWorth)),
-    -0.5,
+    -3,
     1,
   );
   const catchUp = Math.max(0, relativeGap) * 0.28;
+  // A rival far ahead eases off instead of snowballing out of a student's
+  // reach, so first place stays a real (but hard-earned) goal.
+  const leaderDrag = Math.min(0.32, Math.max(0, -relativeGap - 0.25) * 0.16);
   const lateGamePressure = (state.turn / Math.max(1, state.maxTurns)) * 0.08;
-  return clamp(0.94 + personality + challenger + catchUp + lateGamePressure, 0.82, 1.32);
+  return clamp(0.94 + personality + challenger + catchUp + lateGamePressure - leaderDrag, 0.66, 1.32);
 }
 
 function stableCompanyNumber(value: string): number {

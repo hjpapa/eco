@@ -48,9 +48,11 @@ export function stockMetrics(stock: Stock, company?: Company): StockMetrics {
 
 /** Book/enterprise value of a company, independent of its share price. */
 export function fundamentalValue(company: Company): number {
+  // Buildings are company property worth what they cost to build, so turning
+  // cash into a building is a fair trade; profit decides whether it was wise.
   const buildingsValue = company.buildings
     .filter((b) => b.turnsLeft <= 0)
-    .reduce((s, b) => s + BUILDINGS[b.type].cost * b.level * 0.5, 0);
+    .reduce((s, b) => s + BUILDINGS[b.type].cost * b.level, 0);
 
   const recent = company.profitHistory.slice(-4);
   const avgProfit = recent.length

@@ -16,7 +16,7 @@ import { createStocks, createExternalStocks } from "./market";
 import { createAssets } from "./assets";
 import { buildTalentPool } from "./characters";
 import { createRelations } from "./relations";
-import { defaultDecisions } from "./company";
+import { defaultDecisions, productionCapacity } from "./company";
 import { shuffle } from "./rng";
 import { netWorth, playerRank, recordNetWorth } from "./ranking";
 import { getIndustryProducts } from "../data/products";
@@ -85,7 +85,11 @@ function selectDiversePresets(
   return picked;
 }
 
-function starterBuildings(instant: boolean): PlacedBuilding[] {
+/**
+ * Starter buildings sit in the middle of the campus so the first view shows
+ * them up close and every direction stays open for the city to grow.
+ */
+function starterBuildings(mapSize: number): PlacedBuilding[] {
   const mk = (type: PlacedBuilding["type"], x: number, y: number): PlacedBuilding => ({
     id: `start-${companyCounter}-${type}`,
     type,
@@ -94,8 +98,8 @@ function starterBuildings(instant: boolean): PlacedBuilding[] {
     y,
     turnsLeft: 0, // starter buildings are operational immediately
   });
-  void instant;
-  return [mk("factory", 0, 0), mk("office", 1, 0)];
+  const center = Math.max(0, Math.floor((mapSize - 1) / 2));
+  return [mk("factory", center, center), mk("office", center + 1, center)];
 }
 
 function makeCompany(opts: {
@@ -106,7 +110,7 @@ function makeCompany(opts: {
   isPlayer: boolean;
   cash: number;
   scale: number;
-  instant: boolean;
+  mapSize: number;
   basedOn?: string;
 }): Company {
   const id = `co-${companyCounter++}`;
@@ -131,7 +135,7 @@ function makeCompany(opts: {
     safety: 60,
 
     decisions: defaultDecisions(industry),
-    buildings: starterBuildings(opts.instant),
+    buildings: starterBuildings(opts.mapSize),
     hired: [],
 
     lastRevenue: 0,
@@ -179,7 +183,7 @@ export function createGame(opts: NewGameOptions): GameState {
     // shapes the company's initial capabilities, but never its cash balance.
     cash: config.startingCash,
     scale: playerScale,
-    instant: config.instantBuild,
+    mapSize: config.mapSize,
     basedOn: opts.basedOn,
   });
 
@@ -195,7 +199,7 @@ export function createGame(opts: NewGameOptions): GameState {
       isPlayer: false,
       cash: config.startingCash * p.scale * nextRange(rng, 0.85, 1.15),
       scale: p.scale,
-      instant: config.instantBuild,
+      mapSize: config.mapSize,
       basedOn: p.id,
     }),
   );
@@ -212,12 +216,19 @@ export function createGame(opts: NewGameOptions): GameState {
         isPlayer: false,
         cash: config.startingCash * nextRange(rng, 0.85, 1.15),
         scale: 1,
-        instant: config.instantBuild,
+        mapSize: config.mapSize,
       }),
     );
   }
 
   const companies = [player, ...aiCompanies];
+  // Start with a plan the starter factory can actually make.
+  for (const company of companies) {
+    company.decisions.productionTarget = Math.min(
+      company.decisions.productionTarget,
+      productionCapacity(company, config),
+    );
+  }
 
   const state: GameState = {
     version: GAME_VERSION,
@@ -269,15 +280,20 @@ export { PHASE_LABELS, PHASE_EMOJI } from "./economy";
 export { LAYER_LABELS } from "./events";
 export {
   ADJACENCY_PAIRS,
+  BASE_EXECUTIVE_SLOTS,
   BUILDING_COMBOS,
   BUILDINGS,
   BUILDING_LIST,
   buildingConstructionCost,
   buildingCostFor,
+  buildingSellRefund,
+  executiveSlots,
+  type BuildingComboDef,
   countAdjacencyPairs,
   evaluateBuildingPlacement,
   findBestBuildingCell,
   getActiveBuildingCombos,
+  totalUpkeep,
 } from "./buildings";
 export { ROLE_LABELS, roleBonuses } from "./characters";
 export {
@@ -286,5 +302,12 @@ export {
   estimateDemand,
   marketAttractiveness,
   defaultDecisions,
+  campusDemandBoost,
+  moraleProductivity,
+  productMix,
+  projectCompanyTurn,
+  type ProductMix,
+  type TurnProjection,
 } from "./company";
+export * from "./planning";
 export * from "./actions";

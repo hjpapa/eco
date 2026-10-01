@@ -75,10 +75,13 @@ describe("game experience presentation", () => {
       "inventory",
       "cash-reserve",
       "workplace",
+      "building-combo",
+      "city-growth",
+      "upgrade",
     ]);
+    expect(getAvailableTurnMissionIds(game)).not.toContain("quality");
 
     game.turn = 2;
-    expect(getAvailableTurnMissionIds(game)).toContain("building-combo");
     expect(getAvailableTurnMissionIds(game)).toContain("quality");
     expect(getAvailableTurnMissionIds(game)).not.toContain("first-investment");
     expect(getAvailableTurnMissionIds(game)).not.toContain("healthy-debt");
@@ -113,7 +116,7 @@ describe("game experience presentation", () => {
     expect(snapshot.rank).toBeGreaterThan(0);
     expect(snapshot.ranking).toHaveLength(game.companies.length);
     expect(snapshot.ranking.find((entry) => entry.isPlayer)?.rank).toBe(snapshot.rank);
-    expect(snapshot.missionIds).toEqual(["first-sale", "cash-reserve"]);
+    expect(snapshot.missionIds).toEqual(["first-building", "first-sale"]);
     expect(snapshot.inventory).toBe(0);
     expect(JSON.stringify(snapshot)).toBe(serialized);
   });

@@ -15,155 +15,155 @@ export const BUILDINGS: Record<BuildingType, BuildingDef> = {
     type: "factory",
     name: "공장",
     emoji: "🏭",
-    cost: 250_000,
+    cost: 180_000,
     buildTurns: 1,
-    upkeep: 15_000,
+    upkeep: 7_000,
     maxLevel: 3,
     effects: { productionCapacity: 600, productionEfficiency: 0.05 },
-    description: "생산량과 생산 효율을 높입니다.",
+    description: "물건을 더 많이 만들 수 있어요. 생산 한도가 늘고 생산비도 조금 줄어요.",
   },
   rnd: {
     type: "rnd",
     name: "R&D 연구소",
     emoji: "🔬",
-    cost: 300_000,
+    cost: 200_000,
     buildTurns: 2,
-    upkeep: 20_000,
+    upkeep: 9_000,
     maxLevel: 3,
     effects: { rndPower: 12 },
-    description: "신제품·품질 연구 속도를 높입니다.",
+    description: "연구로 품질이 올라가요. 품질이 높으면 더 좋은 상품을 더 비싸게 팔 수 있어요.",
   },
   office: {
     type: "office",
     name: "본사·오피스",
     emoji: "🏢",
-    cost: 200_000,
+    cost: 150_000,
     buildTurns: 1,
-    upkeep: 12_000,
+    upkeep: 5_000,
     maxLevel: 3,
     effects: { productionEfficiency: 0.04, morale: 4, hiringCap: 2 },
-    description: "관리 효율과 운영 규모를 키웁니다.",
+    description: "회사 일이 척척 돌아가요. 생산비가 줄고 직원 행복과 임원 자리가 늘어요.",
   },
   warehouse: {
     type: "warehouse",
     name: "물류창고",
     emoji: "📦",
-    cost: 160_000,
+    cost: 110_000,
     buildTurns: 1,
-    upkeep: 8_000,
+    upkeep: 4_000,
     maxLevel: 3,
     effects: { logistics: 15, productionEfficiency: 0.03 },
-    description: "재고·배송 효율을 높입니다.",
+    description: "배송이 빨라져 손님이 조금 늘고, 생산비도 조금 줄어요.",
   },
   store: {
     type: "store",
     name: "매장·마케팅센터",
     emoji: "🏬",
-    cost: 180_000,
+    cost: 120_000,
     buildTurns: 1,
-    upkeep: 10_000,
+    upkeep: 5_000,
     maxLevel: 3,
     effects: { marketingReach: 18 },
-    description: "판매 도달과 수요를 늘립니다.",
+    description: "우리 상품을 보러 오는 손님이 늘어요. 광고 예산의 효과도 커져요.",
   },
   power: {
     type: "power",
     name: "발전·인프라",
     emoji: "⚡",
-    cost: 220_000,
+    cost: 150_000,
     buildTurns: 2,
-    upkeep: 6_000,
+    upkeep: 3_000,
     maxLevel: 2,
     effects: { productionEfficiency: 0.06 },
-    description: "운영비를 낮추고 확장 한도를 늘립니다.",
+    description: "전기를 아껴 생산비를 줄여요.",
   },
   hr: {
     type: "hr",
     name: "인사센터",
     emoji: "👥",
-    cost: 140_000,
+    cost: 100_000,
     buildTurns: 1,
-    upkeep: 7_000,
+    upkeep: 4_000,
     maxLevel: 2,
     effects: { hiringCap: 4, morale: 6 },
-    description: "고용 한도와 직원 사기를 높입니다.",
+    description: "임원 자리와 직원 행복을 늘려요.",
   },
   park: {
     type: "park",
     name: "공원·녹지",
     emoji: "🌳",
-    cost: 60_000,
+    cost: 40_000,
     buildTurns: 1,
-    upkeep: 2_000,
+    upkeep: 1_000,
     maxLevel: 2,
     effects: { morale: 5, reputation: 3 },
-    description: "사기와 평판을 소폭 높이고 도시를 아름답게 합니다.",
+    description: "값싸게 지을 수 있는 쉼터예요. 직원 행복과 회사 평판이 조금 올라요.",
   },
   cafeteria: {
     type: "cafeteria",
     name: "구내식당",
     emoji: "🍽️",
-    cost: 120_000,
+    cost: 80_000,
     buildTurns: 1,
-    upkeep: 6_000,
+    upkeep: 3_000,
     maxLevel: 3,
     effects: { morale: 8 },
-    description: "맛있는 식사로 직원 사기를 크게 높입니다.",
+    description: "맛있는 밥으로 직원 행복이 크게 올라요. 행복한 직원은 더 많이 만들어요.",
   },
   dorm: {
     type: "dorm",
     name: "사택·기숙사",
     emoji: "🏠",
-    cost: 180_000,
+    cost: 120_000,
     buildTurns: 1,
-    upkeep: 9_000,
+    upkeep: 4_000,
     maxLevel: 3,
     effects: { morale: 6, hiringCap: 3 },
-    description: "주거 복지로 사기와 고용 한도를 높입니다.",
+    description: "가까운 집이 생겨 직원 행복과 임원 자리가 늘어요.",
   },
   gym: {
     type: "gym",
     name: "사내 헬스장",
     emoji: "🏋️",
-    cost: 130_000,
+    cost: 90_000,
     buildTurns: 1,
-    upkeep: 5_000,
+    upkeep: 3_000,
     maxLevel: 2,
     effects: { morale: 6, productionEfficiency: 0.02 },
-    description: "건강 복지로 사기를 높이고 업무 효율을 살짝 올립니다.",
+    description: "건강한 직원이 힘을 내요. 직원 행복과 효율이 올라요.",
   },
   daycare: {
     type: "daycare",
     name: "어린이집",
     emoji: "🧸",
-    cost: 150_000,
+    cost: 100_000,
     buildTurns: 1,
-    upkeep: 7_000,
+    upkeep: 3_000,
     maxLevel: 2,
     effects: { morale: 7, hiringCap: 2, reputation: 3 },
-    description: "보육 복지로 사기·고용·평판을 높입니다. 캠퍼스에 아이들이 늘어요.",
+    description: "아이를 맡길 곳이 생겨 직원 행복·평판·임원 자리가 늘어요. 캠퍼스에 아이들이 놀러 와요.",
   },
   clinic: {
     type: "clinic",
     name: "의무실·클리닉",
     emoji: "🏥",
-    cost: 140_000,
+    cost: 100_000,
     buildTurns: 1,
-    upkeep: 6_000,
+    upkeep: 3_000,
     maxLevel: 2,
     effects: { morale: 4, reputation: 3 },
-    description: "건강 관리로 사기와 평판을 높입니다.",
+    description: "아플 때 바로 돌봐 줘서 직원 행복과 평판이 올라요.",
   },
   lab: {
     type: "lab",
     name: "연구동·데이터센터",
     emoji: "🧪",
-    cost: 280_000,
+    cost: 190_000,
     buildTurns: 2,
-    upkeep: 18_000,
+    upkeep: 8_000,
     maxLevel: 3,
     effects: { rndPower: 14, productionEfficiency: 0.02 },
-    description: "추가 연구 역량으로 R&D를 가속합니다.",
+    description: "연구 속도가 더 빨라져요. R&D 연구소 옆에 두면 더 좋아요.",
   },
 };
 
@@ -211,8 +211,9 @@ const COMBO_BY_PAIR = new Map(
 /** Cost to construct or upgrade a building to the next level. */
 export function buildingCostFor(type: BuildingType, targetLevel: number): number {
   const def = BUILDINGS[type];
-  // Each level costs progressively more.
-  return Math.round(def.cost * (1 + (targetLevel - 1) * 0.6));
+  // Each level costs a little more — about the price of building another
+  // copy, so upgrading (and saving land) is a fair choice.
+  return Math.round(def.cost * (1 + (targetLevel - 1) * 0.25));
 }
 
 const EMPTY_CAPS: CompanyCapabilities = {
@@ -286,6 +287,22 @@ export function getActiveBuildingCombos(buildings: PlacedBuilding[]): BuildingCo
   return combos;
 }
 
+/** Half of everything spent on a building's levels comes back when it is sold. */
+export function buildingSellRefund(building: PlacedBuilding): number {
+  let spent = 0;
+  for (let level = 1; level <= building.level; level += 1) spent += buildingCostFor(building.type, level);
+  return Math.round(spent * 0.5);
+}
+
+export const BASE_EXECUTIVE_SLOTS = 6;
+export const MAX_EXECUTIVE_SLOTS = 9;
+
+/** Offices, housing and childcare make room for more executives. */
+export function executiveSlots(company: Pick<Company, "buildings">, adjacencyBonus: boolean): number {
+  const caps = aggregateBuildingCaps(company.buildings, adjacencyBonus);
+  return Math.min(MAX_EXECUTIVE_SLOTS, BASE_EXECUTIVE_SLOTS + Math.floor(caps.hiringCap / 4));
+}
+
 /** Repeating one building is allowed, but a varied campus is the better buy. */
 export function buildingConstructionCost(company: Company, type: BuildingType): number {
   const sameTypeCount = company.buildings.filter((building) => building.type === type).length;
@@ -319,7 +336,12 @@ export function evaluateBuildingPlacement(
     .map((building) => COMBO_BY_PAIR.get(adjacencyPairKey(type, building.type)))
     .filter((combo): combo is BuildingComboDef => Boolean(combo));
   const newVariety = company.buildings.some((building) => building.type === type) ? 0 : 3;
-  return { x, y, score: combos.length * 10 + newVariety, combos, isValid: true };
+  // Among otherwise equal cells, grow the city outward from its centre
+  // instead of scattering buildings into far corners.
+  const touching = neighbours.length > 0 ? 1 : 0;
+  const center = (mapSize - 1) / 2;
+  const closeness = 1 - (Math.abs(x - center) + Math.abs(y - center)) / Math.max(1, mapSize);
+  return { x, y, score: combos.length * 10 + newVariety + touching + closeness * 0.5, combos, isValid: true };
 }
 
 /** Best empty cell, with stable tie-breaking for both players and AI. */

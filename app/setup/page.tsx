@@ -422,7 +422,7 @@ function SetupInner() {
 
             <div className="grid gap-2 text-sm sm:grid-cols-2">
               <div className="rounded-xl bg-emerald-950/50 p-3 text-emerald-100 ring-1 ring-emerald-700/40">
-                🏙️ <b>건물 단계</b> — 서로 돕는 건물을 붙여 인접 보너스를 배워요.
+                🏙️ <b>건물은 처음부터!</b> — 서로 돕는 건물을 붙여 인접 보너스를 배워요.
               </div>
               <div className="rounded-xl bg-blue-950/50 p-3 text-blue-100 ring-1 ring-blue-700/40">
                 🌍 <b>경제 단계</b> — 금리·물가·환율과 부채를 쉬운 말로 익혀요.
@@ -447,7 +447,7 @@ function SetupInner() {
               </div>
               <div className="mt-4 rounded-xl bg-brand-50 p-3 text-sm text-brand-700">
                 💡 <b>팁:</b> {revealMode === "guided"
-                  ? "처음에는 가격과 생산량을 맞추는 데 집중하세요. 건물과 연구는 알맞은 턴(분기)에 차례로 열립니다!"
+                  ? "건물은 처음부터 지을 수 있어요! 건설 미리보기에서 \"본전까지 몇 턴\"을 확인하고, 비상금은 꼭 남겨 두세요."
                   : "기본 상품부터 판매하고 R&D에 투자해 품질을 높이면 더 비싼 상품을 판매할 수 있습니다!"}
               </div>
             </div>

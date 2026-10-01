@@ -9,8 +9,13 @@ import {
   BUILDINGS,
   buildingConstructionCost,
   buildingCostFor,
+  buildingSellRefund,
   evaluateBuildingPlacement,
+  executiveSlots,
 } from "./buildings";
+import { estimateDemand, productionCapacity } from "./company";
+import { getIndustry } from "../data/industries";
+import { getCountry } from "../data/countries";
 import { autoAssignRole, generateCharacter } from "./characters";
 import { adjustRivalry, getRivalry } from "./relations";
 import { shockStock } from "./market";
@@ -43,7 +48,44 @@ export function avgCost(company: Company, targetCompanyId: string): number {
   return basis / shares;
 }
 
-let buildingCounter = 0;
+/**
+ * Building ids must stay unique inside a saved game. A module-level counter
+ * restarts after a page reload, so derive the id from durable game data.
+ */
+function newBuildingId(state: GameState, company: Company, x: number, y: number): string {
+  const taken = new Set(company.buildings.map((b) => b.id));
+  const base = `b-${company.id}-${state.turn}-${x}-${y}`;
+  let id = base;
+  for (let n = 1; taken.has(id); n += 1) id = `${base}-${n}`;
+  return id;
+}
+
+/** The most a sensible plan can make: what fits the factories and what sells. */
+function planLimit(state: GameState, company: Company): number {
+  const demand = estimateDemand(
+    company,
+    getIndustry(company.industryId),
+    getCountry(company.countryId),
+    state.macro,
+    state.config,
+  );
+  return Math.min(productionCapacity(company, state.config), Math.round(demand / 10) * 10);
+}
+
+/**
+ * New factories add room and new stores add customers. A player whose plan
+ * was already matched to the old limit gets a plan matched to the new one, so
+ * the building starts paying off right away. A deliberately small plan stays
+ * untouched.
+ */
+function followCampusGrowth(state: GameState, company: Company, limitBefore: number): number | null {
+  const target = company.decisions.productionTarget;
+  if (target < limitBefore * 0.95) return null;
+  const next = planLimit(state, company);
+  if (next <= target) return null;
+  company.decisions.productionTarget = next;
+  return next;
+}
 
 export function findCompany(state: GameState, id: string): Company | undefined {
   return state.companies.find((c) => c.id === id);
@@ -70,7 +112,6 @@ export function buildBuilding(
   x: number,
   y: number,
 ): ActionResult {
-  if (!isFeatureUnlocked(state, "buildingsResearch")) return lockedFeature("건물·연구");
   if (!state.config.enabledBuildings.includes(type)) {
     return { ok: false, error: "이 레벨에서는 사용할 수 없는 건물입니다." };
   }
@@ -85,9 +126,10 @@ export function buildBuilding(
   const cost = buildingConstructionCost(company, type);
   if (company.cash < cost) return { ok: false, error: "현금이 부족합니다." };
 
+  const limitBefore = planLimit(state, company);
   company.cash -= cost;
   const building: PlacedBuilding = {
-    id: `b-${buildingCounter++}`,
+    id: newBuildingId(state, company, x, y),
     type,
     level: 1,
     x,
@@ -95,10 +137,12 @@ export function buildBuilding(
     turnsLeft: state.config.instantBuild ? 0 : BUILDINGS[type].buildTurns,
   };
   company.buildings.push(building);
+  const raisedTarget = followCampusGrowth(state, company, limitBefore);
   const comboMessage = placement.combos.length > 0
     ? ` · ${placement.combos.map((combo) => `${combo.emoji} ${combo.name}`).join(", ")} 완성!`
-    : " · 다음 건물과 조합할 옆 칸을 남겨 보세요.";
-  return { ok: true, message: `${BUILDINGS[type].name} 건설${comboMessage}` };
+    : "";
+  const planMessage = raisedTarget ? ` · 생산 계획도 ${raisedTarget.toLocaleString()}개로 늘렸어요` : "";
+  return { ok: true, message: `${BUILDINGS[type].name} 완성!${comboMessage}${planMessage}` };
 }
 
 /** Demolish/sell a building, refunding part of its construction cost. */
@@ -107,14 +151,9 @@ export function sellBuilding(
   company: Company,
   buildingId: string,
 ): ActionResult {
-  if (!isFeatureUnlocked(state, "buildingsResearch")) return lockedFeature("건물·연구");
   const idx = company.buildings.findIndex((b) => b.id === buildingId);
   if (idx < 0) return { ok: false, error: "건물을 찾을 수 없습니다." };
-  const b = company.buildings[idx];
-  // Refund 50% of the total spent across all of its levels.
-  let spent = 0;
-  for (let lvl = 1; lvl <= b.level; lvl++) spent += buildingCostFor(b.type, lvl);
-  const refund = Math.round(spent * 0.5);
+  const refund = buildingSellRefund(company.buildings[idx]);
   company.cash += refund;
   company.buildings.splice(idx, 1);
   return { ok: true, refund };
@@ -253,7 +292,6 @@ function getCatEmoji(cat?: string): string {
   return "📋";
 }
 
-let actionNewsCounter = 0;
 
 export function applyCompanyAction(
   state: GameState,
@@ -262,7 +300,7 @@ export function applyCompanyAction(
 ): ActionResult {
   const def = COMPANY_ACTIONS[actionId];
   if (!def) return { ok: false, error: "알 수 없는 활동입니다." };
-  if (def.cat === "rnd" && !isFeatureUnlocked(state, "buildingsResearch")) {
+  if (def.cat === "rnd" && !isFeatureUnlocked(state, "research")) {
     return lockedFeature("연구");
   }
   if (company.cash < def.cost) return { ok: false, error: "현금이 부족합니다." };
@@ -274,7 +312,7 @@ export function applyCompanyAction(
   // Push news item for the action
   if (def.desc) {
     state.news.push({
-      id: `action-${state.turn}-${company.id}-${actionId}-${actionNewsCounter++}`,
+      id: `action-${state.turn}-${company.id}-${actionId}-${state.news.length}`,
       turn: state.turn,
       layer: "intercompany",
       tone: "positive",
@@ -293,17 +331,20 @@ export function upgradeBuilding(
   company: Company,
   buildingId: string,
 ): ActionResult {
-  if (!isFeatureUnlocked(state, "buildingsResearch")) return lockedFeature("건물·연구");
   const b = company.buildings.find((x) => x.id === buildingId);
   if (!b) return { ok: false, error: "건물을 찾을 수 없습니다." };
   const def = BUILDINGS[b.type];
+  if (b.turnsLeft > 0) return { ok: false, error: "공사가 끝난 뒤 업그레이드할 수 있어요." };
   if (b.level >= def.maxLevel) return { ok: false, error: "이미 최고 레벨입니다." };
   const cost = buildingCostFor(b.type, b.level + 1);
   if (company.cash < cost) return { ok: false, error: "현금이 부족합니다." };
+  const limitBefore = planLimit(state, company);
   company.cash -= cost;
   b.level += 1;
   if (!state.config.instantBuild) b.turnsLeft = Math.max(b.turnsLeft, 1);
-  return { ok: true };
+  const raisedTarget = followCampusGrowth(state, company, limitBefore);
+  const planMessage = raisedTarget ? ` · 생산 계획도 ${raisedTarget.toLocaleString()}개로 늘렸어요` : "";
+  return { ok: true, message: `${def.name} Lv.${b.level} 업그레이드!${planMessage}` };
 }
 
 export function hireCharacter(
@@ -319,6 +360,8 @@ export function hireCharacter(
   const character = state.talentPool[idx];
   const salary = overrideSalary ?? character.salary;
   const signingBonus = salary; // one-off hiring fee
+  const slots = executiveSlots(company, state.config.adjacencyBonus);
+  if (company.hired.length >= slots) return { ok: false, error: `임원 자리가 꽉 찼습니다 (최대 ${slots}명).` };
   if (company.cash < signingBonus) return { ok: false, error: "영입 비용이 부족합니다." };
 
   company.cash -= signingBonus;
@@ -363,7 +406,8 @@ export function poachCharacter(
   if (!target) return { ok: false, error: "대상 회사를 찾을 수 없습니다." };
   const chIdx = target.hired.findIndex((c) => c.id === characterId);
   if (chIdx < 0) return { ok: false, error: "해당 인재를 찾을 수 없습니다." };
-  if (company.hired.length >= 6) return { ok: false, error: "임원 자리가 꽉 찼습니다 (최대 6명)." };
+  const slots = executiveSlots(company, state.config.adjacencyBonus);
+  if (company.hired.length >= slots) return { ok: false, error: `임원 자리가 꽉 찼습니다 (최대 ${slots}명).` };
   const ch = target.hired[chIdx];
   // Loyal staff demand a larger signing bonus; disloyal ones are easier to flip.
   const poachCost = Math.round(ch.salary * (1.3 + (ch.loyalty ?? 70) / 100));

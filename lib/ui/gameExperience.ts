@@ -4,7 +4,9 @@ import {
   isFeatureUnlocked,
   netWorth,
   portfolioValue,
+  productionCapacity,
   rankings,
+  totalUpkeep,
   type EconomyPhase,
   type GameState,
 } from "../engine";
@@ -13,6 +15,9 @@ import type { TurnSummary } from "../engine/tick";
 export type MissionDestination = "home" | "company" | "invest" | "talent" | "more";
 
 export type TurnMissionId =
+  | "first-building"
+  | "city-growth"
+  | "upgrade"
   | "first-sale"
   | "profit"
   | "inventory"
@@ -83,6 +88,9 @@ export interface TurnPresentationSnapshot {
   /** Detached values only: never retain a Company/RankingEntry from mutable state. */
   ranking: RankingSnapshotEntry[];
   missionIds: TurnMissionId[];
+  /** Campus size before the turn, to show what new buildings changed. */
+  buildingCount?: number;
+  capacity?: number;
 }
 
 export interface RankingMovementEntry {
@@ -211,8 +219,8 @@ export function getJourneyMilestones(game: GameState): JourneyMilestone[] {
         { id: "summit", emoji: "🏆", label: "정상", turn: game.maxTurns },
       ]
     : [
-        { id: "start", emoji: "🏪", label: "회사 운영", turn: 0 },
-        { id: "build", emoji: "🏗️", label: "건물·연구", turn: getFeatureUnlockTurn(game.gameLength, "buildingsResearch") },
+        { id: "start", emoji: "🏗️", label: "회사·건설", turn: 0 },
+        { id: "research", emoji: "🔬", label: "연구", turn: getFeatureUnlockTurn(game.gameLength, "research") },
         { id: "invest", emoji: "📈", label: "투자", turn: getFeatureUnlockTurn(game.gameLength, "investment") },
         { id: "talent", emoji: "👔", label: "인재·순위", turn: getFeatureUnlockTurn(game.gameLength, "talentNewsRanking") },
         { id: "visit", emoji: "🌍", label: "방문·제휴", turn: getFeatureUnlockTurn(game.gameLength, "visitsPartnershipsAdvanced") },
@@ -233,8 +241,8 @@ export function getJourneyMilestones(game: GameState): JourneyMilestone[] {
 export function getTurnMissions(game: GameState): TurnMission[] {
   if (game.turn === 0) {
     return [
+      evaluateMission(game, "first-building", game.turn),
       evaluateMission(game, "first-sale", game.turn),
-      evaluateMission(game, "cash-reserve", game.turn),
     ];
   }
 
@@ -250,10 +258,17 @@ export function getTurnMissions(game: GameState): TurnMission[] {
 
 /** Full candidate list, useful for proving that locked systems never leak into missions. */
 export function getAvailableTurnMissionIds(game: GameState): TurnMissionId[] {
-  const available: TurnMissionId[] = ["profit", "inventory", "cash-reserve", "workplace"];
-  if (isFeatureUnlocked(game, "buildingsResearch")) {
-    available.push("quality", "building-combo");
-  }
+  // Construction is open from the first turn, so city missions always appear.
+  const available: TurnMissionId[] = [
+    "profit",
+    "inventory",
+    "cash-reserve",
+    "workplace",
+    "building-combo",
+    "city-growth",
+    "upgrade",
+  ];
+  if (isFeatureUnlocked(game, "research")) available.push("quality");
   if (isFeatureUnlocked(game, "investment")) available.push("first-investment");
   if (isFeatureUnlocked(game, "visitsPartnershipsAdvanced")) available.push("healthy-debt");
   return available;
@@ -279,8 +294,18 @@ export function evaluateMission(
   );
   const qualityGoal = Math.min(70, 35 + Math.floor((offeredTurn / Math.max(1, game.maxTurns)) * 4) * 10);
   const hasCompletedOfferedTurn = game.turn > offeredTurn;
+  const builtByPlayer = player.buildings.filter((building) => !building.id.startsWith("start-")).length;
+  const cityGoal = Math.min(game.config.mapSize ** 2, 4 + Math.floor(offeredTurn / 3));
+  const upgradeGoal = 1 + Math.floor(offeredTurn / 10);
+  const upgradedCount = player.buildings.filter((building) => building.level >= 2).length;
 
   switch (id) {
+    case "first-building":
+      return mission(id, "🏗️", "첫 건물 짓기", "건설을 눌러 건물을 고르고 빈 땅에 지어요. 미리보기에서 '본전까지 몇 턴'인지 꼭 확인해요.", `${Math.min(1, builtByPlayer)} / 1개`, builtByPlayer >= 1, "company", "건물 지으러 가기");
+    case "city-growth":
+      return mission(id, "🏙️", `건물 ${cityGoal}개 도시`, "비상금은 남겨 두고, 돈을 벌어 주는 건물부터 하나씩 늘려요.", `${player.buildings.length} / ${cityGoal}개`, player.buildings.length >= cityGoal, "company", "도시 키우기");
+    case "upgrade":
+      return mission(id, "⬆️", `업그레이드 ${upgradeGoal}곳`, "새로 짓는 대신 있는 건물을 키우는 것도 좋은 방법이에요. 빈 땅을 아낄 수 있어요.", `${upgradedCount} / ${upgradeGoal}곳`, upgradedCount >= upgradeGoal, "company", "건물 키우러 가기");
     case "first-sale":
       return mission(id, "🛍️", "첫 손님 만나기", "가격과 생산량을 정한 뒤 다음 턴(분기)을 눌러 첫 판매를 시작해요.", `${hasCompletedOfferedTurn && player.lastRevenue > 0 ? "판매 성공" : "판매 준비 중"}`, hasCompletedOfferedTurn && player.lastRevenue > 0, "company", "회사 운영하기");
     case "profit":
@@ -327,6 +352,8 @@ export function captureTurnSnapshot(game: GameState): TurnPresentationSnapshot {
     rankingUnlocked: isFeatureUnlocked(game, "talentNewsRanking"),
     ranking: board,
     missionIds: getTurnMissions(game).map((item) => item.id),
+    buildingCount: player.buildings.length,
+    capacity: productionCapacity(player, game.config),
   };
 }
 
@@ -437,6 +464,28 @@ export function getTurnHighlights(
   } else if (snapshot.phase !== game.macro.phase) {
     const weather = getEconomyWeather(game.macro.phase);
     highlights.push({ emoji: weather.emoji, title: `경제 날씨가 '${weather.name}'으로 바뀌었어요`, detail: weather.advice, tone: "info" });
+  }
+
+  const newBuildings = player.buildings.length - (snapshot.buildingCount ?? player.buildings.length);
+  const upkeep = totalUpkeep(player.buildings);
+  if (newBuildings > 0) {
+    const capacityNow = productionCapacity(player, game.config);
+    const capacityText = snapshot.capacity != null && capacityNow !== snapshot.capacity
+      ? `생산 한도가 ${snapshot.capacity.toLocaleString()}개에서 ${capacityNow.toLocaleString()}개로 바뀌었어요. `
+      : "";
+    highlights.splice(1, 0, {
+      emoji: "🏗️",
+      title: `새 건물 ${newBuildings}개가 일하기 시작했어요`,
+      detail: `${capacityText}매 턴 건물 유지비는 모두 ${Math.round(upkeep).toLocaleString()}원이에요.`,
+      tone: "good",
+    });
+  } else if (result.profit <= 0 && upkeep > Math.max(20_000, result.revenue * 0.3)) {
+    highlights.splice(1, 0, {
+      emoji: "🏚️",
+      title: "건물 유지비가 이익을 먹고 있어요",
+      detail: `매 턴 유지비 ${Math.round(upkeep).toLocaleString()}원이 나가요. 미리보기에서 돈을 벌어 주는 건물(공장·매장)을 먼저 고르고, 안 쓰는 건물은 팔 수도 있어요.`,
+      tone: "warning",
+    });
   }
 
   const rankingChange = compareTurnRankings(snapshot, game);

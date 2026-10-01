@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useGameStore } from "@/store/gameStore";
-import { getCampaignGrowthMultiplier, ROLE_LABELS } from "@/lib/engine";
+import { executiveSlots, getCampaignGrowthMultiplier, ROLE_LABELS } from "@/lib/engine";
 import type { Character, Company, GameState } from "@/lib/engine";
 import { formatMoney } from "@/lib/format";
 import { TALENT_IMGS, idToIndex, BUILDING_IMG } from "@/lib/assetMap";
@@ -478,6 +478,7 @@ export function TalentMarket({ game, company }: { game: GameState; company: Comp
 
   const rivals = game.companies.filter((c) => !c.isPlayer && c.hired.length > 0);
   const selectedRival = rivals.find((r) => r.id === rivalTab) ?? rivals[0] ?? null;
+  const slots = executiveSlots(company, game.config.adjacencyBonus);
 
   return (
     <div className="space-y-4">
@@ -486,6 +487,9 @@ export function TalentMarket({ game, company }: { game: GameState; company: Comp
         <h3 className="mb-3 flex items-center gap-2 text-base font-bold text-slate-800">
           {BUILDING_IMG.hr && <img src={BUILDING_IMG.hr} alt="" className="h-7 w-7 object-contain" />}
           우리 회사 임원진
+          <span className="ml-auto text-xs font-bold text-slate-500" title="본사·어린이집 같은 건물을 지으면 임원 자리가 늘어요">
+            {company.hired.length} / {slots}자리
+          </span>
         </h3>
         {company.hired.length === 0 ? (
           <div className="relative overflow-hidden rounded-xl bg-slate-50 py-7 text-center">
@@ -608,7 +612,7 @@ export function TalentMarket({ game, company }: { game: GameState; company: Comp
                       <span className="text-xs text-slate-500">스카우트 {formatMoney(cost)}</span>
                       <button
                         className={`!px-3 !py-1.5 text-xs ${ch.rarity === "legendary" ? "!bg-amber-500" : ""} btn-primary`}
-                        disabled={!canAfford || company.hired.length >= 6}
+                        disabled={!canAfford || company.hired.length >= slots}
                         onClick={() => {
                           if (ch.rarity === "legendary") {
                             setLegendaryPoachTarget({ ch, companyId: selectedRival.id });
