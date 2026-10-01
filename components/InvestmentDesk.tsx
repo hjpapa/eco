@@ -7,7 +7,7 @@ import type { AssetClass, Company, GameState, StockKind } from "@/lib/engine";
 import { getIndustry } from "@/lib/data/industries";
 import { formatMoney, formatNum, changePct } from "@/lib/format";
 import { Sparkline } from "./Sparkline";
-import { PriceChart } from "./PriceChart";
+import { KidPriceChart, MarketOverview, MiniTrend, PortfolioBasket, trendOf } from "./StockCharts";
 import { ASSET_ICONS } from "@/lib/assetMap";
 import { PRESET_MAP } from "@/lib/data/companyPresets";
 import { CompanyMark } from "./CompanyMark";
@@ -36,6 +36,7 @@ interface Listing {
   per: number | null;
   pbr: number | null;
   roe: number | null;
+  history: number[];
 }
 
 // ── Main ───────────────────────────────────────────────────────────────────────
@@ -84,6 +85,7 @@ export function InvestmentDesk() {
         per: m.per,
         pbr: m.pbr,
         roe: m.roe,
+        history: s.history,
       };
     });
 
@@ -174,6 +176,24 @@ export function InvestmentDesk() {
         <div>
           {/* ── Portfolio ── */}
           <PortfolioBar game={game} company={company} companyById={companyById} onPick={(id) => setSel({ kind: "stock", id })} />
+          <PortfolioBasket
+            cash={company.cash}
+            slices={[
+              ...Object.entries(company.portfolio.stocks)
+                .filter(([, shares]) => shares > 0)
+                .map(([id, shares]) => ({
+                  name: companyById.get(id)?.name ?? game.stocks[id]?.name ?? id,
+                  value: (game.stocks[id]?.price ?? 0) * shares,
+                })),
+              ...Object.entries(company.portfolio.assets)
+                .filter(([, units]) => (units ?? 0) > 0)
+                .map(([id, units]) => ({
+                  name: game.assets[id as AssetClass]?.name ?? id,
+                  value: (game.assets[id as AssetClass]?.price ?? 0) * (units ?? 0),
+                })),
+            ]}
+          />
+          <MarketOverview game={game} listings={allListings} onPick={(id) => setSel({ kind: "stock", id })} />
 
           <div className="flex items-center justify-between gap-3 border-b border-slate-800/60 bg-slate-950/40 px-3 py-3">
             <div>
@@ -388,7 +408,10 @@ export function InvestmentDesk() {
                     {held > 0 ? `보유 ${formatNum(held)}` : a.desc}
                   </div>
                 </div>
-                <Sparkline data={a.history.slice(-20)} width={60} height={22} />
+                <div className="w-24 shrink-0">
+                  <MiniTrend history={a.history} />
+                  <div className="text-center text-[10px] text-slate-500">{trendOf(a.history).emoji} {trendOf(a.history).label}</div>
+                </div>
                 <div className="w-28 shrink-0 text-right">
                   <div className="font-mono font-bold text-slate-100">{formatNum(Math.round(a.price))}</div>
                   <div className={`font-mono text-xs font-semibold ${up ? "text-emerald-400" : "text-red-400"}`}>
@@ -452,6 +475,7 @@ function SimpleRiskCards({
               ? { label: "도전적", emoji: "🎢", cls: "bg-rose-500/10 text-rose-300 ring-rose-500/20" }
               : { label: "보통", emoji: "⚖️", cls: "bg-amber-500/10 text-amber-300 ring-amber-500/20" };
           const industry = getIndustry(listing.industryId);
+          const trend = trendOf(listing.history);
           return (
             <button
               key={listing.id}
@@ -474,12 +498,22 @@ function SimpleRiskCards({
                   {risk.emoji} {risk.label}
                 </span>
               </div>
-              <div className="mt-3 flex items-end justify-between">
+              <div className="mt-2">
+                <MiniTrend history={listing.history} />
+                <div className="mt-0.5 flex items-center justify-between text-[11px]">
+                  <span className="text-slate-400">{trend.emoji} 최근 10턴 {trend.label}</span>
+                  <span className={`font-bold ${trend.changePct >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                    {trend.changePct >= 0 ? "+" : ""}{trend.changePct.toFixed(1)}%
+                  </span>
+                </div>
+              </div>
+              <div className="mt-2 flex items-end justify-between">
                 <div>
                   <div className="text-[10px] text-slate-600">한 주 가격</div>
                   <div className="font-mono text-base font-black text-white">{formatNum(Math.round(listing.price))}</div>
                 </div>
                 <div className={`text-sm font-bold ${listing.change >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                  <span className="mr-1 text-[10px] font-normal text-slate-500">이번 턴</span>
                   {listing.change >= 0 ? "▲" : "▼"} {Math.abs(listing.change).toFixed(1)}%
                 </div>
               </div>
@@ -736,7 +770,7 @@ function TradeModal({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md animate-popin overflow-hidden rounded-t-2xl sm:rounded-2xl"
+        className="max-h-[94vh] w-full max-w-md animate-popin overflow-y-auto overflow-x-hidden rounded-t-2xl scroll-thin sm:rounded-2xl"
         style={{ background: "#080e1a", boxShadow: "0 0 0 1px rgba(148,163,184,0.1), 0 25px 60px -10px rgba(0,0,0,0.9)" }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -783,11 +817,11 @@ function TradeModal({
         </div>
 
         {/* ── Chart ── */}
-        <PriceChart
-          data={history.slice(-60)}
-          color={up ? "#22c55e" : "#ef4444"}
-          dark
-          className="mt-3 h-28"
+        <KidPriceChart
+          history={history}
+          currentTurn={game.turn}
+          avgCost={isStock && held > 0 ? stockAvg : undefined}
+          unit={isStock ? "주" : "개"}
         />
 
         {/* ── Metrics ── */}

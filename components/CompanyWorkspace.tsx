@@ -4,6 +4,7 @@ import { Component, useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import {
   BUILDINGS,
+  BUILDING_LIST,
   estimateBuildingImpact,
   evaluateBuildingPlacement,
   findBestBuildingCell,
@@ -107,16 +108,27 @@ export function CompanyWorkspace({
   // signature covers in-place engine mutations (the company object is reused).
   const signature = company.buildings.map((b) => `${b.id}:${b.level}`).join("|");
   const comboIds = combos.map((c) => c.id);
-  const previous = useRef({ signature, comboIds, stage: city.stage.id, count: company.buildings.length });
+  const previous = useRef({ signature, comboIds, stage: city.stage.id, count: company.buildings.length, score: city.score });
   useEffect(() => {
     const before = previous.current;
-    previous.current = { signature, comboIds, stage: city.stage.id, count: company.buildings.length };
+    previous.current = { signature, comboIds, stage: city.stage.id, count: company.buildings.length, score: city.score };
     if (before.signature === signature) return;
     const newCombos = combos.filter((c) => !before.comboIds.includes(c.id));
     const grew = city.stage.id !== before.stage && city.score > 0;
     let next: Omit<Celebration, "key"> | null = null;
     if (grew) {
-      next = { emoji: city.stage.emoji, title: `${city.stage.label}로 성장했어요!`, detail: "도시가 한 단계 커졌어요", big: true };
+      const opened = BUILDING_LIST.filter((def) => {
+        const need = def.unlockCityScore ?? 0;
+        return need > before.score && need <= city.score && game.config.enabledBuildings.includes(def.type);
+      });
+      next = {
+        emoji: city.stage.emoji,
+        title: `${city.stage.label}로 성장했어요!`,
+        detail: opened.length
+          ? `새 건물이 열렸어요: ${opened.map((def) => `${def.emoji} ${def.name}`).join(" · ")}`
+          : "도시가 한 단계 커졌어요",
+        big: true,
+      };
     } else if (newCombos.length > 0) {
       next = { emoji: newCombos[0].emoji, title: `${newCombos[0].name} 완성!`, detail: newCombos[0].description };
     } else if (company.buildings.length > before.count) {
@@ -127,7 +139,7 @@ export function CompanyWorkspace({
     }
     if (!next) return;
     setCelebration({ ...next, key: Date.now() });
-    const timer = window.setTimeout(() => setCelebration(null), next.big ? 2600 : 1800);
+    const timer = window.setTimeout(() => setCelebration(null), next.big ? 3400 : 1800);
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [signature]);
@@ -351,7 +363,7 @@ export function CompanyWorkspace({
                       aria-pressed={camera}
                       onClick={() => setCamera(!camera)}
                     >
-                      {camera ? "시점 고정" : "회전·확대"}
+                      {camera ? "처음 시점으로" : "🔍 회전·확대"}
                     </button>
                   )}
                 </div>
@@ -362,6 +374,8 @@ export function CompanyWorkspace({
                 ) : (
                   <MapBoundary fallback={flatMap}>
                     <CompanyCity
+                      // Leaving free-camera mode snaps the view back to the start.
+                      key={camera ? "free-camera" : "fixed-camera"}
                       game={game}
                       company={company}
                       onWorkspaceCell={onCell}
@@ -380,7 +394,7 @@ export function CompanyWorkspace({
                     className="pointer-events-none absolute inset-x-0 top-6 z-20 flex justify-center"
                     aria-hidden
                   >
-                    <div className={`build-celebration rounded-2xl bg-slate-950/90 px-5 py-3 text-center text-white shadow-2xl ring-2 ${celebration.big ? "ring-violet-300" : "ring-amber-300"}`}>
+                    <div className={`build-celebration ${celebration.big ? "build-celebration--big ring-violet-300" : "ring-amber-300"} max-w-md rounded-2xl bg-slate-950/90 px-5 py-3 text-center text-white shadow-2xl ring-2`}>
                       <div className={celebration.big ? "text-5xl" : "text-4xl"}>{celebration.emoji}</div>
                       <div className="mt-1 text-lg font-black">{celebration.title}</div>
                       {celebration.detail && <div className="text-xs text-slate-200">{celebration.detail}</div>}

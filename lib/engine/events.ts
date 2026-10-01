@@ -958,7 +958,8 @@ let eventCounter = 0;
  */
 function toneBalanceFactor(state: GameState, tone: EventTone): number {
   if (tone === "neutral") return 1;
-  const recent = state.news.slice(-10);
+  // Jokes are not real news, so they never tilt the 호재/악재 balance.
+  const recent = state.news.filter((n) => n.layer !== "fun").slice(-10);
   const pos = recent.filter((n) => n.tone === "positive").length;
   const neg = recent.filter((n) => n.tone === "negative").length;
   const diff = tone === "positive" ? pos - neg : neg - pos;
@@ -1050,4 +1051,5 @@ export const LAYER_LABELS: Record<EventLayer, string> = {
   internal: "회사 내부",
   market: "주식시장",
   visitor: "외부 방문",
+  fun: "깜짝 소식",
 };

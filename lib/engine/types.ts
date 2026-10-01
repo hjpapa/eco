@@ -1,6 +1,5 @@
 // Central type contract for the Dragon Mountain City simulation engine.
-// Pure data only — no React, no DB. The same types are used by single-player
-// (browser) and multiplayer (server-authoritative) code.
+// Pure data only — no React, no DB.
 
 import type { RngState } from "./rng";
 
@@ -93,7 +92,11 @@ export type BuildingType =
   | "gym"
   | "daycare"
   | "clinic"
-  | "lab";
+  | "lab"
+  | "fountain"
+  | "statue"
+  | "clocktower"
+  | "ferris";
 
 export interface CompanyCapabilities {
   productionCapacity: number;
@@ -117,6 +120,10 @@ export interface BuildingDef {
   /** Capability contribution per building level. */
   effects: Partial<CompanyCapabilities>;
   description: string;
+  /** City score needed before this building can be built (0 = from the start). */
+  unlockCityScore?: number;
+  /** Decorative city landmark rather than a working company building. */
+  landmark?: boolean;
 }
 
 export interface PlacedBuilding {
@@ -283,7 +290,9 @@ export type EventLayer =
   | "intercompany"
   | "internal"
   | "market"
-  | "visitor";
+  | "visitor"
+  /** Light-hearted 깜짝 소식 about the student's own company. */
+  | "fun";
 
 export type EventTone = "positive" | "negative" | "neutral";
 

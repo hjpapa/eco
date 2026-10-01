@@ -10,13 +10,14 @@ import {
   cashSafetyLine,
   estimateUpgradeImpact,
   findBestBuildingCell,
+  isBuildingTypeUnlocked,
   type BuildingImpact,
   type BuildingType,
   type Company,
   type GameState,
   type PlacedBuilding,
 } from "@/lib/engine";
-import { formatMoney, formatNum } from "@/lib/format";
+import { formatMoney, formatNum, withJosa } from "@/lib/format";
 import { BUILDING_IMG } from "@/lib/assetMap";
 import {
   BUILDING_ROLE_LABELS,
@@ -25,6 +26,7 @@ import {
   buildingTagline,
   getCityCollection,
   getCityProgress,
+  unlockStageFor,
   type BuildingRole,
 } from "@/lib/ui/cityBuilder";
 import { useGameStore } from "@/store/gameStore";
@@ -37,7 +39,11 @@ const ROLE_STYLE: Record<BuildingRole, string> = {
   money: "border-t-amber-400",
   smart: "border-t-indigo-400",
   happy: "border-t-pink-400",
+  landmark: "border-t-teal-400",
 };
+
+type PaletteFilter = "all" | BuildingRole;
+const FILTERS: PaletteFilter[] = ["all", "money", "smart", "happy", "landmark"];
 
 export function BuildingIcon({ type, size = "h-12 w-12" }: { type: BuildingType; size?: string }) {
   const src = BUILDING_IMG[type];
@@ -81,7 +87,16 @@ export function ConstructionPanel({
   onBuildPreview: () => void;
 }) {
   const safetyLine = cashSafetyLine(company);
-  const types = BUILDING_LIST.filter((b) => game.config.enabledBuildings.includes(b.type));
+  const [filter, setFilter] = useState<PaletteFilter>("all");
+  const enabled = BUILDING_LIST.filter((b) => game.config.enabledBuildings.includes(b.type));
+  // Open buildings first, then the ones a bigger city will unlock.
+  const types = enabled
+    .filter((b) => filter === "all" || buildingRole(b.type) === filter)
+    .sort((a, b) => {
+      const lockA = isBuildingTypeUnlocked(company, a.type) ? 0 : a.unlockCityScore ?? 0;
+      const lockB = isBuildingTypeUnlocked(company, b.type) ? 0 : b.unlockCityScore ?? 0;
+      return lockA - lockB;
+    });
 
   return (
     <div className="space-y-3">
@@ -125,15 +140,48 @@ export function ConstructionPanel({
           <span>🧱 무엇을 지을까요?</span>
           <span className="text-[11px] font-bold text-slate-500">고른 뒤 지도에서 빈 땅을 눌러요</span>
         </h3>
+        <div className="mb-2 flex flex-wrap gap-1" role="group" aria-label="건물 종류 고르기">
+          {FILTERS.map((f) => (
+            <button
+              key={f}
+              type="button"
+              aria-pressed={filter === f}
+              onClick={() => setFilter(f)}
+              className={`!min-h-9 rounded-full px-2.5 py-1 text-xs font-bold ${filter === f ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-600"}`}
+            >
+              {f === "all" ? "전체" : `${BUILDING_ROLE_LABELS[f].emoji} ${BUILDING_ROLE_LABELS[f].label.replace(" 건물", "")}`}
+            </button>
+          ))}
+        </div>
         <div className="grid grid-cols-2 gap-2">
           {types.map((def) => {
             const cost = buildingConstructionCost(company, def.type);
             const shortfall = cost - company.cash;
             const owned = company.buildings.some((b) => b.type === def.type);
-            const best = findBestBuildingCell(company, def.type, game.config.mapSize);
+            const unlocked = isBuildingTypeUnlocked(company, def.type);
+            const stage = unlockStageFor(def.type);
+            const best = unlocked ? findBestBuildingCell(company, def.type, game.config.mapSize) : null;
             const comboReady = (best?.combos.length ?? 0) > 0;
             const role = buildingRole(def.type);
             const active = pending === def.type;
+            if (!unlocked) {
+              return (
+                <div
+                  key={def.type}
+                  className={`relative flex flex-col items-center rounded-xl border border-t-4 border-dashed border-slate-300 bg-slate-50 p-2 text-center ${ROLE_STYLE[role]}`}
+                  aria-label={`${def.name}: ${withJosa(stage?.label ?? "더 큰 도시", "이", "가")} 되면 열려요`}
+                >
+                  <span className="opacity-40 grayscale">
+                    <BuildingIcon type={def.type} />
+                  </span>
+                  <b className="mt-1 text-sm leading-tight text-slate-500">{def.name}</b>
+                  <span className="text-[11px] leading-tight text-slate-400">{buildingTagline(def.type)}</span>
+                  <span className="mt-1 rounded-md bg-white px-1.5 py-0.5 text-[11px] font-bold text-slate-600">
+                    🔒 {stage?.emoji} {withJosa(stage?.label ?? "더 큰 도시", "이", "가")} 되면 열려요
+                  </span>
+                </div>
+              );
+            }
             return (
               <button
                 key={def.type}
@@ -177,7 +225,9 @@ export function ConstructionPanel({
         <p className="mt-2 text-[11px] leading-relaxed text-slate-500">
           카드 위 색: <b className="text-amber-600">노랑</b> {BUILDING_ROLE_LABELS.money.label} ·{" "}
           <b className="text-indigo-600">파랑</b> {BUILDING_ROLE_LABELS.smart.label} ·{" "}
-          <b className="text-pink-600">분홍</b> {BUILDING_ROLE_LABELS.happy.label}. 같은 건물을 또 지으면 건설비가 조금씩 올라요.
+          <b className="text-pink-600">분홍</b> {BUILDING_ROLE_LABELS.happy.label} ·{" "}
+          <b className="text-teal-600">청록</b> {BUILDING_ROLE_LABELS.landmark.label}. 도시가 커지면 새 건물이 열리고,
+          같은 건물을 또 지으면 건설비가 조금씩 올라요.
         </p>
       </section>
 

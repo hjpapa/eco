@@ -12,6 +12,7 @@ import {
   buildingSellRefund,
   evaluateBuildingPlacement,
   executiveSlots,
+  isBuildingTypeUnlocked,
 } from "./buildings";
 import { estimateDemand, productionCapacity } from "./company";
 import { getIndustry } from "../data/industries";
@@ -114,6 +115,9 @@ export function buildBuilding(
 ): ActionResult {
   if (!state.config.enabledBuildings.includes(type)) {
     return { ok: false, error: "이 레벨에서는 사용할 수 없는 건물입니다." };
+  }
+  if (!isBuildingTypeUnlocked(company, type)) {
+    return { ok: false, error: "도시가 더 커지면 지을 수 있어요." };
   }
   const max = state.config.mapSize;
   if (x < 0 || y < 0 || x >= max || y >= max) {

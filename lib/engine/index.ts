@@ -278,6 +278,7 @@ export {
 export { LEVEL_CONFIGS, getLevelConfig } from "./levels";
 export { PHASE_LABELS, PHASE_EMOJI } from "./economy";
 export { LAYER_LABELS } from "./events";
+export { generateFunEvent, latestFunEvent } from "./funEvents";
 export {
   ADJACENCY_PAIRS,
   BASE_EXECUTIVE_SLOTS,
@@ -287,7 +288,9 @@ export {
   buildingConstructionCost,
   buildingCostFor,
   buildingSellRefund,
+  cityScore,
   executiveSlots,
+  isBuildingTypeUnlocked,
   type BuildingComboDef,
   countAdjacencyPairs,
   evaluateBuildingPlacement,

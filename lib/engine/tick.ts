@@ -7,6 +7,7 @@ import { getIndustry } from "../data/industries";
 import { tickStocks } from "./market";
 import { tickAssets } from "./assets";
 import { generateEvents } from "./events";
+import { generateFunEvent } from "./funEvents";
 import { decayRelations } from "./relations";
 import { recordNetWorth } from "./ranking";
 import { topUpTalentPool } from "./characters";
@@ -111,8 +112,10 @@ export function advanceTurn(state: GameState): TurnSummary {
   tickStocks(state.stocks, state.companies, state.macro, state.config, state.rng);
   tickAssets(state.assets, state.macro, state.config, state.rng);
 
-  // 5) Fire events (shocks on top of the regular market move).
+  // 5) Fire events (shocks on top of the regular market move), plus maybe one
+  //    light-hearted 깜짝 소식 about the student's company.
   const events = generateEvents(state);
+  const funEvent = generateFunEvent(state);
 
   // 6) Record net worth history for charts/leaderboard.
   recordNetWorth(state);
@@ -146,6 +149,8 @@ export function advanceTurn(state: GameState): TurnSummary {
   const visibleEvents = newsUnlocked
     ? events.filter((event) => event.layer !== "visitor" || visitsUnlocked)
     : [];
+  // Jokes are about the student's own company, so they appear from turn one.
+  if (funEvent) visibleEvents.push(funEvent);
 
   return { turn: state.turn, playerResult, rateChange, phaseChanged, events: visibleEvents, recoveryPlan };
 }

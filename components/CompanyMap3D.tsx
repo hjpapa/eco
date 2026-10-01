@@ -13,32 +13,16 @@ import {
   evaluateBuildingPlacement,
   findBestBuildingCell,
   getActiveBuildingCombos,
+  latestFunEvent,
 } from "@/lib/engine";
 import type { BuildingType, Company, GameState, PlacedBuilding } from "@/lib/engine";
 import { formatMoney } from "@/lib/format";
 import { pickCityVoice, pickVisitorVoices } from "@/lib/data/cityVoices";
+import { pickBuildingChatter } from "@/lib/data/buildingChatter";
 import { getIndustry } from "@/lib/data/industries";
 import { BuildingInteriorModal } from "./BuildingInteriorModal";
+import { Building3D, buildingTop } from "./BuildingModels3D";
 import { BUILDING_IMG } from "@/lib/assetMap";
-
-/* ── palette ─────────────────────────────────────────────────────────────── */
-// [body, roof, accent]
-const COLORS: Record<BuildingType, [string, string, string]> = {
-  factory:   ["#7c8896", "#9aa6b4", "#5b6675"],
-  warehouse: ["#c98a3a", "#e0a44e", "#92580f"],
-  store:     ["#3b82f6", "#60a5fa", "#1d4ed8"],
-  rnd:       ["#a855f7", "#c084fc", "#6d28d9"],
-  office:    ["#22a884", "#34d399", "#0f766e"],
-  hr:        ["#eab308", "#fde047", "#a16207"],
-  power:     ["#ef5350", "#f87171", "#991b1b"],
-  park:      ["#34a853", "#4ade80", "#15803d"],
-  cafeteria: ["#fb923c", "#fdba74", "#c2410c"],
-  dorm:      ["#f9a8d4", "#fbcfe8", "#be185d"],
-  gym:       ["#2dd4bf", "#5eead4", "#0f766e"],
-  daycare:   ["#facc15", "#fde68a", "#b45309"],
-  clinic:    ["#f1f5f9", "#e2e8f0", "#ef4444"],
-  lab:       ["#818cf8", "#a5b4fc", "#4338ca"],
-};
 
 const PHASE_BG: Record<string, string> = {
   boom: "#bfe9ff", normal: "#d6efff", recession: "#cdd6e0",
@@ -97,365 +81,6 @@ function getActiveComboLinks(buildings: PlacedBuilding[]): ActiveComboLink[] {
     }
   }
   return links;
-}
-
-/* Blend two hex colors (t=0 → a, t=1 → b). */
-function blend(a: string, b: string, t: number): string {
-  return new THREE.Color(a).lerp(new THREE.Color(b), t).getStyle();
-}
-
-/* ── low-poly building ───────────────────────────────────────────────────── */
-function Building3D({
-  building, selected, tint, seed = 0,
-}: { building: PlacedBuilding; selected: boolean; tint?: string; seed?: number }) {
-  const base = COLORS[building.type];
-  // Brand-tint each company's buildings toward its logo color so campuses differ.
-  // A per-company seed jitters the blend strength so two companies with the same
-  // building type still look a little different.
-  const jitter = ((seed % 5) - 2) * 0.03; // -0.06 .. +0.06
-  const body = tint ? blend(base[0], tint, 0.24 + jitter) : base[0];
-  const roof = tint ? blend(base[1], tint, 0.14 + jitter * 0.5) : base[1];
-  const accent = tint ? blend(base[2], tint, 0.1 + Math.abs(jitter)) : base[2];
-  const lvl = building.level;
-  const underConstruction = building.turnsLeft > 0;
-
-  if (underConstruction) {
-    return (
-      <group>
-        <mesh position={[0, 0.25, 0]} castShadow>
-          <boxGeometry args={[0.7, 0.5, 0.7]} />
-          <meshStandardMaterial color="#cbd5e1" transparent opacity={0.6} />
-        </mesh>
-        {/* crane */}
-        <mesh position={[0.35, 0.6, 0.35]}>
-          <boxGeometry args={[0.05, 1.2, 0.05]} />
-          <meshStandardMaterial color="#f59e0b" />
-        </mesh>
-        <mesh position={[0.15, 1.15, 0.35]}>
-          <boxGeometry args={[0.5, 0.05, 0.05]} />
-          <meshStandardMaterial color="#f59e0b" />
-        </mesh>
-      </group>
-    );
-  }
-
-  const emissive = selected ? new THREE.Color("#6366f1") : new THREE.Color("#000000");
-
-  switch (building.type) {
-    case "office": {
-      const h = 0.7 + lvl * 0.55;
-      return (
-        <group>
-          <RoundedBox args={[0.62, h, 0.62]} radius={0.04} smoothness={2} position={[0, h / 2, 0]} castShadow receiveShadow>
-            <meshStandardMaterial color={body} emissive={emissive} emissiveIntensity={selected ? 0.4 : 0} />
-          </RoundedBox>
-          {/* window bands */}
-          {Array.from({ length: lvl + 1 }).map((_, i) => (
-            <mesh key={i} position={[0, 0.35 + i * 0.42, 0.315]}>
-              <boxGeometry args={[0.5, 0.12, 0.02]} />
-              <meshStandardMaterial color="#bfe3ff" emissive="#9cc7ff" emissiveIntensity={0.5} />
-            </mesh>
-          ))}
-          <mesh position={[0, h + 0.04, 0]}>
-            <boxGeometry args={[0.66, 0.08, 0.66]} />
-            <meshStandardMaterial color={roof} />
-          </mesh>
-        </group>
-      );
-    }
-    case "factory": {
-      const h = 0.5 + lvl * 0.18;
-      return (
-        <group>
-          <RoundedBox args={[0.8, h, 0.8]} radius={0.03} position={[0, h / 2, 0]} castShadow receiveShadow>
-            <meshStandardMaterial color={body} emissive={emissive} emissiveIntensity={selected ? 0.4 : 0} />
-          </RoundedBox>
-          <mesh position={[0.22, h + 0.25, 0.22]} castShadow>
-            <cylinderGeometry args={[0.08, 0.1, 0.5, 8]} />
-            <meshStandardMaterial color={accent} />
-          </mesh>
-          <SmokePuff position={[0.22, h + 0.55, 0.22]} />
-          {/* sawtooth roof */}
-          <mesh position={[0, h + 0.05, 0]}>
-            <boxGeometry args={[0.82, 0.06, 0.82]} />
-            <meshStandardMaterial color={roof} />
-          </mesh>
-        </group>
-      );
-    }
-    case "warehouse": {
-      const h = 0.4 + lvl * 0.12;
-      return (
-        <group>
-          <mesh position={[0, h / 2, 0]} castShadow receiveShadow>
-            <boxGeometry args={[0.85, h, 0.85]} />
-            <meshStandardMaterial color={body} emissive={emissive} emissiveIntensity={selected ? 0.4 : 0} />
-          </mesh>
-          {/* gable roof */}
-          <mesh position={[0, h + 0.18, 0]} rotation={[0, Math.PI / 4, 0]} castShadow>
-            <cylinderGeometry args={[0.6, 0.6, 0.86, 4]} />
-            <meshStandardMaterial color={roof} />
-          </mesh>
-          <mesh position={[0, 0.18, 0.43]}>
-            <boxGeometry args={[0.5, 0.34, 0.02]} />
-            <meshStandardMaterial color={accent} />
-          </mesh>
-        </group>
-      );
-    }
-    case "store": {
-      const h = 0.45 + lvl * 0.2;
-      return (
-        <group>
-          <RoundedBox args={[0.7, h, 0.7]} radius={0.03} position={[0, h / 2, 0]} castShadow receiveShadow>
-            <meshStandardMaterial color={body} emissive={emissive} emissiveIntensity={selected ? 0.4 : 0} />
-          </RoundedBox>
-          {/* awning */}
-          <mesh position={[0, 0.28, 0.4]} rotation={[Math.PI / 6, 0, 0]} castShadow>
-            <boxGeometry args={[0.72, 0.04, 0.22]} />
-            <meshStandardMaterial color="#ef4444" />
-          </mesh>
-          <mesh position={[0, h + 0.12, 0]}>
-            <boxGeometry args={[0.4, 0.16, 0.05]} />
-            <meshStandardMaterial color={roof} emissive="#fde047" emissiveIntensity={0.3} />
-          </mesh>
-        </group>
-      );
-    }
-    case "rnd": {
-      const h = 0.55 + lvl * 0.25;
-      return (
-        <group>
-          <RoundedBox args={[0.66, h, 0.66]} radius={0.05} position={[0, h / 2, 0]} castShadow receiveShadow>
-            <meshStandardMaterial color={body} emissive={emissive} emissiveIntensity={selected ? 0.4 : 0} />
-          </RoundedBox>
-          <mesh position={[0, h + 0.08, 0]} castShadow>
-            <sphereGeometry args={[0.3, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2]} />
-            <meshStandardMaterial color={roof} metalness={0.3} roughness={0.4} />
-          </mesh>
-          <mesh position={[0, h + 0.45, 0]}>
-            <cylinderGeometry args={[0.01, 0.01, 0.35, 6]} />
-            <meshStandardMaterial color={accent} />
-          </mesh>
-          <mesh position={[0, h + 0.62, 0]}>
-            <sphereGeometry args={[0.05, 8, 8]} />
-            <meshStandardMaterial color="#ef4444" emissive="#ef4444" emissiveIntensity={0.8} />
-          </mesh>
-        </group>
-      );
-    }
-    case "power": {
-      const h = 0.45 + lvl * 0.15;
-      return (
-        <group>
-          <mesh position={[0, h / 2, 0]} castShadow receiveShadow>
-            <boxGeometry args={[0.7, h, 0.7]} />
-            <meshStandardMaterial color={body} emissive={emissive} emissiveIntensity={selected ? 0.4 : 0} />
-          </mesh>
-          <mesh position={[-0.15, h + 0.2, -0.1]} castShadow>
-            <cylinderGeometry args={[0.16, 0.22, 0.55, 12]} />
-            <meshStandardMaterial color="#e5e7eb" />
-          </mesh>
-          <SmokePuff position={[-0.15, h + 0.55, -0.1]} scale={0.7} />
-          <mesh position={[0.2, h + 0.02, 0.2]} rotation={[-Math.PI / 5, 0, 0]}>
-            <boxGeometry args={[0.28, 0.02, 0.28]} />
-            <meshStandardMaterial color="#1e3a8a" metalness={0.4} />
-          </mesh>
-        </group>
-      );
-    }
-    case "hr": {
-      const h = 0.5 + lvl * 0.2;
-      return (
-        <group>
-          <RoundedBox args={[0.66, h, 0.66]} radius={0.04} position={[0, h / 2, 0]} castShadow receiveShadow>
-            <meshStandardMaterial color={body} emissive={emissive} emissiveIntensity={selected ? 0.4 : 0} />
-          </RoundedBox>
-          <mesh position={[0, 0.16, 0.34]}>
-            <boxGeometry args={[0.2, 0.32, 0.02]} />
-            <meshStandardMaterial color={accent} />
-          </mesh>
-          <mesh position={[0, h + 0.04, 0]}>
-            <boxGeometry args={[0.7, 0.08, 0.7]} />
-            <meshStandardMaterial color={roof} />
-          </mesh>
-        </group>
-      );
-    }
-    case "cafeteria": {
-      const h = 0.45 + lvl * 0.15;
-      return (
-        <group>
-          <RoundedBox args={[0.78, h, 0.78]} radius={0.04} position={[0, h / 2, 0]} castShadow receiveShadow>
-            <meshStandardMaterial color={body} emissive={emissive} emissiveIntensity={selected ? 0.4 : 0} />
-          </RoundedBox>
-          {/* striped awning */}
-          <mesh position={[0, 0.3, 0.42]} rotation={[Math.PI / 6, 0, 0]} castShadow>
-            <boxGeometry args={[0.8, 0.04, 0.24]} />
-            <meshStandardMaterial color="#ef4444" />
-          </mesh>
-          <mesh position={[0, h + 0.14, 0]}>
-            <cylinderGeometry args={[0.12, 0.12, 0.04, 16]} />
-            <meshStandardMaterial color="#fde047" emissive="#fde047" emissiveIntensity={0.4} />
-          </mesh>
-        </group>
-      );
-    }
-    case "dorm": {
-      const h = 0.5 + lvl * 0.2;
-      return (
-        <group>
-          <mesh position={[0, h / 2, 0]} castShadow receiveShadow>
-            <boxGeometry args={[0.7, h, 0.7]} />
-            <meshStandardMaterial color={body} emissive={emissive} emissiveIntensity={selected ? 0.4 : 0} />
-          </mesh>
-          <mesh position={[0, h + 0.16, 0]} rotation={[0, Math.PI / 4, 0]} castShadow>
-            <coneGeometry args={[0.58, 0.34, 4]} />
-            <meshStandardMaterial color={roof} />
-          </mesh>
-          {[-0.18, 0.18].map((x, i) => (
-            <mesh key={i} position={[x, h * 0.55, 0.36]}>
-              <boxGeometry args={[0.14, 0.14, 0.02]} />
-              <meshStandardMaterial color="#bfe3ff" emissive="#9cc7ff" emissiveIntensity={0.4} />
-            </mesh>
-          ))}
-        </group>
-      );
-    }
-    case "gym": {
-      const h = 0.42 + lvl * 0.12;
-      return (
-        <group>
-          <RoundedBox args={[0.78, h, 0.62]} radius={0.05} position={[0, h / 2, 0]} castShadow receiveShadow>
-            <meshStandardMaterial color={body} emissive={emissive} emissiveIntensity={selected ? 0.4 : 0} />
-          </RoundedBox>
-          {/* dumbbell sign */}
-          <mesh position={[0, h + 0.12, 0]} rotation={[0, 0, Math.PI / 2]}>
-            <cylinderGeometry args={[0.03, 0.03, 0.34, 8]} />
-            <meshStandardMaterial color={accent} />
-          </mesh>
-          {[-0.18, 0.18].map((x, i) => (
-            <mesh key={i} position={[x, h + 0.12, 0]}>
-              <sphereGeometry args={[0.07, 8, 8]} />
-              <meshStandardMaterial color={accent} />
-            </mesh>
-          ))}
-        </group>
-      );
-    }
-    case "daycare": {
-      const h = 0.4 + lvl * 0.16;
-      return (
-        <group>
-          <RoundedBox args={[0.7, h, 0.7]} radius={0.08} position={[0, h / 2, 0]} castShadow receiveShadow>
-            <meshStandardMaterial color={body} emissive={emissive} emissiveIntensity={selected ? 0.4 : 0} />
-          </RoundedBox>
-          <mesh position={[0, h + 0.12, 0]} rotation={[0, Math.PI / 4, 0]} castShadow>
-            <coneGeometry args={[0.5, 0.3, 4]} />
-            <meshStandardMaterial color="#f472b6" />
-          </mesh>
-          {/* balloon */}
-          <mesh position={[0.28, h + 0.35, 0]}>
-            <sphereGeometry args={[0.08, 10, 10]} />
-            <meshStandardMaterial color="#ef4444" />
-          </mesh>
-        </group>
-      );
-    }
-    case "clinic": {
-      const h = 0.5 + lvl * 0.16;
-      return (
-        <group>
-          <RoundedBox args={[0.7, h, 0.7]} radius={0.04} position={[0, h / 2, 0]} castShadow receiveShadow>
-            <meshStandardMaterial color={body} emissive={emissive} emissiveIntensity={selected ? 0.4 : 0} />
-          </RoundedBox>
-          {/* red cross */}
-          <mesh position={[0, h * 0.6, 0.36]}>
-            <boxGeometry args={[0.18, 0.06, 0.02]} />
-            <meshStandardMaterial color="#ef4444" />
-          </mesh>
-          <mesh position={[0, h * 0.6, 0.36]}>
-            <boxGeometry args={[0.06, 0.18, 0.02]} />
-            <meshStandardMaterial color="#ef4444" />
-          </mesh>
-          <mesh position={[0, h + 0.04, 0]}>
-            <boxGeometry args={[0.74, 0.08, 0.74]} />
-            <meshStandardMaterial color={accent} />
-          </mesh>
-        </group>
-      );
-    }
-    case "lab": {
-      const h = 0.6 + lvl * 0.3;
-      return (
-        <group>
-          <RoundedBox args={[0.66, h, 0.66]} radius={0.05} position={[0, h / 2, 0]} castShadow receiveShadow>
-            <meshStandardMaterial color={body} emissive={emissive} emissiveIntensity={selected ? 0.4 : 0} metalness={0.2} />
-          </RoundedBox>
-          {Array.from({ length: lvl + 1 }).map((_, i) => (
-            <mesh key={i} position={[0, 0.35 + i * 0.4, 0.335]}>
-              <boxGeometry args={[0.54, 0.14, 0.02]} />
-              <meshStandardMaterial color="#c7d2fe" emissive="#818cf8" emissiveIntensity={0.5} />
-            </mesh>
-          ))}
-          <mesh position={[0, h + 0.1, 0]} castShadow>
-            <sphereGeometry args={[0.26, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2]} />
-            <meshStandardMaterial color={roof} metalness={0.4} roughness={0.3} />
-          </mesh>
-        </group>
-      );
-    }
-    case "park":
-    default:
-      return (
-        <group>
-          <mesh position={[0, 0.02, 0]} receiveShadow>
-            <cylinderGeometry args={[0.42, 0.42, 0.04, 16]} />
-            <meshStandardMaterial color={body} />
-          </mesh>
-          {[[-0.2, 0.18], [0.2, -0.15], [0.1, 0.22]].map(([x, z], i) => (
-            <Tree key={i} position={[x, 0, z]} scale={0.8} />
-          ))}
-          <mesh position={[0, 0.05, 0]}>
-            <boxGeometry args={[0.18, 0.04, 0.06]} />
-            <meshStandardMaterial color="#92400e" />
-          </mesh>
-        </group>
-      );
-  }
-}
-
-function SmokePuff({ position, scale = 1 }: { position: [number, number, number]; scale?: number }) {
-  const ref = useRef<THREE.Mesh>(null);
-  useFrame((state) => {
-    if (!ref.current) return;
-    const t = (state.clock.elapsedTime % 2) / 2;
-    ref.current.position.y = position[1] + t * 0.5;
-    const s = (0.06 + t * 0.12) * scale;
-    ref.current.scale.setScalar(s);
-    (ref.current.material as THREE.MeshStandardMaterial).opacity = (1 - t) * 0.5;
-  });
-  return (
-    <mesh ref={ref} position={position}>
-      <sphereGeometry args={[1, 8, 8]} />
-      <meshStandardMaterial color="#cbd5e1" transparent opacity={0.4} />
-    </mesh>
-  );
-}
-
-function Tree({ position, scale = 1 }: { position: [number, number, number]; scale?: number }) {
-  return (
-    <group position={position} scale={scale}>
-      <mesh position={[0, 0.1, 0]} castShadow>
-        <cylinderGeometry args={[0.03, 0.04, 0.2, 6]} />
-        <meshStandardMaterial color="#92400e" />
-      </mesh>
-      <mesh position={[0, 0.32, 0]} castShadow>
-        <coneGeometry args={[0.16, 0.4, 8]} />
-        <meshStandardMaterial color="#2f9e44" />
-      </mesh>
-    </group>
-  );
 }
 
 /* ── agents ──────────────────────────────────────────────────────────────── */
@@ -711,8 +336,8 @@ function PersonModel({
 }
 
 function Person({
-  a, index, speaking, onClick,
-}: { a: AgentPath; index: number; speaking: string | null; onClick: () => void }) {
+  a, index, speaking, rumor = false, onClick,
+}: { a: AgentPath; index: number; speaking: string | null; rumor?: boolean; onClick: () => void }) {
   const ref = useRef<THREE.Group>(null);
   const act = a.activity ?? "walk";
   useFrame((state) => {
@@ -754,12 +379,8 @@ function Person({
         <PersonModel kind={kind} seed={a.seed ?? index} walking={act === "walk"} gait={a.phase * 6 + index} />
       </group>
       {speaking && (
-        <Html position={[0, 0.5, 0]} center distanceFactor={8} zIndexRange={[40, 0]}>
-          <div style={{
-            background: "white", border: "1px solid #e2e8f0", borderRadius: 10,
-            padding: "5px 8px", fontSize: 13, lineHeight: 1.25, width: 150,
-            textAlign: "center", color: "#334155", boxShadow: "0 4px 12px rgba(15,23,42,0.18)",
-          }}>
+        <Html position={[0, 0.72, 0]} center distanceFactor={8} zIndexRange={[40, 0]} style={{ pointerEvents: "none" }}>
+          <div className={`speech-bubble ${rumor ? "speech-bubble--rumor" : ""}`} style={{ width: 150 }}>
             {speaking}
           </div>
         </Html>
@@ -958,26 +579,6 @@ function PopIn({ bornAt, children }: { bornAt?: number; children: ReactNode }) {
     ref.current.scale.setScalar(Math.max(0.001, scale));
   });
   return <group ref={ref}>{children}</group>;
-}
-
-/** Approximate roof height so level stars float just above every model. */
-function buildingTop(type: BuildingType, level: number): number {
-  switch (type) {
-    case "office": return 0.78 + level * 0.55;
-    case "factory": return 1.0 + level * 0.18;
-    case "warehouse": return 0.75 + level * 0.12;
-    case "store": return 0.65 + level * 0.2;
-    case "rnd": return 1.25 + level * 0.25;
-    case "power": return 0.95 + level * 0.15;
-    case "hr": return 0.58 + level * 0.2;
-    case "cafeteria": return 0.61 + level * 0.15;
-    case "dorm": return 0.83 + level * 0.2;
-    case "gym": return 0.62 + level * 0.12;
-    case "daycare": return 0.85 + level * 0.16;
-    case "clinic": return 0.58 + level * 0.16;
-    case "lab": return 0.96 + level * 0.3;
-    default: return 0.5;
-  }
 }
 
 /** Golden stars above upgraded buildings: one per level beyond the first. */
@@ -1194,14 +795,20 @@ function Scene({
   // Deterministic per-company seed so each campus's skyline & crowd look distinct.
   const companySeed = [...company.id].reduce((a, c) => a + c.charCodeAt(0), 0);
   const [hover, setHover] = useState<string | null>(null);
-  const [speaker, setSpeaker] = useState<{ i: number; text: string } | null>(null);
+  const [speaker, setSpeaker] = useState<{ i: number; text: string; rumor?: boolean } | null>(null);
+  const [chatter, setChatter] = useState<{ id: string; text: string; key: number } | null>(null);
 
-  // Auto-dismiss person speech bubbles after 3 s.
+  // Auto-dismiss speech bubbles.
   useEffect(() => {
     if (!speaker) return;
-    const t = setTimeout(() => setSpeaker(null), 3000);
+    const t = setTimeout(() => setSpeaker(null), 3200);
     return () => clearTimeout(t);
   }, [speaker]);
+  useEffect(() => {
+    if (!chatter) return;
+    const t = setTimeout(() => setChatter(null), 3800);
+    return () => clearTimeout(t);
+  }, [chatter]);
 
   // Build the lookup every render: company.buildings is mutated in place, so a
   // memo keyed on the array reference would go stale and new builds wouldn't show.
@@ -1245,6 +852,38 @@ function Scene({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [n, hasDaycare, companySeed],
   );
+
+  // People and buildings chat on their own every few seconds. The latest
+  // 깜짝 소식 turns into gossip. Intervals read the newest props from a ref.
+  const rumor = latestFunEvent(game);
+  const latest = useRef({ company, phase: game.macro.phase, rumor: rumor?.title ?? null, people });
+  latest.current = { company, phase: game.macro.phase, rumor: rumor?.title ?? null, people };
+  const sayFromBuilding = (b: PlacedBuilding) =>
+    setChatter({ id: b.id, text: pickBuildingChatter(b.type, latest.current.company, latest.current.phase), key: Date.now() });
+  useEffect(() => {
+    if (reducedMotion) return;
+    const talk = window.setInterval(() => {
+      const { company: c, phase, rumor: gossip, people: crowd } = latest.current;
+      if (crowd.length === 0) return;
+      const i = Math.floor(Math.random() * crowd.length);
+      const spreadRumor = !!gossip && Math.random() < 0.35;
+      setSpeaker((current) => current ?? {
+        i,
+        text: spreadRumor ? `"${gossip}" 얘기 들었어요? 🤭` : pickCityVoice(c, phase, { personKind: crowd[i].kind }),
+        rumor: spreadRumor,
+      });
+    }, 4800);
+    const chat = window.setInterval(() => {
+      const live = latest.current.company.buildings.filter((b) => b.turnsLeft <= 0);
+      if (live.length === 0) return;
+      const b = live[Math.floor(Math.random() * live.length)];
+      setChatter({ id: b.id, text: pickBuildingChatter(b.type, latest.current.company, latest.current.phase), key: Date.now() });
+    }, 6500);
+    return () => {
+      window.clearInterval(talk);
+      window.clearInterval(chat);
+    };
+  }, [reducedMotion]);
 
   const tileWorld = (gx: number, gy: number) => ({
     x: (gx - (n - 1) / 2) * TILE,
@@ -1312,18 +951,31 @@ function Scene({
               {b && (
                 <group
                   position={[x, 0, z]}
-                  scale={[1, 0.85 + ((b.x * 7 + b.y * 13 + companySeed) % 7) * 0.055, 1]}
-                  onClick={(e) => { e.stopPropagation(); onCell(gx, gy); }}
+                  scale={[1, 0.96 + ((b.x * 7 + b.y * 13 + companySeed) % 5) * 0.02, 1]}
+                  onClick={(e) => { e.stopPropagation(); onCell(gx, gy); if (b.turnsLeft <= 0) sayFromBuilding(b); }}
                 >
                   <PopIn bornAt={reducedMotion ? undefined : born.get(`${b.id}:${b.level}`)}>
                     <Building3D
                       building={b}
                       selected={b.id === selectedBuildingId}
-                      tint={company.logoColor}
-                      seed={companySeed + b.x * 7 + b.y * 13}
+                      brand={company.logoColor}
                     />
                     {b.turnsLeft <= 0 && <LevelStars type={b.type} level={b.level} />}
                   </PopIn>
+                  {chatter?.id === b.id && (
+                    <Html
+                      key={chatter.key}
+                      position={[0, buildingTop(b.type, b.level) + 0.32, 0]}
+                      center
+                      distanceFactor={8}
+                      zIndexRange={[45, 0]}
+                      style={{ pointerEvents: "none" }}
+                    >
+                      <div className="speech-bubble speech-bubble--building" style={{ width: 160 }}>
+                        {chatter.text}
+                      </div>
+                    </Html>
+                  )}
                   {buildingLabels[b.id] && <Html position={[0, 1.6 + Object.keys(buildingLabels).indexOf(b.id) * 1.8, 0]} center zIndexRange={[15, 0]} calculatePosition={(object, camera, size) => {
                     const point = new THREE.Vector3().setFromMatrixPosition(object.matrixWorld).project(camera);
                     const lane = 2 - Object.keys(buildingLabels).indexOf(b.id);
@@ -1354,6 +1006,7 @@ function Scene({
           a={a}
           index={i}
           speaking={speaker?.i === i ? speaker.text : null}
+          rumor={speaker?.i === i && !!speaker.rumor}
           onClick={() => setSpeaker({ i, text: pickCityVoice(company, game.macro.phase, { personKind: a.kind }) })}
         />
       ))}
@@ -1366,8 +1019,8 @@ function Scene({
 
       <OrbitControls
         enabled={cameraEnabled}
-        enablePan={false}
-        minDistance={n * 0.9}
+        enablePan
+        minDistance={Math.max(2.2, n * 0.35)}
         maxDistance={n * 2.4}
         minPolarAngle={0.2}
         maxPolarAngle={Math.PI / 2.4}
@@ -1503,7 +1156,7 @@ export function CompanyMap3D({
           shadows
           frameloop={reducedMotion ? "demand" : "always"}
           dpr={[1, 1.8]}
-          camera={{ position: onWorkspaceCell ? [n * 0.95, n * 0.88, n * 1.0] : [n * 1.15, n * 0.95, n * 1.2], fov: 40 }}
+          camera={{ position: onWorkspaceCell ? [n * 0.8, n * 0.74, n * 0.84] : [n * 1.15, n * 0.95, n * 1.2], fov: 40 }}
         >
           <color attach="background" args={[onWorkspaceCell ? "#e4f4ed" : PHASE_BG[game.macro.phase] ?? PHASE_BG.normal]} />
           <Scene

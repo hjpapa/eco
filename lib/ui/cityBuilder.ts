@@ -2,6 +2,7 @@ import {
   BUILDING_COMBOS,
   BUILDINGS,
   campusDemandBoost,
+  cityScore as engineCityScore,
   getActiveBuildingCombos,
   type BuildingComboDef,
   type BuildingType,
@@ -12,12 +13,13 @@ import {
 // Presentation helpers for the construction screen. They only read game
 // state, so they never change saves or the simulation.
 
-export type BuildingRole = "money" | "smart" | "happy";
+export type BuildingRole = "money" | "smart" | "happy" | "landmark";
 
 export const BUILDING_ROLE_LABELS: Record<BuildingRole, { emoji: string; label: string; hint: string }> = {
   money: { emoji: "💰", label: "돈 버는 건물", hint: "생산·손님을 늘려 매출을 키워요" },
   smart: { emoji: "💡", label: "똑똑한 건물", hint: "품질·효율을 높여 회사를 튼튼하게" },
   happy: { emoji: "😊", label: "행복한 건물", hint: "직원 행복·평판을 높여요" },
+  landmark: { emoji: "🏛️", label: "랜드마크", hint: "도시가 커지면 열리는 명소" },
 };
 
 const ROLE: Record<BuildingType, BuildingRole> = {
@@ -35,6 +37,10 @@ const ROLE: Record<BuildingType, BuildingRole> = {
   gym: "happy",
   daycare: "happy",
   clinic: "happy",
+  fountain: "landmark",
+  statue: "landmark",
+  clocktower: "landmark",
+  ferris: "landmark",
 };
 
 const TAGLINE: Record<BuildingType, string> = {
@@ -52,6 +58,10 @@ const TAGLINE: Record<BuildingType, string> = {
   gym: "튼튼한 직원",
   daycare: "가족 친화 회사",
   clinic: "아프면 바로 치료",
+  fountain: "물소리 시원한 광장",
+  statue: "우리 도시의 상징",
+  clocktower: "모두 정시 출근",
+  ferris: "관광객이 몰려와요",
 };
 
 export function buildingRole(type: BuildingType): BuildingRole {
@@ -107,9 +117,14 @@ export interface CityProgress {
 
 /** City score: every building level is a point, every combination two more. */
 export function cityScore(company: Pick<Company, "buildings">): number {
-  const operational = company.buildings.filter((building) => building.turnsLeft <= 0);
-  const levels = operational.reduce((sum, building) => sum + building.level, 0);
-  return levels + getActiveBuildingCombos(company.buildings).length * 2;
+  return engineCityScore(company.buildings);
+}
+
+/** The city stage at which a building kind opens (null when open from the start). */
+export function unlockStageFor(type: BuildingType): CityStage | null {
+  const needed = BUILDINGS[type].unlockCityScore ?? 0;
+  if (needed <= 0) return null;
+  return [...CITY_STAGES].reverse().find((stage) => stage.min <= needed) ?? null;
 }
 
 export function getCityProgress(company: Pick<Company, "buildings">): CityProgress {

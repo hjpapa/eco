@@ -225,19 +225,6 @@ export default function Home() {
           </button>
         </section>
 
-        <section className="mt-6 grid w-full gap-3 sm:grid-cols-2">
-          <ModeCard
-            emoji="🎮"
-            title="싱글플레이"
-            desc="AI 경쟁사들과 겨루며 회사를 키워요. 지금 바로 플레이!"
-            ready
-          />
-          <ModeCard
-            emoji="🏫"
-            title="멀티플레이 (교실)"
-            desc="여러 학생이 같은 시장에서 경쟁. 곧 추가됩니다."
-          />
-        </section>
 
         <footer className="mt-auto pt-10 text-center text-xs text-slate-500">
           교육용 시뮬레이션 · 실제 투자 조언이 아닙니다
@@ -255,37 +242,6 @@ function StatCell({ icon, label, value }: { icon: string; label: string; value: 
       <div className="text-sm">{icon}</div>
       <div className="mt-1 text-xs text-slate-500">{label}</div>
       <div className="text-sm font-bold text-slate-200">{value}</div>
-    </div>
-  );
-}
-
-function ModeCard({
-  emoji,
-  title,
-  desc,
-  ready,
-}: {
-  emoji: string;
-  title: string;
-  desc: string;
-  ready?: boolean;
-}) {
-  return (
-    <div
-      className={`rounded-2xl p-5 ring-1 ${
-        ready ? "bg-slate-800/60 ring-brand-500/40" : "bg-slate-800/30 ring-slate-700"
-      }`}
-    >
-      <div className="flex items-center gap-2 text-lg font-bold">
-        <span className="text-2xl">{emoji}</span>
-        {title}
-        {ready ? (
-          <span className="pill bg-bull/20 text-bull">플레이 가능</span>
-        ) : (
-          <span className="pill bg-slate-600/40 text-slate-300">준비 중</span>
-        )}
-      </div>
-      <p className="mt-2 text-sm text-slate-300">{desc}</p>
     </div>
   );
 }

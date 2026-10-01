@@ -29,6 +29,10 @@ const ALL_BUILDINGS: BuildingType[] = [
   "daycare",
   "clinic",
   "lab",
+  "fountain",
+  "statue",
+  "clocktower",
+  "ferris",
 ];
 
 const ALL_LAYERS: EventLayer[] = [
@@ -53,6 +57,8 @@ export const LEVEL_CONFIGS: Record<Level, LevelConfig> = {
     volatility: 0.5,
     eventIntensity: 0.6,
     enabledAssets: ["deposit", "bond", "etf", "gold", "fx"],
+    // Every building kind is available; newer kinds open as the city grows
+    // (see BuildingDef.unlockCityScore) so the first choices stay simple.
     enabledBuildings: [
       "factory",
       "warehouse",
@@ -62,6 +68,16 @@ export const LEVEL_CONFIGS: Record<Level, LevelConfig> = {
       "park",
       "cafeteria",
       "daycare",
+      "power",
+      "gym",
+      "fountain",
+      "clinic",
+      "lab",
+      "statue",
+      "dorm",
+      "hr",
+      "clocktower",
+      "ferris",
     ],
     enabledEventLayers: ["macro", "monetary", "market", "internal", "visitor"],
     showAdvancedMetrics: true,
@@ -79,7 +95,7 @@ export const LEVEL_CONFIGS: Record<Level, LevelConfig> = {
     volatility: 1.0,
     eventIntensity: 1.0,
     enabledAssets: ["deposit", "bond", "etf", "realestate", "gold", "oil"],
-    enabledBuildings: ["factory", "rnd", "office", "warehouse", "store", "hr", "park", "cafeteria", "dorm", "gym", "daycare", "clinic", "lab"],
+    enabledBuildings: ["factory", "rnd", "office", "warehouse", "store", "hr", "park", "cafeteria", "dorm", "gym", "daycare", "clinic", "lab", "fountain", "statue", "clocktower", "ferris"],
     enabledEventLayers: ["macro", "monetary", "geopolitics", "intercompany", "internal", "market", "visitor"],
     showAdvancedMetrics: true,
     characterDepth: "roles",

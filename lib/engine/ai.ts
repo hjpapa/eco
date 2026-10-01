@@ -20,6 +20,7 @@ import { isFeatureUnlocked } from "./campaign";
 import {
   buildingConstructionCost,
   findBestBuildingCell,
+  isBuildingTypeUnlocked,
 } from "./buildings";
 import { estimateBuildingImpact } from "./planning";
 
@@ -175,7 +176,10 @@ function chooseBuilding(company: Company, state: GameState): BuildingType | null
       : ["store", "rnd", "lab", "office", "factory", "warehouse", "hr", "cafeteria", "gym", "dorm", "power", "park"];
   const reserve = Math.max(180_000, company.lastRevenue * 0.45);
   const affordable = order.filter(
-    (type) => enabled.includes(type) && company.cash - buildingConstructionCost(company, type) >= reserve,
+    (type) =>
+      enabled.includes(type) &&
+      isBuildingTypeUnlocked(company, type) &&
+      company.cash - buildingConstructionCost(company, type) >= reserve,
   );
   if (!affordable.length) return null;
 

@@ -163,6 +163,21 @@ Simple flat game-UI icons (96x96, transparent), consistent stroke weight:
 (combo-id: `make-and-move`, `smart-energy`, `quick-store`, `brand-center`, `idea-lab`,
 `happy-lunch`, `family-campus`, `green-break`, `deep-research`, `healthy-work`)
 
+## 7-1. ⭐ 새 건물 일러스트 4종 (랜드마크)
+배치: `public/assets/buildings/` · 기존 건물 이미지(512×512, 투명 배경, 같은 아이소메트릭 각도)와 같은 규격
+용도: 건설 카드·건물 도감·2D 지도(`BUILDING_IMG`). 현재 ⛲🐉🕰️🎡 이모지로 대체 중이며, 3D 모델은 이미 있어요.
+`lib/assetMap.ts`의 `BUILDING_IMG`에 `fountain`, `statue`, `clocktower`, `ferris` 경로만 추가하면 바로 반영돼요.
+
+```
+Isometric cute building illustrations matching the existing campus set
+(light paved plinth, small trees and bushes, soft pastel palette, clean outlines):
+- fountain (분수 광장): three-tier white stone fountain with blue water, benches, flower beds
+- statue (드래곤 동상): friendly green dragon statue on a stone pedestal with gold trim, lanterns
+- clocktower (시계탑): cream stone clock tower with a blue pyramid roof and clock faces
+- ferris (대관람차): pink ferris wheel with colourful cabins and a small ticket booth
+```
+파일명: `fountain.png`, `statue.png`, `clocktower.png`, `ferris.png`
+
 ## 8. ☆ 건물 레벨 2·3 이미지 (선택)
 배치: `public/assets/buildings/` · 기존 건물 이미지와 같은 규격
 용도: 업그레이드한 건물 카드·2D 지도. 지금은 같은 이미지 위에 ★ 표시만 붙여요.

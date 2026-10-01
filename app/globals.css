@@ -65,9 +65,58 @@ body {
   100% { opacity: 0; transform: translateY(-10px) scale(0.98); }
 }
 .build-celebration { animation: build-pop 1.8s ease-out both; }
+.build-celebration--big { animation-duration: 3.4s; }
 @media (prefers-reduced-motion: reduce) {
   .build-celebration { animation: none; }
 }
+
+/* 깜짝 소식: a little wobble on the emoji */
+@keyframes fun-wobble {
+  0%, 100% { transform: rotate(0deg) scale(1); }
+  20% { transform: rotate(-12deg) scale(1.15); }
+  40% { transform: rotate(10deg) scale(1.1); }
+  60% { transform: rotate(-6deg) scale(1.05); }
+}
+.fun-news-emoji { display: inline-block; animation: fun-wobble 1.4s ease-in-out 2; }
+@media (prefers-reduced-motion: reduce) {
+  .fun-news-emoji { animation: none; }
+}
+
+/* speech bubbles over the 3D campus */
+.speech-bubble {
+  position: relative;
+  pointer-events: none;
+  max-width: 170px;
+  border-radius: 14px;
+  border: 2px solid #1e293b;
+  background: #ffffff;
+  padding: 5px 9px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
+  color: #1e293b;
+  text-align: center;
+  white-space: normal;
+  word-break: keep-all;
+  box-shadow: 0 4px 0 rgba(15, 23, 42, 0.18);
+  animation: bubble-pop 0.18s ease-out;
+}
+.speech-bubble::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -8px;
+  width: 12px;
+  height: 12px;
+  background: #ffffff;
+  border-right: 2px solid #1e293b;
+  border-bottom: 2px solid #1e293b;
+  transform: translateX(-50%) rotate(45deg);
+}
+.speech-bubble--building { background: #fffbeb; border-color: #b45309; }
+.speech-bubble--building::after { background: #fffbeb; border-color: #b45309; }
+.speech-bubble--rumor { background: #fdf2f8; border-color: #be185d; }
+.speech-bubble--rumor::after { background: #fdf2f8; border-color: #be185d; }
 
 /* isometric campus agents — SVG shapes that slide along diagonal paths */
 @keyframes iso-agent-move {

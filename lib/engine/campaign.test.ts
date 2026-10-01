@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   CAMPAIGN_FEATURES,
   FEATURE_UNLOCK_TURNS,
+  GAME_VERSION,
   advanceTurn,
   createGame,
   getCampaignOutcome,
@@ -335,7 +336,8 @@ describe("save migration and outcomes", () => {
 
     const migrated = migrateGameState(structuredClone(current));
 
-    expect(migrated?.version).toBe(3);
+    expect(migrated?.version).toBe(GAME_VERSION);
+    expect(migrated?.config.enabledBuildings).toContain("ferris");
     expect(migrated?.turn).toBe(13);
     expect(migrated?.gameLength).toBe(50);
     expect(migrated?.revealMode).toBe("guided");

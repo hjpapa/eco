@@ -47,7 +47,7 @@ function NewsCard({ n }: { n: NewsItem }) {
           <div className="flex items-center gap-1">
             <b className="text-sm text-slate-800">{n.title}</b>
           </div>
-          <p className="mt-0.5 text-xs text-slate-600">{n.body}</p>
+          <p className="mt-0.5 whitespace-pre-line text-xs text-slate-600">{n.body}</p>
           <div className="mt-1 flex items-center gap-2 text-xs text-slate-400">
             <span className="rounded bg-white/70 px-1.5 py-0.5 font-semibold">
               {LAYER_LABELS[n.layer]}

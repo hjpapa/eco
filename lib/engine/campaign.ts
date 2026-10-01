@@ -9,7 +9,7 @@ import type {
   RevealMode,
 } from "./types";
 
-export const GAME_VERSION = 3;
+export const GAME_VERSION = 4;
 export const DEFAULT_GAME_LENGTH: GameLength = 50;
 export const DEFAULT_REVEAL_MODE: RevealMode = "guided";
 

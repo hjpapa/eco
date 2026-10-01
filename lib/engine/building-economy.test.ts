@@ -3,12 +3,14 @@ import {
   advanceTurn,
   BUILDINGS,
   cashSafetyLine,
+  cityScore,
   createGame,
   estimateBuildingImpact,
   estimateDemand,
   estimateUpgradeImpact,
   executiveSlots,
   findBestBuildingCell,
+  isBuildingTypeUnlocked,
   migrateGameState,
   netWorth,
   productionCapacity,
@@ -106,6 +108,31 @@ describe("campus construction", () => {
     expect(player.decisions.productionTarget).toBeGreaterThan(before);
     expect(player.decisions.productionTarget).toBeLessThanOrEqual(productionCapacity(player, state.config));
     expect(result.message).toContain("생산 계획");
+  });
+});
+
+describe("city growth unlocks", () => {
+  it("opens landmarks only after the city grows", () => {
+    const state = game();
+    const player = playerOf(state);
+    player.cash = 10_000_000;
+    expect(isBuildingTypeUnlocked(player, "fountain")).toBe(false);
+    const cell = findBestBuildingCell(player, "fountain", state.config.mapSize)!;
+    expect(buildBuilding(state, player, "fountain", cell.x, cell.y).ok).toBe(false);
+
+    for (const type of ["store", "warehouse", "park"] as BuildingType[]) buildAt(state, player, type);
+    expect(cityScore(player.buildings)).toBeGreaterThanOrEqual(BUILDINGS.fountain.unlockCityScore!);
+    expect(buildAt(state, player, "fountain").ok).toBe(true);
+  });
+
+  it("never lets a rival build something its city has not unlocked", () => {
+    const state = game({ revealMode: "all" });
+    while (state.turn < 20) advanceTurn(state);
+    for (const company of state.companies.filter((c) => c.isAI)) {
+      for (const building of company.buildings) {
+        expect(BUILDINGS[building.type].landmark).toBeFalsy();
+      }
+    }
   });
 });
 

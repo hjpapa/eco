@@ -76,6 +76,7 @@ export const BUILDINGS: Record<BuildingType, BuildingDef> = {
     maxLevel: 2,
     effects: { productionEfficiency: 0.06 },
     description: "전기를 아껴 생산비를 줄여요.",
+    unlockCityScore: 5,
   },
   hr: {
     type: "hr",
@@ -87,6 +88,7 @@ export const BUILDINGS: Record<BuildingType, BuildingDef> = {
     maxLevel: 2,
     effects: { hiringCap: 4, morale: 6 },
     description: "임원 자리와 직원 행복을 늘려요.",
+    unlockCityScore: 18,
   },
   park: {
     type: "park",
@@ -120,6 +122,7 @@ export const BUILDINGS: Record<BuildingType, BuildingDef> = {
     maxLevel: 3,
     effects: { morale: 6, hiringCap: 3 },
     description: "가까운 집이 생겨 직원 행복과 임원 자리가 늘어요.",
+    unlockCityScore: 18,
   },
   gym: {
     type: "gym",
@@ -131,6 +134,7 @@ export const BUILDINGS: Record<BuildingType, BuildingDef> = {
     maxLevel: 2,
     effects: { morale: 6, productionEfficiency: 0.02 },
     description: "건강한 직원이 힘을 내요. 직원 행복과 효율이 올라요.",
+    unlockCityScore: 5,
   },
   daycare: {
     type: "daycare",
@@ -153,6 +157,7 @@ export const BUILDINGS: Record<BuildingType, BuildingDef> = {
     maxLevel: 2,
     effects: { morale: 4, reputation: 3 },
     description: "아플 때 바로 돌봐 줘서 직원 행복과 평판이 올라요.",
+    unlockCityScore: 10,
   },
   lab: {
     type: "lab",
@@ -164,6 +169,61 @@ export const BUILDINGS: Record<BuildingType, BuildingDef> = {
     maxLevel: 3,
     effects: { rndPower: 14, productionEfficiency: 0.02 },
     description: "연구 속도가 더 빨라져요. R&D 연구소 옆에 두면 더 좋아요.",
+    unlockCityScore: 10,
+  },
+
+  // ===== City landmarks: unlocked as the city grows =====
+  fountain: {
+    type: "fountain",
+    name: "분수 광장",
+    emoji: "⛲",
+    cost: 70_000,
+    buildTurns: 1,
+    upkeep: 2_000,
+    maxLevel: 2,
+    effects: { morale: 3, reputation: 4 },
+    description: "시원한 분수 광장이 생겨 직원과 이웃이 쉬어 가요. 공원 옆에 두면 더 좋아요.",
+    unlockCityScore: 5,
+    landmark: true,
+  },
+  statue: {
+    type: "statue",
+    name: "드래곤 동상",
+    emoji: "🐉",
+    cost: 120_000,
+    buildTurns: 1,
+    upkeep: 2_000,
+    maxLevel: 3,
+    effects: { reputation: 7, marketingReach: 4 },
+    description: "우리 도시의 상징이에요. 사진 찍으러 온 손님이 회사를 기억해요.",
+    unlockCityScore: 10,
+    landmark: true,
+  },
+  clocktower: {
+    type: "clocktower",
+    name: "시계탑",
+    emoji: "🕰️",
+    cost: 160_000,
+    buildTurns: 1,
+    upkeep: 4_000,
+    maxLevel: 2,
+    effects: { productionEfficiency: 0.04, reputation: 3 },
+    description: "모두가 같은 시계를 보며 손발을 맞춰요. 생산비가 조금 줄어요.",
+    unlockCityScore: 18,
+    landmark: true,
+  },
+  ferris: {
+    type: "ferris",
+    name: "대관람차",
+    emoji: "🎡",
+    cost: 260_000,
+    buildTurns: 2,
+    upkeep: 8_000,
+    maxLevel: 2,
+    effects: { marketingReach: 22, morale: 4, reputation: 5 },
+    description: "멀리서도 보이는 관광 명소! 관광객이 몰려와 손님이 크게 늘어요.",
+    unlockCityScore: 28,
+    landmark: true,
   },
 };
 
@@ -195,6 +255,10 @@ export const BUILDING_COMBOS: readonly BuildingComboDef[] = [
   { id: "green-break", name: "초록 휴식 팀", emoji: "🌿", pair: ["park", "cafeteria"], description: "휴식 공간이 직원과 이웃을 웃게 합니다.", effects: { morale: 6, reputation: 3 } },
   { id: "deep-research", name: "첨단 연구 팀", emoji: "🧪", pair: ["rnd", "lab"], description: "두 연구 시설이 어려운 문제를 함께 풉니다.", effects: { rndPower: 10 } },
   { id: "healthy-work", name: "건강한 일터 팀", emoji: "💪", pair: ["clinic", "gym"], description: "건강을 챙겨 꾸준히 일할 수 있습니다.", effects: { morale: 8, productionEfficiency: 0.02 } },
+  { id: "plaza", name: "분수 광장 팀", emoji: "🌈", pair: ["fountain", "park"], description: "분수와 공원이 이어진 광장에 사람들이 모여요.", effects: { morale: 4, reputation: 3 } },
+  { id: "dragon-hq", name: "드래곤 본사", emoji: "🐉", pair: ["statue", "office"], description: "멋진 동상이 회사를 상징해 손님이 기억해요.", effects: { reputation: 4, marketingReach: 6 } },
+  { id: "on-time", name: "정시 출근 팀", emoji: "⏰", pair: ["clocktower", "factory"], description: "모두가 같은 시계를 보며 손발을 맞춰요.", effects: { productionEfficiency: 0.03 } },
+  { id: "tourist-spot", name: "관광 명소", emoji: "🎡", pair: ["ferris", "store"], description: "관람차를 타러 온 손님이 가게에도 들러요.", effects: { marketingReach: 10, reputation: 2 } },
 ];
 
 /** Backward-compatible pair list used by learning content. */
@@ -285,6 +349,19 @@ export function getActiveBuildingCombos(buildings: PlacedBuilding[]): BuildingCo
     }
   }
   return combos;
+}
+
+/** City score: every operational building level is a point, every combination two more. */
+export function cityScore(buildings: PlacedBuilding[]): number {
+  const levels = buildings
+    .filter((building) => building.turnsLeft <= 0)
+    .reduce((sum, building) => sum + building.level, 0);
+  return levels + getActiveBuildingCombos(buildings).length * 2;
+}
+
+/** New building kinds open up as the city grows. */
+export function isBuildingTypeUnlocked(company: Pick<Company, "buildings">, type: BuildingType): boolean {
+  return cityScore(company.buildings) >= (BUILDINGS[type].unlockCityScore ?? 0);
 }
 
 /** Half of everything spent on a building's levels comes back when it is sold. */

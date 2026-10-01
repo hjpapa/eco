@@ -737,7 +737,9 @@ function EventPopup({ events, onClose }: { events: NewsItem[]; onClose: () => vo
           <img src={BANNER_IMGS[tone]} alt="" className="w-full object-cover" style={{ maxHeight: 100 }} />
           <div className="absolute inset-0 flex items-end bg-black/25 px-4 pb-2.5">
             <h2 id="event-popup-title" className="text-base font-black text-white drop-shadow">
-              이번 턴(분기) 속보 {events.length > 1 ? `(${events.length})` : ""}
+              {events.every((ev) => ev.layer === "fun")
+                ? "😂 이번 턴(분기) 깜짝 소식"
+                : `이번 턴(분기) 속보 ${events.length > 1 ? `(${events.length})` : ""}`}
             </h2>
           </div>
         </div>
@@ -745,25 +747,26 @@ function EventPopup({ events, onClose }: { events: NewsItem[]; onClose: () => vo
         <div className="max-h-[55vh] space-y-2.5 overflow-y-auto scroll-thin">
           {events.map((ev) => {
             const tone = TONE_STYLE[ev.tone];
+            const fun = ev.layer === "fun";
             return (
-              <div key={ev.id} className={`rounded-xl bg-white p-3 ring-1 ${tone.ring}`}>
+              <div key={ev.id} className={`rounded-xl p-3 ring-1 ${fun ? "fun-news bg-amber-50 ring-amber-300" : `bg-white ${tone.ring}`}`}>
                 <div className="flex items-start gap-2.5">
                   {ev.portrait ? (
                     <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-4xl shadow-inner">
                       {ev.portrait}
                     </span>
                   ) : (
-                    <span className="text-2xl leading-none">{ev.emoji}</span>
+                    <span className={`leading-none ${fun ? "fun-news-emoji text-4xl" : "text-2xl"}`}>{ev.emoji}</span>
                   )}
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-1.5">
                       <span className="font-bold text-slate-800">{ev.title}</span>
-                      <span className={`pill text-xs ${tone.chip}`}>{tone.label}</span>
-                      <span className="pill bg-slate-100 text-xs text-slate-500">
+                      {!fun && <span className={`pill text-xs ${tone.chip}`}>{tone.label}</span>}
+                      <span className={`pill text-xs ${fun ? "bg-amber-200 text-amber-900" : "bg-slate-100 text-slate-500"}`}>
                         {LAYER_LABELS[ev.layer]}
                       </span>
                     </div>
-                    <p className="mt-1 text-sm leading-snug text-slate-600">{ev.body}</p>
+                    <p className="mt-1 whitespace-pre-line text-sm leading-snug text-slate-600">{ev.body}</p>
                   </div>
                 </div>
               </div>
