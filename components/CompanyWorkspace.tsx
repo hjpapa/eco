@@ -9,16 +9,15 @@ import {
   evaluateBuildingPlacement,
   findBestBuildingCell,
   getActiveBuildingCombos,
-  estimateDemand,
-  productionCapacity,
   isFeatureUnlocked,
+  isBuildingTypeUnlocked,
   getFeatureUnlockTurn,
+  openQuests,
+  questProgress,
   type GameState,
   type Company,
   type BuildingType,
 } from "@/lib/engine";
-import { getIndustry } from "@/lib/data/industries";
-import { getCountry } from "@/lib/data/countries";
 import { formatMoney, formatNum } from "@/lib/format";
 import {
   COMPANY_TASKS,
@@ -26,12 +25,13 @@ import {
   taskForMission,
   type CompanyTask,
 } from "@/lib/ui/companyWorkspace";
-import { getCityProgress } from "@/lib/ui/cityBuilder";
+import { buildingWorkReport, getCityProgress } from "@/lib/ui/cityBuilder";
 import { WORK_LESSONS } from "@/lib/learning/catalog";
 import { useGameStore } from "@/store/gameStore";
 import { CompanyCity } from "./CompanyCity";
 import { CompanyPanel } from "./CompanyPanel";
 import { BuildingIcon, ConstructionPanel } from "./ConstructionPanel";
+import { AchievementShelf, QuestBoard } from "./QuestBoard";
 import { Dashboard } from "./Dashboard";
 import { EconomyIndicators } from "./EconomyIndicators";
 import { RivalChase } from "./RivalChase";
@@ -57,11 +57,18 @@ export function CompanyWorkspace({
   game,
   company,
   onNavigate,
+  workReportKey = 0,
 }: {
   game: GameState;
   company: Company;
   onNavigate: (destination: MissionDestination) => void;
+  /** Changes after each turn's popups close; triggers the building pop-ups. */
+  workReportKey?: number;
 }) {
+  const lastSummary = useGameStore((s) => s.lastSummary);
+  const workReport = workReportKey
+    ? { key: workReportKey, labels: buildingWorkReport(company, lastSummary?.playerResult?.unitsProduced ?? 0) }
+    : undefined;
   const [task, setTask] = useState<CompanyTask>("construction");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [pending, setPendingState] = useState<BuildingType | null>(null);
@@ -80,14 +87,6 @@ export function CompanyWorkspace({
     game.config.showAdvancedMetrics &&
     isFeatureUnlocked(game, "visitsPartnershipsAdvanced");
   const selected = company.buildings.find((b) => b.id === selectedId);
-  const capacity = productionCapacity(company, game.config);
-  const demand = estimateDemand(
-    company,
-    getIndustry(company.industryId),
-    getCountry(company.countryId),
-    game.macro,
-    game.config,
-  );
   const combos = getActiveBuildingCombos(company.buildings);
   const city = getCityProgress(company);
 
@@ -97,7 +96,7 @@ export function CompanyWorkspace({
     if (!type) return;
     setSelectedId(null);
     // On tablets the cards sit below the map: bring the map back into view.
-    if (window.innerWidth < 1280) {
+    if (window.innerWidth < 1024) {
       window.requestAnimationFrame(() =>
         mapSection.current?.scrollIntoView({ block: "start", behavior: "smooth" }),
       );
@@ -157,7 +156,10 @@ export function CompanyWorkspace({
     return () => media.removeEventListener("change", update);
   }, []);
 
-  const locked = (id: CompanyTask) => id === "research" && !researchUnlocked;
+  const locked = (id: CompanyTask) =>
+    (id === "research" && !researchUnlocked) || (id === "finance" && !advanced);
+  const lockTurn = (id: CompanyTask) =>
+    getFeatureUnlockTurn(game.gameLength, id === "research" ? "research" : "visitsPartnershipsAdvanced");
   const choose = (id: CompanyTask, buildingId: string | null = null) => {
     setTask(id);
     setSelectedId(buildingId);
@@ -165,7 +167,7 @@ export function CompanyWorkspace({
     setConfirmCell(null);
     window.requestAnimationFrame(() => {
       panel.current?.focus({ preventScroll: true });
-      if (window.innerWidth < 1280)
+      if (window.innerWidth < 1024)
         panel.current?.scrollIntoView({ block: "start", behavior: "instant" });
     });
   };
@@ -206,7 +208,7 @@ export function CompanyWorkspace({
       if (task === "construction") {
         setSelectedId(b.id === selectedId ? null : b.id);
         window.requestAnimationFrame(() => {
-          if (window.innerWidth < 1280) panel.current?.scrollIntoView({ block: "start", behavior: "smooth" });
+          if (window.innerWidth < 1024) panel.current?.scrollIntoView({ block: "start", behavior: "smooth" });
         });
       } else choose(taskForBuilding(b.type), b.id);
       return;
@@ -225,9 +227,9 @@ export function CompanyWorkspace({
     if (b)
       labels[b.id] =
         type === "factory"
-          ? `🏭 계획 ${formatNum(company.decisions.productionTarget)}개`
+          ? `🏭 ${formatNum(company.decisions.productionTarget)}개 만들기`
           : type === "warehouse"
-            ? `📦 재고 ${formatNum(company.inventory)}개`
+            ? `📦 창고 ${formatNum(company.inventory)}개`
             : `😊 행복 ${Math.round(company.morale)}점`;
   }
 
@@ -265,7 +267,7 @@ export function CompanyWorkspace({
           return (
             <button
               key={i}
-              className={`relative flex min-h-16 flex-col items-center justify-center rounded-lg border p-1 text-[11px] leading-tight ${tone}`}
+              className={`relative flex min-h-16 flex-col items-center justify-center rounded-lg border p-1 text-xs leading-tight ${tone}`}
               onClick={() => onCell(x, y)}
               aria-label={`${x + 1}열 ${y + 1}줄 ${b ? `${BUILDINGS[b.type].name} 레벨 ${b.level}` : placement?.combos.length ? "빈 땅, 조합 보너스 칸" : "빈 땅"}`}
             >
@@ -273,7 +275,7 @@ export function CompanyWorkspace({
                 <>
                   <BuildingIcon type={b.type} size="h-8 w-8" />
                   <span className="font-bold text-slate-700">{BUILDINGS[b.type].name.split("·")[0]}</span>
-                  {b.level > 1 && <span className="absolute right-0.5 top-0.5 text-[10px] text-amber-500">{"★".repeat(b.level)}</span>}
+                  {b.level > 1 && <span className="absolute right-0.5 top-0.5 text-xs text-amber-500">{"★".repeat(b.level)}</span>}
                 </>
               ) : (
                 <span className="text-lg text-emerald-700/70" aria-hidden>
@@ -289,33 +291,22 @@ export function CompanyWorkspace({
 
   const lesson = WORK_LESSONS[task];
   const taskInfo = COMPANY_TASKS.find((t) => t.id === task);
+  const tasks = COMPANY_TASKS.filter((t) => t.id !== "finance" || game.config.showAdvancedMetrics);
+  // Things on the quest board that want a tap: new offers, finished work, a choice.
+  const questAlerts =
+    openQuests(game).filter((q) => q.status === "offered" || q.status === "ready" || (q.kind !== "order" && questProgress(game, q).ratio >= 1)).length +
+    (game.dilemma ? 1 : 0);
 
   return (
-    <div className="company-workspace space-y-4" onKeyDown={(event) => {
+    <div className="company-workspace flex flex-col gap-4" onKeyDown={(event) => {
       if (event.key === "Escape" && pending) { setPending(null); event.stopPropagation(); }
     }}>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <p className="text-xs font-bold tracking-widest text-emerald-700">
-            DRAGON MOUNTAIN CITY
-          </p>
-          <h1 className="text-2xl font-black text-slate-900">
-            우리 회사 도시 만들기
-          </h1>
-          <p className="text-sm text-slate-600">
-            건물을 지어 도시를 키우고, 생산·판매 계획을 세워요.
-          </p>
-        </div>
-        <button
-          className="btn-ghost"
-          onClick={() => setReport(!report)}
-          aria-expanded={report}
-        >
-          {report ? "회사로 돌아가기" : "📊 회사 요약·보고서"}
-        </button>
-      </div>
+      <h1 className="sr-only">우리 회사 도시 만들기 — 건물을 지어 도시를 키우고, 만들기·팔기 계획을 세워요.</h1>
       {report ? (
-        <div className="mx-auto max-w-4xl">
+        <div className="mx-auto max-w-4xl space-y-4">
+          <button className="btn-ghost min-h-12 text-base" onClick={() => setReport(false)}>
+            ← 회사 지도로 돌아가기
+          </button>
           <Dashboard
             game={game}
             onNavigate={(d) => {
@@ -327,43 +318,57 @@ export function CompanyWorkspace({
         </div>
       ) : (
         <>
-          <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,7fr)_minmax(360px,3fr)]">
-            <section ref={mapSection} className="min-w-0 scroll-mt-40 space-y-3 rounded-3xl border border-emerald-200 bg-white/90 p-3 shadow-sm">
-              <div className="flex flex-wrap items-center justify-between gap-2 px-2">
-                <div className="flex min-w-0 items-center gap-2">
-                  <h2 className="truncate font-black text-emerald-950">
-                    🏙️ {company.name}
-                  </h2>
+          <div className="grid items-start gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(380px,420px)] xl:grid-cols-[minmax(0,1fr)_460px]">
+            <section ref={mapSection} className="min-w-0 scroll-mt-36 space-y-2.5 rounded-3xl border border-emerald-200 bg-white/90 p-2.5 shadow-sm">
+              <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+                <div className="flex min-w-0 items-center gap-1.5">
                   <button
                     type="button"
                     onClick={() => choose("construction")}
-                    className="flex items-center gap-1.5 rounded-full bg-violet-100 px-2.5 py-1 text-xs font-black text-violet-800 ring-1 ring-violet-200"
-                    title="도시 점수: 건물 레벨 1점, 조합 2점"
+                    className="flex items-center gap-1.5 rounded-full bg-violet-100 px-3 py-1 text-sm font-black text-violet-800 ring-1 ring-violet-200"
+                    aria-label={`우리 도시 단계: ${city.stage.label}${city.next ? `, ${city.next.label}까지 ${city.pointsToNext}점` : ""}`}
                   >
                     <span aria-hidden>{city.stage.emoji}</span>
                     {city.stage.label}
                     {city.next && (
-                      <span className="hidden h-1.5 w-12 overflow-hidden rounded-full bg-white sm:block" aria-hidden>
+                      <span className="h-2 w-12 overflow-hidden rounded-full bg-white" aria-hidden>
                         <span className="block h-full rounded-full bg-violet-500" style={{ width: `${Math.round(city.progress * 100)}%` }} />
                       </span>
                     )}
                   </button>
-                </div>
-                <div className="flex gap-2">
                   <button
-                    className="btn-ghost"
+                    type="button"
+                    onClick={() => {
+                      const shelf = document.getElementById("achievement-shelf") as HTMLDetailsElement | null;
+                      if (shelf) {
+                        shelf.open = true;
+                        shelf.scrollIntoView({ behavior: "smooth", block: "center" });
+                      }
+                    }}
+                    className="rounded-full bg-amber-100 px-3 py-1 text-sm font-black text-amber-800 ring-1 ring-amber-200"
+                    aria-label={`업적 ${(game.achievements ?? []).length}개 보기`}
+                  >
+                    🏅 {(game.achievements ?? []).length}
+                  </button>
+                </div>
+                <div className="flex gap-1.5">
+                  <button className="btn-ghost !px-3" onClick={() => setReport(true)} aria-label="회사 성적표 보기">
+                    📊 <span className="hidden sm:inline lg:hidden xl:inline">회사 성적표</span>
+                  </button>
+                  <button
+                    className="btn-ghost !px-3"
                     aria-pressed={flat}
                     onClick={() => setFlat(!flat)}
                   >
-                    {flat ? "3D 보기" : "2D 보기"}
+                    {flat ? "3D" : "2D"}
                   </button>
                   {!flat && (
                     <button
-                      className="btn-ghost"
+                      className="btn-ghost !px-3"
                       aria-pressed={camera}
                       onClick={() => setCamera(!camera)}
                     >
-                      {camera ? "처음 시점으로" : "🔍 회전·확대"}
+                      {camera ? "↩️ 처음 시점" : "🔍 돌려 보기"}
                     </button>
                   )}
                 </div>
@@ -385,9 +390,27 @@ export function CompanyWorkspace({
                       cameraEnabled={camera}
                       reducedMotion={reduced}
                       buildingLabels={labels}
+                      workReport={workReport}
                     />
                   </MapBoundary>
                 )}
+                {/* Placement help floats over the empty sky so it never falls below the fold. */}
+                <div className="pointer-events-none absolute inset-x-2 top-2 z-10 flex justify-center">
+                  <div className="w-full max-w-xl">
+                  <PlacementBar
+                    pending={pending}
+                    previewProfit={preview?.profitDelta ?? null}
+                    previewPayback={preview?.paybackTurns ?? null}
+                    comboCount={preview?.combos.length ?? 0}
+                    confirm={confirmCell && preview ? { cashAfter: preview.cashAfter, safetyLine: preview.safetyLine } : null}
+                    canRecommend={!!recommendation}
+                    onRecommend={() => recommendation && tryBuild(recommendation.x, recommendation.y)}
+                    onConfirm={() => confirmCell && tryBuild(confirmCell.x, confirmCell.y)}
+                    onCancel={() => setPending(null)}
+                    idleText={task === "construction" ? "👉 지을 건물을 고르거나, 지도의 건물을 눌러 키워 보세요." : "👉 지도의 건물을 누르면 그 건물이 하는 일이 열려요."}
+                  />
+                  </div>
+                </div>
                 {celebration && (
                   <div
                     key={celebration.key}
@@ -397,175 +420,126 @@ export function CompanyWorkspace({
                     <div className={`build-celebration ${celebration.big ? "build-celebration--big ring-violet-300" : "ring-amber-300"} max-w-md rounded-2xl bg-slate-950/90 px-5 py-3 text-center text-white shadow-2xl ring-2`}>
                       <div className={celebration.big ? "text-5xl" : "text-4xl"}>{celebration.emoji}</div>
                       <div className="mt-1 text-lg font-black">{celebration.title}</div>
-                      {celebration.detail && <div className="text-xs text-slate-200">{celebration.detail}</div>}
+                      {celebration.detail && <div className="text-sm text-slate-200">{celebration.detail}</div>}
                     </div>
                   </div>
                 )}
               </div>
-              <PlacementBar
-                pending={pending}
-                previewProfit={preview?.profitDelta ?? null}
-                previewPayback={preview?.paybackTurns ?? null}
-                comboCount={preview?.combos.length ?? 0}
-                confirm={confirmCell && preview ? { cashAfter: preview.cashAfter, safetyLine: preview.safetyLine } : null}
-                canRecommend={!!recommendation}
-                onRecommend={() => recommendation && tryBuild(recommendation.x, recommendation.y)}
-                onConfirm={() => confirmCell && tryBuild(confirmCell.x, confirmCell.y)}
-                onCancel={() => setPending(null)}
-                idleText={task === "construction" ? "지을 건물을 고르세요. 지도의 건물을 누르면 업그레이드할 수 있어요." : "건물을 누르면 관련 업무가 열려요."}
-              />
-              <nav
-                className="grid grid-cols-3 gap-2 sm:grid-cols-6"
-                aria-label="회사 업무"
-              >
-                {COMPANY_TASKS.map((t) => (
-                  <button
-                    key={t.id}
-                    aria-pressed={task === t.id}
-                    className={`min-h-16 rounded-2xl px-2 py-3 text-sm font-bold ${
-                      task === t.id
-                        ? "bg-emerald-700 text-white shadow"
-                        : t.id === "construction"
-                          ? "bg-amber-100 text-amber-900 ring-2 ring-amber-300"
-                          : "bg-slate-100 text-slate-700"
-                    }`}
-                    onClick={() => choose(t.id)}
-                  >
-                    <span className="block text-xl">
-                      {locked(t.id) ? "🔒" : t.icon}
-                    </span>
-                    {t.label}
-                  </button>
-                ))}
-              </nav>
-              <details className="rounded-xl bg-slate-50 p-3">
-                <summary className="cursor-pointer text-sm font-bold">
-                  건물 목록으로 선택하기 ({company.buildings.length}개)
-                </summary>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {company.buildings.map((b) => (
-                    <button
-                      className="btn-ghost"
-                      key={b.id}
-                      onClick={() => choose("construction", b.id)}
-                    >
-                      {BUILDINGS[b.type].emoji} {BUILDINGS[b.type].name} Lv.{b.level} (
-                      {b.x + 1}, {b.y + 1})
-                    </button>
-                  ))}
-                </div>
-              </details>
+
             </section>
             <section
               ref={panel}
               tabIndex={-1}
               aria-label="선택한 경영 업무"
-              className="min-w-0 scroll-mt-40 space-y-3 rounded-3xl border border-slate-200 bg-white p-4 outline-none xl:sticky xl:top-36 xl:max-h-[calc(100vh-10rem)] xl:overflow-y-auto"
+              className="workspace-panel min-w-0 scroll-mt-36 rounded-3xl border border-slate-200 bg-white outline-none"
             >
-              <div className="flex justify-between gap-2">
-                <h2 className="text-xl font-black">
-                  {taskInfo?.icon} {taskInfo?.label}
-                </h2>
-                {selected && task !== "construction" && (
-                  <span className="text-xs text-slate-500">
-                    {BUILDINGS[selected.type].name} Lv.{selected.level}
-                  </span>
-                )}
-              </div>
-              {task !== "construction" && (
-                <div className="rounded-xl bg-slate-50 p-3 text-sm">
-                  <b>현재 상황</b>
-                  <p className="mt-1">
-                    {task === "production"
-                      ? `생산 한도 ${formatNum(capacity)}개 · 이전 가격 기준 예상 수요 ${formatNum(demand)}개 · 재고 ${formatNum(company.inventory)}개`
-                      : task === "finance"
-                        ? `현금 ${formatMoney(company.cash)} · 지난 이익 ${formatMoney(company.lastProfit)}`
-                        : task === "research"
-                          ? `품질 ${Math.round(company.quality)}점`
-                          : task === "staff"
-                            ? `직원 행복 ${Math.round(company.morale)}점 · 안전 ${Math.round(company.safety)}점`
-                            : `지난 매출 ${formatMoney(company.lastRevenue)}`}
-                  </p>
-                </div>
-              )}
-              {locked(task) ? (
-                <p className="rounded-xl bg-amber-50 p-4 text-sm">
-                  🔒{" "}
-                  {getFeatureUnlockTurn(game.gameLength, "research")}
-                  턴(분기)에 열려요. 지금은 건물을 짓고 생산과 판매를 해 보세요.
-                </p>
-              ) : task === "construction" ? (
-                <ConstructionPanel
-                  game={game}
-                  company={company}
-                  pending={pending}
-                  onPick={setPending}
-                  selected={selected}
-                  onCloseSelected={() => setSelectedId(null)}
-                  preview={preview}
-                  needsConfirm={!!confirmCell}
-                  onBuildPreview={() => preview && tryBuild(preview.x, preview.y)}
-                />
-              ) : (
-                <>
-                  <p className="text-xs font-bold text-slate-500">
-                    내 선택 · 가격·생산·예산은 다음 턴 적용, 활동 버튼은 즉시
-                    실행
-                  </p>
-                  {task === "finance" && !advanced ? (
-                    <p className="rounded-xl bg-amber-50 p-3 text-sm">
-                      {!game.config.showAdvancedMetrics ? "이 저장 게임의 설정에서는 상세 재무·대출을 사용하지 않아요." : <>상세 재무·대출은{" "}
-                      {getFeatureUnlockTurn(
-                        game.gameLength,
-                        "visitsPartnershipsAdvanced",
+              <nav
+                className="workspace-tasks grid grid-cols-4 gap-1.5 rounded-t-3xl border-b border-slate-100 bg-white p-2.5 sm:grid-cols-7 lg:grid-cols-4"
+                aria-label="회사 업무"
+              >
+                {tasks.map((t) => {
+                  const isLocked = locked(t.id);
+                  const badge = t.id === "quests" && questAlerts > 0 ? questAlerts : 0;
+                  return (
+                    <button
+                      key={t.id}
+                      aria-pressed={task === t.id}
+                      className={`relative flex min-h-[3.75rem] flex-col items-center justify-center rounded-2xl px-1 py-1.5 text-sm font-black leading-tight ${
+                        task === t.id
+                          ? "bg-emerald-700 text-white shadow"
+                          : isLocked
+                            ? "bg-slate-50 text-slate-400"
+                            : t.id === "construction"
+                              ? "bg-amber-100 text-amber-900 ring-2 ring-amber-300"
+                              : "bg-slate-100 text-slate-700"
+                      }`}
+                      onClick={() => choose(t.id)}
+                    >
+                      <span className="text-xl leading-none" aria-hidden>
+                        {isLocked ? "🔒" : t.icon}
+                      </span>
+                      <span className="mt-0.5">{t.label}</span>
+                      {badge > 0 && (
+                        <span className="quest-badge absolute -right-1 -top-1 flex h-6 min-w-6 items-center justify-center rounded-full bg-rose-500 px-1.5 text-xs font-black text-white ring-2 ring-white">
+                          {badge}
+                        </span>
                       )}
-                      턴(분기)에 열려요.</>}
-                    </p>
-                  ) : (
+                    </button>
+                  );
+                })}
+              </nav>
+              <div className="space-y-3 p-3 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain">
+                <div className="flex items-center justify-between gap-2">
+                  <h2 className="text-xl font-black">
+                    {taskInfo?.icon} {taskInfo?.label}
+                  </h2>
+                  {selected && task !== "construction" && (
+                    <span className="text-sm font-bold text-slate-500">
+                      {BUILDINGS[selected.type].emoji} {BUILDINGS[selected.type].name} Lv.{selected.level}
+                    </span>
+                  )}
+                </div>
+                {locked(task) ? (
+                  <p className="rounded-xl bg-amber-50 p-4 text-base">
+                    🔒 {lockTurn(task)}턴에 열려요. 지금은 건물을 짓고 만들기·팔기를 해 보세요.
+                  </p>
+                ) : task === "quests" ? (
+                  <QuestBoard
+                    game={game}
+                    company={company}
+                    layout="stack"
+                    onGoProduction={() => choose("production")}
+                    onGoBuild={(type) => {
+                      choose("construction");
+                      if (type && isBuildingTypeUnlocked(company, type)) setPending(type);
+                    }}
+                  />
+                ) : task === "construction" ? (
+                  <ConstructionPanel
+                    game={game}
+                    company={company}
+                    pending={pending}
+                    onPick={setPending}
+                    selected={selected}
+                    onCloseSelected={() => setSelectedId(null)}
+                    preview={preview}
+                    needsConfirm={!!confirmCell}
+                    onBuildPreview={() => preview && tryBuild(preview.x, preview.y)}
+                  />
+                ) : (
+                  <>
                     <CompanyPanel
                       key={task}
                       game={game}
                       company={company}
                       task={task}
                     />
-                  )}
-                  {selected && (
-                    <button
-                      className="btn-ghost w-full"
-                      onClick={() => choose("construction", selected.id)}
+                    {selected && (
+                      <button
+                        className="btn-ghost w-full"
+                        onClick={() => choose("construction", selected.id)}
+                      >
+                        ⬆️ 이 건물 키우기·관리
+                      </button>
+                    )}
+                  </>
+                )}
+                {!locked(task) && (
+                  <details className="group rounded-xl bg-amber-50 p-3 text-sm text-amber-950">
+                    <summary className="flex min-h-9 cursor-pointer list-none items-center justify-between font-black">
+                      📘 경제 한마디: {lesson.term}
+                      <span className="text-amber-500 transition group-open:rotate-180">⌄</span>
+                    </summary>
+                    <p className="mt-1 leading-relaxed">{lesson.text}</p>
+                    <p className="mt-1 leading-relaxed text-amber-800">💡 {lesson.impact}</p>
+                    <Link
+                      className="mt-1 inline-flex min-h-11 items-center font-bold underline"
+                      href="/learn?return=/play"
                     >
-                      이 건물 업그레이드·관리
-                    </button>
-                  )}
-                  {selected?.type === "warehouse" && (
-                    <button
-                      className="btn-ghost w-full"
-                      onClick={() => choose("sales")}
-                    >
-                      재고를 팔기 위해 판매 계획 열기
-                    </button>
-                  )}
-                </>
-              )}
-              <div className="rounded-xl bg-blue-50 p-3 text-sm text-blue-950">
-                <b>예상 영향</b>
-                <p className="mt-1">
-                  {task === "production" &&
-                  company.decisions.productionTarget > demand
-                    ? "예상 수요보다 생산 목표가 높아요. 재고가 남을 수 있어요. "
-                    : ""}
-                  {lesson.impact}
-                </p>
-              </div>
-              <div className="rounded-xl bg-amber-50 p-3 text-sm text-amber-950">
-                <b>📘 {lesson.term}</b>
-                <p className="mt-1">{lesson.text}</p>
-                <Link
-                  className="mt-2 inline-flex min-h-11 items-center font-bold underline"
-                  href="/learn?return=/play"
-                >
-                  배우기에서 더 알아보기
-                </Link>
+                      배우기에서 더 알아보기
+                    </Link>
+                  </details>
+                )}
               </div>
             </section>
           </div>
@@ -578,6 +552,7 @@ export function CompanyWorkspace({
               else onNavigate(d);
             }}
           />
+          <AchievementShelf game={game} />
           {isFeatureUnlocked(game, "talentNewsRanking") && (
             <RivalChase game={game} />
           )}
@@ -612,18 +587,18 @@ function PlacementBar({
 }) {
   if (!pending) {
     return (
-      <div role="status" className="min-h-6 px-2 text-sm font-bold text-emerald-800">
-        {idleText}
+      <div role="status" className="flex justify-center">
+        <span className="rounded-full bg-white/85 px-3 py-1 text-sm font-bold text-emerald-800 shadow-sm backdrop-blur">{idleText}</span>
       </div>
     );
   }
   const def = BUILDINGS[pending];
   if (confirm) {
     return (
-      <div role="status" className="rounded-2xl bg-amber-100 p-3 text-sm text-amber-950 ring-2 ring-amber-300">
+      <div role="status" className="pointer-events-auto rounded-2xl bg-amber-100/95 p-3 text-base text-amber-950 shadow-lg ring-2 ring-amber-300 backdrop-blur">
         <p className="font-black">⚠️ 지으면 남는 돈 {formatMoney(confirm.cashAfter)}원</p>
-        <p className="text-xs">
-          비상금 선 {formatMoney(confirm.safetyLine)}원보다 적어져요. 갑자기 손해가 나면 회사가 위험할 수 있어요.
+        <p className="text-sm">
+          비상금 {formatMoney(confirm.safetyLine)}원보다 적어져요. 갑자기 손해가 나면 회사가 위험할 수 있어요.
         </p>
         <div className="mt-2 grid grid-cols-2 gap-2">
           <button type="button" className="btn-bull !bg-amber-500" onClick={onConfirm}>
@@ -637,22 +612,22 @@ function PlacementBar({
     );
   }
   return (
-    <div role="status" className="rounded-2xl bg-emerald-50 p-3 text-sm text-emerald-950 ring-2 ring-emerald-300">
+    <div role="status" className="pointer-events-auto rounded-2xl bg-emerald-50/95 p-2.5 text-base text-emerald-950 shadow-lg ring-2 ring-emerald-300 backdrop-blur">
       <p className="font-black">
-        📍 {def.emoji} {def.name}: 지도에서 빈 땅을 눌러 지어요
+        📍 {def.emoji} {def.name}: 지도에서 빈 땅을 눌러요
       </p>
-      <p className="text-xs text-emerald-900">
+      <p className="text-sm text-emerald-900">
         ⭐ 초록 칸 = 추천 · ✨ 금색 칸 = 조합 보너스
         {previewProfit != null &&
-          ` · 추천 칸 이익 ${previewProfit >= 0 ? "+" : "−"}${formatMoney(Math.abs(Math.round(previewProfit)))}원/턴`}
-        {previewPayback != null && ` · 본전 약 ${previewPayback}턴`}
+          ` · 이익 ${previewProfit >= 0 ? "+" : "−"}${formatMoney(Math.abs(Math.round(previewProfit)))}원/턴`}
+        {previewPayback != null && ` · 본전까지 약 ${previewPayback}턴`}
         {comboCount > 0 && ` · 조합 ${comboCount}개`}
       </p>
-      <div className="mt-2 grid grid-cols-[1fr_auto] gap-2">
-        <button type="button" className="btn-primary" disabled={!canRecommend} onClick={onRecommend}>
+      <div className="mt-1.5 grid grid-cols-[1fr_auto] gap-2">
+        <button type="button" className="btn-primary text-base" disabled={!canRecommend} onClick={onRecommend}>
           ⭐ 추천 칸에 짓기
         </button>
-        <button type="button" className="btn-ghost" onClick={onCancel}>
+        <button type="button" className="btn-ghost text-base" onClick={onCancel}>
           취소
         </button>
       </div>

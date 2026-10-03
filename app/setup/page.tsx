@@ -7,24 +7,25 @@ import { INDUSTRIES } from "@/lib/data/industries";
 import { COUNTRIES } from "@/lib/data/countries";
 import { COMPANY_PRESETS } from "@/lib/data/companyPresets";
 import { STORY } from "@/lib/data/story";
-import { LEVEL_CONFIGS } from "@/lib/engine";
 import type { GameLength, RevealMode } from "@/lib/engine";
 import { useGameStore } from "@/store/gameStore";
 import { playSfx } from "@/lib/audio";
-import { getIndustry } from "@/lib/data/industries";
 
 const COLORS = ["#6366f1", "#ef4444", "#16a34a", "#f59e0b", "#0ea5e9", "#db2777", "#7c3aed", "#0d9488"];
 const CAMPUS_SIZE_MAP = { small: 5, medium: 8, large: 12 } as const;
 
-// Wizard steps
+// Two short steps: pick a company, then pick how long to play and go.
 const WIZARD_STEPS = [
-  { id: "type",   label: "유형 선택" },
-  { id: "detail", label: "회사 설정" },
-  { id: "campus", label: "캠퍼스" },
-  { id: "campaign", label: "게임 방식" },
-  { id: "start",  label: "시작" },
+  { id: "company", label: "회사 정하기" },
+  { id: "start", label: "출발 준비" },
 ] as const;
 type WizardStep = typeof WIZARD_STEPS[number]["id"];
+
+const LENGTH_OPTIONS = [
+  { value: 20 as const, emoji: "⚡", label: "짧게 20턴", desc: "수업 1~2시간에 딱!", note: "회사가 빨리 자라요" },
+  { value: 50 as const, emoji: "🎯", label: "보통 50턴", desc: "처음이라면 추천", note: "천천히 여러 기능을 써 봐요" },
+  { value: 100 as const, emoji: "🌳", label: "길게 100턴", desc: "여러 날 이어서", note: "느긋하게 크게 키워요" },
+];
 
 function SetupInner() {
   const router = useRouter();
@@ -36,7 +37,7 @@ function SetupInner() {
   const scenes = STORY[level];
   const [sceneIdx, setSceneIdx] = useState(0);
   const [phase, setPhase] = useState<"story" | "wizard">("story");
-  const [wizardStep, setWizardStep] = useState<WizardStep>("type");
+  const [wizardStep, setWizardStep] = useState<WizardStep>("company");
 
   const [tab, setTab] = useState<"preset" | "custom">("preset");
   const [name, setName] = useState("");
@@ -52,11 +53,6 @@ function SetupInner() {
   const filteredPresets = useMemo(
     () => COMPANY_PRESETS.filter((p) => filterCountry === "all" || p.countryId === filterCountry),
     [filterCountry],
-  );
-
-  const rankPreview = useMemo(
-    () => [...COMPANY_PRESETS].sort((a, b) => b.scale - a.scale).slice(0, 5),
-    [],
   );
 
   const selectPreset = (id: string) => {
@@ -85,43 +81,32 @@ function SetupInner() {
     router.push("/play");
   };
 
-  const goWizard = (step: WizardStep) => setWizardStep(step);
   const wizardIdx = WIZARD_STEPS.findIndex((s) => s.id === wizardStep);
-
-  const goNext = () => {
-    const next = WIZARD_STEPS[wizardIdx + 1];
-    if (next) goWizard(next.id);
-    else start();
-  };
-  const goPrev = () => {
-    const prev = WIZARD_STEPS[wizardIdx - 1];
-    if (prev) goWizard(prev.id);
-    else setPhase("story");
-  };
+  const needsPreset = tab === "preset" && !basedOn;
 
   // --- Story phase ---
   if (phase === "story") {
     const scene = scenes[sceneIdx];
     return (
-      <Shell returnPath="/setup">
+      <Shell>
         <div className="card mx-auto max-w-xl animate-popin p-8 text-center">
-          <div className="text-6xl">{scene.emoji}</div>
+          <div className="text-7xl">{scene.emoji}</div>
           <h2 className="mt-4 text-2xl font-black text-slate-800">{scene.title}</h2>
-          <p className="mt-3 text-slate-600">{scene.body}</p>
+          <p className="mt-3 text-lg leading-relaxed text-slate-600">{scene.body}</p>
           <div className="mt-6 flex justify-center gap-2">
             {scenes.map((_, i) => (
               <span
                 key={i}
-                className={`h-2 w-2 rounded-full ${i === sceneIdx ? "bg-brand-600" : "bg-slate-300"}`}
+                className={`h-2.5 w-2.5 rounded-full ${i === sceneIdx ? "bg-brand-600" : "bg-slate-300"}`}
               />
             ))}
           </div>
-          <div className="mt-6 flex justify-center gap-3">
-            <button className="btn-ghost" onClick={() => setPhase("wizard")}>
+          <div className="mt-6 grid grid-cols-2 gap-3">
+            <button className="btn-ghost min-h-14 text-base" onClick={() => setPhase("wizard")}>
               건너뛰기
             </button>
             <button
-              className="btn-primary"
+              className="btn-primary min-h-14 text-base"
               onClick={() => {
                 playSfx("click");
                 if (sceneIdx < scenes.length - 1) setSceneIdx(sceneIdx + 1);
@@ -137,101 +122,76 @@ function SetupInner() {
   }
 
   // --- Wizard phase ---
-  const levelCfg = LEVEL_CONFIGS[level];
   const selectedIndustry = INDUSTRIES.find((i) => i.id === industryId);
   const selectedCountry = COUNTRIES.find((c) => c.id === countryId);
   const selectedPreset = COMPANY_PRESETS.find((p) => p.id === basedOn);
+  const companyName = name || (selectedPreset?.name ?? "내 회사");
 
   return (
-    <Shell returnPath="/setup">
-      <div className="mx-auto max-w-2xl space-y-5">
-        <h2 className="text-center text-2xl font-black text-white">회사를 만들어요</h2>
+    <Shell>
+      <div className="mx-auto max-w-3xl space-y-5 pb-28">
+        <h2 className="text-center text-3xl font-black text-white">회사를 만들어요</h2>
 
-        {/* Step progress indicator */}
-        <div className="flex items-center gap-1">
+        {/* Step progress */}
+        <ol className="mx-auto flex max-w-md items-center gap-2" aria-label="진행 단계">
           {WIZARD_STEPS.map((s, i) => (
-            <div key={s.id} className="flex flex-1 items-center">
+            <li key={s.id} className="flex flex-1 items-center gap-2">
               <button
-                onClick={() => i < wizardIdx && goWizard(s.id)}
+                type="button"
+                onClick={() => i < wizardIdx && setWizardStep(s.id)}
                 disabled={i > wizardIdx}
-                className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold transition ${
+                aria-current={i === wizardIdx ? "step" : undefined}
+                className={`flex min-h-11 flex-1 items-center justify-center gap-2 rounded-full px-3 text-sm font-black transition ${
                   i === wizardIdx
                     ? "bg-brand-600 text-white shadow"
                     : i < wizardIdx
-                      ? "bg-brand-300 text-white cursor-pointer hover:bg-brand-400"
-                      : "bg-slate-700 text-slate-500"
+                      ? "bg-brand-300/30 text-brand-100"
+                      : "bg-slate-800 text-slate-500"
                 }`}
               >
-                {i < wizardIdx ? "✓" : i + 1}
-              </button>
-              <span className={`ml-1.5 text-xs font-semibold ${i === wizardIdx ? "text-white" : "text-slate-500"}`}>
+                <span>{i < wizardIdx ? "✓" : i + 1}</span>
                 {s.label}
-              </span>
-              {i < WIZARD_STEPS.length - 1 && (
-                <div className={`mx-2 flex-1 h-px ${i < wizardIdx ? "bg-brand-400" : "bg-slate-700"}`} />
-              )}
-            </div>
+              </button>
+            </li>
           ))}
-        </div>
+        </ol>
 
-        {/* Elementary profile info bar */}
-        <div className="flex items-center gap-3 rounded-xl bg-slate-800/60 px-4 py-2.5 ring-1 ring-slate-700/50">
-          <span className="text-xl">🧒</span>
-          <div className="flex-1 text-sm font-bold text-white">초등 4~6학년 경제 탐험</div>
-          <div className="flex gap-3 text-xs text-slate-400">
-            <span>시작금 <b className="text-slate-200">100만 원 고정</b></span>
-            <span>경쟁사 <b className="text-slate-200">{levelCfg.aiCount}개</b></span>
-          </div>
-        </div>
-
-        {/* ── Step 1: type selection ─────────────────────────────────── */}
-        {wizardStep === "type" && (
+        {/* ── Step 1: company ─────────────────────────────────────────── */}
+        {wizardStep === "company" && (
           <div className="space-y-4 animate-popin">
-            <p className="text-center text-slate-300">어떤 방식으로 회사를 시작할까요?</p>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <button
+            <div className="grid grid-cols-2 gap-3">
+              <ChoiceCard
+                active={tab === "preset"}
+                emoji="🌍"
+                title="유명한 회사 따라 하기"
+                text="실제 회사를 닮은 회사로 시작해요."
                 onClick={() => { setTab("preset"); playSfx("click"); }}
-                className={`rounded-2xl p-5 text-left ring-2 transition ${
-                  tab === "preset" ? "bg-brand-600/20 ring-brand-400" : "bg-slate-800/60 ring-slate-700 hover:ring-slate-500"
-                }`}
-              >
-                <div className="text-3xl">🌍</div>
-                <div className="mt-2 text-lg font-bold text-white">실존 기업 모티브</div>
-                <div className="mt-1 text-sm text-slate-300">실제 기업을 모델로 시작. 업종·국가가 자동 설정됩니다.</div>
-                {tab === "preset" && <div className="mt-2 rounded-full bg-brand-400/20 px-2 py-0.5 text-xs font-bold text-brand-300 inline-block">선택됨 ✓</div>}
-              </button>
-              <button
+              />
+              <ChoiceCard
+                active={tab === "custom"}
+                emoji="✨"
+                title="내가 새로 만들기"
+                text="무엇을 팔지, 어느 나라인지 직접 골라요."
                 onClick={() => { setTab("custom"); setBasedOn(undefined); playSfx("click"); }}
-                className={`rounded-2xl p-5 text-left ring-2 transition ${
-                  tab === "custom" ? "bg-brand-600/20 ring-brand-400" : "bg-slate-800/60 ring-slate-700 hover:ring-slate-500"
-                }`}
-              >
-                <div className="text-3xl">✨</div>
-                <div className="mt-2 text-lg font-bold text-white">새 회사 직접 만들기</div>
-                <div className="mt-1 text-sm text-slate-300">업종·국가·색상을 자유롭게 선택하세요.</div>
-                {tab === "custom" && <div className="mt-2 rounded-full bg-brand-400/20 px-2 py-0.5 text-xs font-bold text-brand-300 inline-block">선택됨 ✓</div>}
-              </button>
+              />
             </div>
-          </div>
-        )}
 
-        {/* ── Step 2: company details ───────────────────────────────── */}
-        {wizardStep === "detail" && (
-          <div className="space-y-4 animate-popin">
-            {/* Company name */}
             <div className="card p-4">
-              <label className="text-sm font-semibold text-slate-600">회사 이름</label>
+              <label htmlFor="company-name" className="text-base font-black text-slate-700">회사 이름 <span className="text-sm font-bold text-slate-400">(안 적어도 괜찮아요)</span></label>
               <input
+                id="company-name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder={tab === "preset" && basedOn ? COMPANY_PRESETS.find(p => p.id === basedOn)!.name : "예) 드래곤 상점"}
-                className="mt-1 w-full rounded-xl border border-slate-300 px-4 py-2 text-slate-800 outline-none focus:border-brand-500"
+                maxLength={16}
+                placeholder={tab === "preset" && basedOn ? selectedPreset?.name : "예) 드래곤 상점"}
+                className="mt-2 min-h-12 w-full rounded-xl border border-slate-300 px-4 text-lg text-slate-800 outline-none focus:border-brand-500"
               />
             </div>
 
             {tab === "preset" ? (
               <div className="card p-4">
-                <div className="mb-3 flex flex-wrap gap-1">
+                <div className="mb-1 text-base font-black text-slate-700">따라 할 회사를 골라요</div>
+                <div className="mb-3 flex flex-wrap gap-1.5">
                   <FilterChip active={filterCountry === "all"} onClick={() => setFilterCountry("all")}>전체</FilterChip>
                   {COUNTRIES.map((c) => (
                     <FilterChip key={c.id} active={filterCountry === c.id} onClick={() => setFilterCountry(c.id)}>
@@ -239,7 +199,7 @@ function SetupInner() {
                     </FilterChip>
                   ))}
                 </div>
-                <div className="grid max-h-[42vh] gap-2 overflow-y-auto scroll-thin sm:grid-cols-2">
+                <div className="grid max-h-[46vh] gap-2 overflow-y-auto scroll-thin sm:grid-cols-2">
                   {filteredPresets.map((p) => {
                     const ind = INDUSTRIES.find((i) => i.id === p.industryId)!;
                     const ctry = COUNTRIES.find((c) => c.id === p.countryId)!;
@@ -247,20 +207,22 @@ function SetupInner() {
                     return (
                       <button
                         key={p.id}
+                        type="button"
+                        aria-pressed={active}
                         onClick={() => selectPreset(p.id)}
-                        className={`flex items-center gap-3 rounded-xl p-3 text-left ring-2 transition ${
-                          active ? "ring-brand-500" : "ring-slate-200 hover:ring-slate-300"
+                        className={`flex min-h-16 items-center gap-3 rounded-xl p-3 text-left ring-2 transition ${
+                          active ? "bg-brand-50 ring-brand-500" : "ring-slate-200 hover:ring-slate-300"
                         }`}
                       >
                         <span
-                          className="flex h-10 w-10 items-center justify-center rounded-lg text-lg"
+                          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-xl"
                           style={{ background: p.logoColor + "22", color: p.logoColor }}
                         >
                           {ind.emoji}
                         </span>
-                        <div>
-                          <div className="font-bold text-slate-800">{p.name}</div>
-                          <div className="text-xs text-slate-500">{ctry.flag} {ind.name} · {p.blurb}</div>
+                        <div className="min-w-0">
+                          <div className="font-black text-slate-800">{p.name} {active && "✓"}</div>
+                          <div className="text-sm text-slate-500">{ctry.flag} {ind.name}</div>
                         </div>
                       </button>
                     );
@@ -270,47 +232,53 @@ function SetupInner() {
             ) : (
               <div className="space-y-3">
                 <div className="card p-4">
-                  <div className="mb-2 text-sm font-semibold text-slate-600">업종 선택</div>
+                  <div className="mb-2 text-base font-black text-slate-700">무엇을 파는 회사인가요?</div>
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                     {INDUSTRIES.map((ind) => (
                       <button
                         key={ind.id}
+                        type="button"
+                        aria-pressed={industryId === ind.id}
                         onClick={() => { setIndustryId(ind.id); setBasedOn(undefined); playSfx("click"); }}
-                        className={`rounded-xl px-3 py-2 text-left text-sm ring-2 transition ${
-                          industryId === ind.id ? "ring-brand-500" : "ring-slate-200 hover:ring-slate-300"
+                        className={`min-h-14 rounded-xl px-3 py-2 text-left text-base ring-2 transition ${
+                          industryId === ind.id ? "bg-brand-50 ring-brand-500" : "ring-slate-200 hover:ring-slate-300"
                         }`}
                       >
-                        <span className="text-lg">{ind.emoji}</span>{" "}
-                        <span className="font-semibold text-slate-700">{ind.name}</span>
-                        {ind.modern && <span className="ml-1 text-xs text-pink-500">NEW</span>}
+                        <span className="text-xl">{ind.emoji}</span>{" "}
+                        <span className="font-bold text-slate-700">{ind.name}</span>
                       </button>
                     ))}
                   </div>
                 </div>
                 <div className="card p-4">
-                  <div className="mb-2 text-sm font-semibold text-slate-600">국가</div>
+                  <div className="mb-2 text-base font-black text-slate-700">어느 나라 회사인가요?</div>
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                     {COUNTRIES.map((c) => (
                       <button
                         key={c.id}
+                        type="button"
+                        aria-pressed={countryId === c.id}
                         onClick={() => { setCountryId(c.id); setBasedOn(undefined); playSfx("click"); }}
-                        className={`rounded-xl px-3 py-2 text-left text-sm ring-2 transition ${
-                          countryId === c.id ? "ring-brand-500" : "ring-slate-200 hover:ring-slate-300"
+                        className={`min-h-14 rounded-xl px-3 py-2 text-left text-base ring-2 transition ${
+                          countryId === c.id ? "bg-brand-50 ring-brand-500" : "ring-slate-200 hover:ring-slate-300"
                         }`}
                       >
-                        {c.flag} <span className="font-semibold text-slate-700">{c.name}</span>
+                        {c.flag} <span className="font-bold text-slate-700">{c.name}</span>
                       </button>
                     ))}
                   </div>
                 </div>
                 <div className="card p-4">
-                  <div className="mb-2 text-sm font-semibold text-slate-600">로고 색상</div>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="mb-2 text-base font-black text-slate-700">회사 색깔</div>
+                  <div className="flex flex-wrap gap-3">
                     {COLORS.map((c) => (
                       <button
                         key={c}
+                        type="button"
+                        aria-label={`회사 색깔 ${c}`}
+                        aria-pressed={color === c}
                         onClick={() => setColor(c)}
-                        className={`h-9 w-9 rounded-full ring-2 ${color === c ? "ring-slate-800" : "ring-transparent"}`}
+                        className={`h-12 w-12 rounded-full ring-4 ${color === c ? "ring-slate-800" : "ring-transparent"}`}
                         style={{ background: c }}
                       />
                     ))}
@@ -321,181 +289,129 @@ function SetupInner() {
           </div>
         )}
 
-        {/* ── Step 3: campus size ───────────────────────────────────── */}
-        {wizardStep === "campus" && (
-          <div className="animate-popin space-y-4">
-            <p className="text-center text-slate-300">캠퍼스 크기를 선택하세요. 건물을 배치할 수 있는 그리드 크기가 달라집니다.</p>
-            <div className="grid grid-cols-3 gap-4">
-              {(["small", "medium", "large"] as const).map((sz) => {
-                const info = {
-                  small:  { label: "작게",   grid: "5×5",   desc: "빠른 집중 플레이", emoji: "🏘️" },
-                  medium: { label: "중간",   grid: "8×8",   desc: "균형 있는 캠퍼스", emoji: "🏙️" },
-                  large:  { label: "크게",   grid: "12×12", desc: "넓고 자유로운 확장", emoji: "🌆" },
-                }[sz];
-                return (
-                  <button
-                    key={sz}
-                    onClick={() => { setCampusSize(sz); playSfx("click"); }}
-                    className={`rounded-2xl p-5 text-center ring-2 transition ${
-                      campusSize === sz ? "bg-brand-600/20 ring-brand-400" : "bg-slate-800/60 ring-slate-700 hover:ring-slate-500"
-                    }`}
-                  >
-                    <div className="text-3xl">{info.emoji}</div>
-                    <div className="mt-2 font-bold text-white">{info.label}</div>
-                    <div className="mt-0.5 font-mono text-sm text-brand-300">{info.grid}</div>
-                    <div className="mt-1 text-xs text-slate-400">{info.desc}</div>
-                    {campusSize === sz && <div className="mt-2 text-xs font-bold text-brand-300">선택됨 ✓</div>}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* ── Step 4: summary & start ───────────────────────────────── */}
-        {wizardStep === "campaign" && (
+        {/* ── Step 2: length + start ──────────────────────────────────── */}
+        {wizardStep === "start" && (
           <div className="animate-popin space-y-4">
             <div>
-              <h3 className="text-center text-lg font-black text-white">얼마나 길게 경영할까요?</h3>
-              <p className="mt-1 text-center text-sm text-slate-300">
-                처음이라면 기본 50턴(분기)을 추천해요. 짧은 게임일수록 품질·평판·인재가 더 빠르게 성장합니다.
+              <h3 className="text-center text-xl font-black text-white">얼마나 오래 할까요?</h3>
+              <p className="mt-1 text-center text-base text-slate-300">
+                1턴은 회사의 3개월이에요. 버튼 한 번에 3개월이 지나가요.
               </p>
             </div>
             <div className="grid gap-3 sm:grid-cols-3">
-              {([
-                { value: 20 as const, emoji: "⚡", label: "빠른 20턴(분기)", desc: "한 수업 안에 빠르게", badge: "품질·평판·인재 2.0배" },
-                { value: 50 as const, emoji: "🎯", label: "기본 50턴(분기)", desc: "처음 플레이 추천", badge: "품질·평판·인재 1.4배" },
-                { value: 100 as const, emoji: "🌳", label: "장기 100턴(분기)", desc: "천천히 깊이 있게", badge: "기본 성장" },
-              ]).map((option) => (
+              {LENGTH_OPTIONS.map((option) => (
                 <button
                   key={option.value}
                   type="button"
                   onClick={() => { setGameLength(option.value); playSfx("click"); }}
-                  className={`rounded-2xl p-4 text-left ring-2 transition ${
+                  className={`rounded-2xl p-5 text-left ring-2 transition ${
                     gameLength === option.value
-                      ? "bg-brand-600/20 ring-brand-400"
+                      ? "bg-brand-600/25 ring-brand-400"
                       : "bg-slate-800/60 ring-slate-700 hover:ring-slate-500"
                   }`}
                   aria-pressed={gameLength === option.value}
                 >
-                  <div className="text-3xl">{option.emoji}</div>
-                  <div className="mt-2 font-bold text-white">{option.label}</div>
-                  <div className="mt-1 text-xs text-slate-300">{option.desc}</div>
-                  <span className="mt-3 inline-block rounded-full bg-white/10 px-2 py-1 text-xs font-bold text-brand-200">
-                    {option.badge}
-                  </span>
+                  <div className="text-4xl">{option.emoji}</div>
+                  <div className="mt-2 text-lg font-black text-white">{option.label} {gameLength === option.value && "✓"}</div>
+                  <div className="mt-1 text-sm font-bold text-brand-200">{option.desc}</div>
+                  <div className="mt-1 text-sm text-slate-300">{option.note}</div>
                 </button>
               ))}
             </div>
 
-            <div className="rounded-2xl bg-slate-800/70 p-4 ring-1 ring-slate-700">
-              <div className="flex items-start gap-3">
-                <div className="min-w-0 flex-1">
-                  <div className="font-bold text-white">기능을 여는 방법</div>
-                  <p className="mt-1 text-sm text-slate-300">
-                    단계별 배우기에서는 회사 운영부터 시작해 투자와 인재 기능이 차례로 열려요.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={revealMode === "all"}
-                  onClick={() => setRevealMode((mode) => mode === "guided" ? "all" : "guided")}
-                  className={`relative h-7 w-12 shrink-0 rounded-full transition ${
-                    revealMode === "all" ? "bg-brand-500" : "bg-slate-600"
-                  }`}
-                  title="전체 기능 바로 열기"
-                >
-                  <span className={`absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow transition ${
-                    revealMode === "all" ? "translate-x-5" : "translate-x-0"
-                  }`} />
-                </button>
-              </div>
-              <button
-                type="button"
-                onClick={() => setRevealMode((mode) => mode === "guided" ? "all" : "guided")}
-                className="mt-3 text-left text-sm font-semibold text-brand-200 hover:text-white"
-              >
-                {revealMode === "all" ? "✅ 전체 기능 바로 열기 (숙련자용)" : "🪜 단계별로 하나씩 열기 (추천)"}
-              </button>
-            </div>
-
-            <div className="grid gap-2 text-sm sm:grid-cols-2">
-              <div className="rounded-xl bg-emerald-950/50 p-3 text-emerald-100 ring-1 ring-emerald-700/40">
-                🏙️ <b>건물은 처음부터!</b> — 서로 돕는 건물을 붙여 인접 보너스를 배워요.
-              </div>
-              <div className="rounded-xl bg-blue-950/50 p-3 text-blue-100 ring-1 ring-blue-700/40">
-                🌍 <b>경제 단계</b> — 금리·물가·환율과 부채를 쉬운 말로 익혀요.
-              </div>
-            </div>
-          </div>
-        )}
-
-        {wizardStep === "start" && (
-          <div className="animate-popin space-y-4">
             <div className="card p-5">
-              <h3 className="mb-4 text-center text-lg font-black text-slate-800">🚀 준비 완료!</h3>
-              <div className="space-y-3">
-                <SummaryRow label="회사 이름" value={name || (selectedPreset?.name ?? "내 회사")} />
-                {selectedIndustry && <SummaryRow label="업종" value={`${selectedIndustry.emoji} ${selectedIndustry.name}`} />}
-                {selectedCountry && <SummaryRow label="국가" value={`${selectedCountry.flag} ${selectedCountry.name}`} />}
-                <SummaryRow label="캠퍼스 크기" value={`${CAMPUS_SIZE_MAP[campusSize]}×${CAMPUS_SIZE_MAP[campusSize]} (${campusSize === "small" ? "작게" : campusSize === "medium" ? "중간" : "크게"})`} />
-                <SummaryRow label="게임 길이" value={`${gameLength}턴(분기)${gameLength === 50 ? " (추천)" : ""}`} />
-                <SummaryRow label="기능 공개" value={revealMode === "guided" ? "단계별로 하나씩" : "처음부터 모두"} />
-                <SummaryRow label="시작 자금" value="100만 원 (고정)" />
-                <SummaryRow label="게임 대상" value="🧒 초등 4~6학년" />
+              <h3 className="text-center text-lg font-black text-slate-800">🚀 이렇게 시작해요</h3>
+              <div className="mt-3 grid grid-cols-2 gap-2 text-center sm:grid-cols-4">
+                <SummaryChip emoji="🏢" label="회사" value={companyName} />
+                <SummaryChip emoji={selectedIndustry?.emoji ?? "🏭"} label="파는 것" value={selectedIndustry?.name ?? "-"} />
+                <SummaryChip emoji={selectedCountry?.flag ?? "🌍"} label="나라" value={selectedCountry?.name ?? "-"} />
+                <SummaryChip emoji="💰" label="시작 돈" value="100만 원" />
               </div>
-              <div className="mt-4 rounded-xl bg-brand-50 p-3 text-sm text-brand-700">
-                💡 <b>팁:</b> {revealMode === "guided"
-                  ? "건물은 처음부터 지을 수 있어요! 건설 미리보기에서 \"본전까지 몇 턴\"을 확인하고, 비상금은 꼭 남겨 두세요."
-                  : "기본 상품부터 판매하고 R&D에 투자해 품질을 높이면 더 비싼 상품을 판매할 수 있습니다!"}
-              </div>
+              <p className="mt-3 rounded-xl bg-brand-50 p-3 text-sm leading-relaxed text-brand-800">
+                💡 처음엔 <b>건물 짓기</b>와 <b>만들고 팔기</b>부터! 투자와 인재 뽑기는 게임을 하다 보면 열려요.
+              </p>
             </div>
 
-            {/* Competitor preview */}
-            <div className="overflow-hidden rounded-2xl bg-slate-800/60 ring-1 ring-slate-700/50">
-              <div className="px-4 py-3 text-sm font-bold text-white">예상 경쟁사 순위</div>
-              <div className="flex items-end gap-2 px-4 pb-3">
-                {rankPreview.map((p, i) => {
-                  const ind = getIndustry(p.industryId);
-                  const medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i + 1}`;
-                  return (
-                    <div key={p.id} className="flex flex-1 flex-col items-center gap-1 py-1">
-                      <span className="flex h-9 w-9 items-center justify-center rounded-xl text-lg" style={{ background: p.logoColor + "22" }}>
-                        {ind.emoji}
-                      </span>
-                      <span className="text-[9px] font-semibold text-slate-400 text-center leading-tight truncate w-full">{p.name}</span>
-                      <span className="text-xs">{medal}</span>
-                    </div>
-                  );
-                })}
-                <div className="flex flex-col items-center gap-1 py-1 opacity-60">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-xl text-lg" style={{ background: color + "44" }}>
-                    {selectedIndustry?.emoji ?? "🏢"}
-                  </span>
-                  <span className="text-[9px] text-slate-400">내 회사</span>
-                  <span className="text-xs text-slate-400">?위</span>
+            <details className="group rounded-2xl bg-slate-800/60 p-4 text-slate-200 ring-1 ring-slate-700">
+              <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between text-base font-bold">
+                👩‍🏫 선생님 설정 (바꾸지 않아도 돼요)
+                <span className="text-slate-400 transition group-open:rotate-180">⌄</span>
+              </summary>
+              <div className="mt-3 space-y-4">
+                <div>
+                  <div className="mb-2 text-sm font-bold text-slate-300">땅 크기</div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {(["small", "medium", "large"] as const).map((sz) => {
+                      const info = {
+                        small: { label: "작게 5×5", emoji: "🏘️" },
+                        medium: { label: "보통 8×8", emoji: "🏙️" },
+                        large: { label: "크게 12×12", emoji: "🌆" },
+                      }[sz];
+                      return (
+                        <button
+                          key={sz}
+                          type="button"
+                          aria-pressed={campusSize === sz}
+                          onClick={() => { setCampusSize(sz); playSfx("click"); }}
+                          className={`min-h-12 rounded-xl px-2 text-sm font-bold ring-2 transition ${
+                            campusSize === sz ? "bg-brand-600/30 ring-brand-400 text-white" : "bg-slate-900/60 ring-slate-700 text-slate-300"
+                          }`}
+                        >
+                          {info.emoji} {info.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div>
+                  <div className="mb-2 text-sm font-bold text-slate-300">기능 열기</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {([
+                      { value: "guided" as const, label: "🪜 차례로 열기 (추천)" },
+                      { value: "all" as const, label: "🔓 처음부터 모두 열기" },
+                    ]).map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        aria-pressed={revealMode === option.value}
+                        onClick={() => setRevealMode(option.value)}
+                        className={`min-h-12 rounded-xl px-2 text-sm font-bold ring-2 transition ${
+                          revealMode === option.value ? "bg-brand-600/30 ring-brand-400 text-white" : "bg-slate-900/60 ring-slate-700 text-slate-300"
+                        }`}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
-            </div>
+            </details>
           </div>
         )}
+      </div>
 
-        {/* Navigation buttons */}
-        <div className="flex items-center justify-between pt-2">
-          <button className="btn-ghost" onClick={goPrev}>
+      {/* Navigation: pinned to the bottom so it's always under the thumb. */}
+      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-white/10 bg-slate-950/90 px-4 py-3 backdrop-blur">
+        <div className="mx-auto flex max-w-3xl items-center justify-between gap-3">
+          <button
+            className="btn-ghost min-h-14 px-6 text-base"
+            onClick={() => (wizardIdx === 0 ? setPhase("story") : setWizardStep(WIZARD_STEPS[wizardIdx - 1].id))}
+          >
             ◀ 이전
           </button>
+          {needsPreset && wizardStep === "company" && (
+            <span className="hidden text-sm font-bold text-amber-200 sm:block">회사를 하나 골라 주세요 👆</span>
+          )}
           {wizardStep !== "start" ? (
             <button
-              className="btn-primary px-8"
-              onClick={goNext}
-              disabled={wizardStep === "detail" && tab === "preset" && !basedOn}
+              className="btn-primary min-h-14 px-10 text-lg"
+              onClick={() => { playSfx("click"); setWizardStep("start"); }}
+              disabled={needsPreset}
             >
               다음 ▶
             </button>
           ) : (
-            <button className="btn-primary px-8" onClick={start}>
+            <button className="btn-primary min-h-14 px-10 text-lg" onClick={start}>
               게임 시작 🚀
             </button>
           )}
@@ -505,21 +421,39 @@ function SetupInner() {
   );
 }
 
-function SummaryRow({ label, value }: { label: string; value: string }) {
+function ChoiceCard({ active, emoji, title, text, onClick }: { active: boolean; emoji: string; title: string; text: string; onClick: () => void }) {
   return (
-    <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-      <span className="text-sm text-slate-500">{label}</span>
-      <span className="text-sm font-bold text-slate-800">{value}</span>
+    <button
+      type="button"
+      aria-pressed={active}
+      onClick={onClick}
+      className={`rounded-2xl p-5 text-left ring-2 transition ${
+        active ? "bg-brand-600/25 ring-brand-400" : "bg-slate-800/60 ring-slate-700 hover:ring-slate-500"
+      }`}
+    >
+      <div className="text-4xl">{emoji}</div>
+      <div className="mt-2 text-lg font-black text-white">{title} {active && "✓"}</div>
+      <div className="mt-1 text-sm text-slate-300">{text}</div>
+    </button>
+  );
+}
+
+function SummaryChip({ emoji, label, value }: { emoji: string; label: string; value: string }) {
+  return (
+    <div className="rounded-xl bg-slate-50 px-2 py-3">
+      <div className="text-2xl" aria-hidden>{emoji}</div>
+      <div className="mt-1 text-xs font-bold text-slate-500">{label}</div>
+      <div className="truncate text-sm font-black text-slate-800" title={value}>{value}</div>
     </div>
   );
 }
 
-function Shell({ children, returnPath = "/setup" }: { children: React.ReactNode; returnPath?: string }) {
+function Shell({ children }: { children: React.ReactNode }) {
   return (
     <main className="min-h-screen bg-gradient-to-b from-slate-900 via-indigo-950 to-slate-900 px-4 py-10">
       <Link
-        href={`/learn?return=${encodeURIComponent(returnPath)}`}
-        className="fixed right-4 top-4 z-30 rounded-full bg-white px-4 py-2 text-sm font-bold text-brand-700 shadow-lg transition hover:-translate-y-0.5 hover:bg-brand-50"
+        href={`/learn?return=${encodeURIComponent("/setup")}`}
+        className="fixed right-4 top-4 z-30 inline-flex min-h-11 items-center rounded-full bg-white px-4 text-sm font-bold text-brand-700 shadow-lg transition hover:-translate-y-0.5 hover:bg-brand-50"
       >
         📘 배우기
       </Link>
@@ -531,8 +465,10 @@ function Shell({ children, returnPath = "/setup" }: { children: React.ReactNode;
 function FilterChip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
     <button
+      type="button"
+      aria-pressed={active}
       onClick={onClick}
-      className={`pill ${active ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
+      className={`pill min-h-10 px-3 text-sm ${active ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
     >
       {children}
     </button>

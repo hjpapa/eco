@@ -21,7 +21,7 @@ export function CompanyStatusCard({ game, company }: { game: GameState; company:
         <span className="text-lg">{industry.emoji}</span>
         <div className="flex-1">
           <div className="text-xs font-bold text-slate-700">{company.name}</div>
-          <div className="text-[10px] text-slate-500">
+          <div className="text-xs text-slate-500">
             현금 {formatMoney(company.cash)}
             {company.lastProfit !== 0 && (
               <span className={company.lastProfit > 0 ? "text-bull" : "text-bear"}>
@@ -40,11 +40,11 @@ export function CompanyStatusCard({ game, company }: { game: GameState; company:
           <StatMini label={<Term term="사기">직원 사기</Term>} value={company.morale} color="#16a34a" />
           <StatMini label={<Term term="안전" />} value={company.safety} color="#f59e0b"
             warn={company.safety < 40 ? "⚠ 낮음" : undefined} />
-          <div className="mt-2 flex justify-between text-[10px] text-slate-400">
+          <div className="mt-2 flex justify-between text-xs text-slate-400">
             <span>재고 {company.inventory.toLocaleString()}개</span>
             {advancedInfoUnlocked
               ? <span><Term term="부채">갚을 돈(부채)</Term> {formatMoney(company.debt)}</span>
-              : <span>🔒 돈 관리는 {getFeatureUnlockTurn(game.gameLength, "visitsPartnershipsAdvanced")}턴(분기)</span>
+              : <span>🔒 돈 관리는 {getFeatureUnlockTurn(game.gameLength, "visitsPartnershipsAdvanced")}턴</span>
             }
           </div>
         </div>
@@ -59,8 +59,8 @@ function StatMini({
   return (
     <div>
       <div className="mb-0.5 flex items-center justify-between">
-        <span className="text-[10px] text-slate-500">{label}</span>
-        <span className="text-[10px] font-semibold text-slate-700">
+        <span className="text-xs text-slate-500">{label}</span>
+        <span className="text-xs font-semibold text-slate-700">
           {Math.round(value)}
           {warn && <span className="ml-1 text-amber-500">{warn}</span>}
         </span>

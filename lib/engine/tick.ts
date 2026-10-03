@@ -1,6 +1,16 @@
-import type { GameState, NewsItem } from "./types";
+import type { EconomyPhase, GameState, NewsItem } from "./types";
 import { getCountry } from "../data/countries";
 import { PHASE_EMOJI, PHASE_LABELS, tickEconomy } from "./economy";
+
+/** What a change of economic phase means, in words a 4th grader can read. */
+const PHASE_NEWS: Record<EconomyPhase, string> = {
+  boom: "경기가 아주 좋아졌어요(호황). 사람들이 물건을 많이 사요.",
+  normal: "경기가 안정됐어요. 차근차근 회사를 키우기 좋은 때예요.",
+  recession: "경기가 나빠졌어요(불황). 사람들이 물건을 덜 사요.",
+  inflation: "물건값이 쑥쑥 오르고 있어요(인플레이션). 같은 돈으로 살 수 있는 게 줄어요.",
+  deflation: "물건값이 계속 내려가요(디플레이션). 사람들이 사는 걸 미루곤 해요.",
+  stagflation: "경기는 나쁜데 물건값은 올라요(스태그플레이션). 아주 조심해야 할 때예요.",
+};
 import { runAiTurn } from "./ai";
 import { marketAttractiveness, runCompanyTurn, type CompanyTurnResult } from "./company";
 import { getIndustry } from "../data/industries";
@@ -8,6 +18,16 @@ import { tickStocks } from "./market";
 import { tickAssets } from "./assets";
 import { generateEvents } from "./events";
 import { generateFunEvent } from "./funEvents";
+import {
+  activeOrder,
+  deliverOrders,
+  orderRemaining,
+  updateQuests,
+  type OrderDelivery,
+  type QuestUpdate,
+} from "./quests";
+import { updateDilemma } from "./dilemmas";
+import { checkAchievements } from "./achievements";
 import { decayRelations } from "./relations";
 import { recordNetWorth } from "./ranking";
 import { topUpTalentPool } from "./characters";
@@ -25,6 +45,14 @@ export interface TurnSummary {
   phaseChanged: boolean;
   events: NewsItem[];
   recoveryPlan: RecoveryPlan | null;
+  /** Units the accepted order received this turn. */
+  orderDelivery?: OrderDelivery | null;
+  /** Request-board changes after the turn (failed, expired, posted, ready). */
+  questUpdate?: QuestUpdate | null;
+  /** A new "사장님의 선택" card appeared. */
+  newDilemma?: boolean;
+  /** Achievements earned during this turn. */
+  achievements?: { id: string; emoji: string; title: string }[];
 }
 
 let monetaryCounter = 0;
@@ -58,8 +86,8 @@ export function advanceTurn(state: GameState): TurnSummary {
       layer: "macro",
       tone: state.macro.phase === "boom" ? "positive" : state.macro.phase === "normal" ? "neutral" : "negative",
       emoji: PHASE_EMOJI[state.macro.phase],
-      title: `경제 국면 전환: ${PHASE_LABELS[state.macro.phase]}`,
-      body: `경제가 ${PHASE_LABELS[state.macro.phase]} 국면에 들어섰습니다.`,
+      title: `경제 날씨가 바뀌었어요: ${PHASE_LABELS[state.macro.phase]}`,
+      body: PHASE_NEWS[state.macro.phase],
       tags: ["macro", state.macro.phase],
     });
   }
@@ -104,8 +132,20 @@ export function advanceTurn(state: GameState): TurnSummary {
       state.rng,
       marketPressure,
       growthMultiplier,
+      company.id === state.playerCompanyId ? orderRemaining(activeOrder(state)) : 0,
     );
     if (company.id === state.playerCompanyId) playerResult = result;
+  }
+
+  // 3b) Pay for the units the student's accepted order received.
+  const playerCompany = state.companies.find((company) => company.id === state.playerCompanyId);
+  const orderDelivery = playerCompany ? deliverOrders(state, playerCompany, playerResult?.reserved ?? 0) : null;
+  if (playerResult && orderDelivery && orderDelivery.revenue > 0) {
+    playerResult = {
+      ...playerResult,
+      revenue: playerResult.revenue + orderDelivery.revenue,
+      profit: playerResult.profit + orderDelivery.revenue,
+    };
   }
 
   // 4) Update markets.
@@ -152,7 +192,23 @@ export function advanceTurn(state: GameState): TurnSummary {
   // Jokes are about the student's own company, so they appear from turn one.
   if (funEvent) visibleEvents.push(funEvent);
 
-  return { turn: state.turn, playerResult, rateChange, phaseChanged, events: visibleEvents, recoveryPlan };
+  // 9) Request board, choice cards and achievements for the new turn.
+  const questUpdate = updateQuests(state);
+  const newDilemma = updateDilemma(state) !== null;
+  const achievements = checkAchievements(state).map(({ id, emoji, title }) => ({ id, emoji, title }));
+
+  return {
+    turn: state.turn,
+    playerResult,
+    rateChange,
+    phaseChanged,
+    events: visibleEvents,
+    recoveryPlan,
+    orderDelivery,
+    questUpdate,
+    newDilemma,
+    achievements,
+  };
 }
 
 function pushNews(state: GameState, item: Omit<NewsItem, "id" | "turn">): void {

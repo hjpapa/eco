@@ -1,6 +1,8 @@
 import {
   BUILDING_COMBOS,
   BUILDINGS,
+  CITY_STAGES,
+  type CityStage,
   campusDemandBoost,
   cityScore as engineCityScore,
   getActiveBuildingCombos,
@@ -89,22 +91,8 @@ export function buildingEffectChips(type: BuildingType, levels = 1): string[] {
   return chips;
 }
 
-export interface CityStage {
-  id: string;
-  emoji: string;
-  label: string;
-  /** Minimum city score for this stage. */
-  min: number;
-}
-
-export const CITY_STAGES: readonly CityStage[] = [
-  { id: "village", emoji: "🏡", label: "작은 마을", min: 0 },
-  { id: "town", emoji: "🏘️", label: "마을", min: 5 },
-  { id: "small-city", emoji: "🏙️", label: "소도시", min: 10 },
-  { id: "city", emoji: "🌆", label: "도시", min: 18 },
-  { id: "metropolis", emoji: "🌃", label: "대도시", min: 28 },
-  { id: "dragon-city", emoji: "🐉", label: "드래곤 시티", min: 40 },
-];
+export type { CityStage } from "../engine";
+export { CITY_STAGES } from "../engine";
 
 export interface CityProgress {
   score: number;
@@ -174,4 +162,40 @@ export function getCityCollection(game: GameState, company: Company): {
       found: active.has(combo.id),
     })),
   };
+}
+
+/**
+ * Short "what I did this turn" labels for every working building, shown as
+ * floating pop-ups on the campus after a turn. Factories split this turn's
+ * production by their share of capacity; other buildings show their effect.
+ */
+export function buildingWorkReport(
+  company: Pick<Company, "buildings">,
+  unitsProduced: number,
+): Record<string, string> {
+  const live = company.buildings.filter((b) => b.turnsLeft <= 0);
+  const factoryCap = live
+    .filter((b) => b.type === "factory")
+    .reduce((sum, b) => sum + (BUILDINGS.factory.effects.productionCapacity ?? 0) * b.level, 0);
+  const labels: Record<string, string> = {};
+  for (const b of live) {
+    const fx = BUILDINGS[b.type].effects;
+    if (b.type === "factory" && factoryCap > 0) {
+      const share = ((fx.productionCapacity ?? 0) * b.level) / factoryCap;
+      labels[b.id] = `📦 +${Math.round(unitsProduced * share).toLocaleString()}개 생산`;
+    } else if (fx.marketingReach) {
+      labels[b.id] = `🛍️ 손님 +${Math.round((campusDemandBoost({ marketingReach: fx.marketingReach * b.level, logistics: 0 }) - 1) * 100)}%`;
+    } else if (fx.logistics) {
+      labels[b.id] = `🚚 배송 +${Math.round((campusDemandBoost({ marketingReach: 0, logistics: fx.logistics * b.level }) - 1) * 100)}%`;
+    } else if (fx.rndPower) {
+      labels[b.id] = `🔬 연구 +${fx.rndPower * b.level}`;
+    } else if (fx.productionEfficiency && !fx.morale) {
+      labels[b.id] = `💸 생산비 −${Math.round(fx.productionEfficiency * b.level * 100)}%`;
+    } else if (fx.morale) {
+      labels[b.id] = `😊 행복 +${fx.morale * b.level}`;
+    } else if (fx.reputation) {
+      labels[b.id] = `⭐ 평판 +${fx.reputation * b.level}`;
+    }
+  }
+  return labels;
 }

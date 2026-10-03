@@ -94,7 +94,7 @@ describe("competitive and recoverable management", () => {
     const summary = advanceTurn(state);
 
     expect(summary.turn).toBe(10);
-    expect(summary.recoveryPlan?.title).toContain("10턴(분기)");
+    expect(summary.recoveryPlan?.title).toContain("10턴");
     expect(summary.recoveryPlan?.steps.length).toBeGreaterThanOrEqual(3);
   });
 

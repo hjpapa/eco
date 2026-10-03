@@ -307,23 +307,23 @@ export function evaluateMission(
     case "upgrade":
       return mission(id, "⬆️", `업그레이드 ${upgradeGoal}곳`, "새로 짓는 대신 있는 건물을 키우는 것도 좋은 방법이에요. 빈 땅을 아낄 수 있어요.", `${upgradedCount} / ${upgradeGoal}곳`, upgradedCount >= upgradeGoal, "company", "건물 키우러 가기");
     case "first-sale":
-      return mission(id, "🛍️", "첫 손님 만나기", "가격과 생산량을 정한 뒤 다음 턴(분기)을 눌러 첫 판매를 시작해요.", `${hasCompletedOfferedTurn && player.lastRevenue > 0 ? "판매 성공" : "판매 준비 중"}`, hasCompletedOfferedTurn && player.lastRevenue > 0, "company", "회사 운영하기");
+      return mission(id, "🛍️", "첫 손님 만나기", "가격과 생산량을 정한 뒤 다음 턴을 눌러 첫 판매를 시작해요.", `${hasCompletedOfferedTurn && player.lastRevenue > 0 ? "판매 성공" : "판매 준비 중"}`, hasCompletedOfferedTurn && player.lastRevenue > 0, "company", "회사 운영하기");
     case "profit":
-      return mission(id, "🪙", "흑자 턴(분기) 만들기", "판매 수입이 생산비와 여러 지출보다 많으면 성공해요.", game.turn > 0 ? `${player.lastProfit >= 0 ? "+" : ""}${Math.round(player.lastProfit).toLocaleString()}원` : "결과 전", game.turn > 0 && player.lastProfit > 0, "company", "가격·생산 보기");
+      return mission(id, "🪙", "이익 남기기", "번 돈이 쓴 돈보다 많으면 성공해요.", game.turn > 0 ? `${player.lastProfit >= 0 ? "+" : ""}${Math.round(player.lastProfit).toLocaleString()}원` : "결과 전", game.turn > 0 && player.lastProfit > 0, "company", "가격·생산 보기");
     case "inventory":
-      return mission(id, "📦", "창고를 가볍게", "팔릴 만큼 생산하면 돈이 재고에 오래 묶이지 않아요.", `${Math.round(player.inventory).toLocaleString()} / ${inventoryGoal.toLocaleString()}개 이하`, game.turn > 0 && player.inventory <= inventoryGoal, "company", "생산량 조절하기");
+      return mission(id, "📦", "창고를 가볍게", "팔릴 만큼만 만들면 창고에 물건이 쌓이지 않아요.", `${Math.round(player.inventory).toLocaleString()} / ${inventoryGoal.toLocaleString()}개 이하`, game.turn > 0 && player.inventory <= inventoryGoal, "company", "생산량 조절하기");
     case "cash-reserve":
-      return mission(id, "🛟", "비상금 지키기", "갑작스러운 사건에 대비해 현금 70만 원을 남겨 보세요.", `${Math.round(player.cash).toLocaleString()} / 700,000원`, (offeredTurn > 0 || hasCompletedOfferedTurn) && player.cash >= 700_000, "home", "회사 살림 보기");
+      return mission(id, "🛟", "비상금 지키기", "갑자기 생길 일에 대비해 돈 70만 원을 남겨 봐요.", `${Math.round(player.cash).toLocaleString()} / 700,000원`, (offeredTurn > 0 || hasCompletedOfferedTurn) && player.cash >= 700_000, "home", "회사 살림 보기");
     case "quality":
       return mission(id, "🔬", `품질 ${qualityGoal}점 도전`, "연구와 좋은 건물 조합은 더 좋은 상품을 만들게 해요.", `${Math.round(player.quality)} / ${qualityGoal}점`, player.quality >= qualityGoal, "company", "연구 계획 세우기");
     case "workplace":
-      return mission(id, "😊", "튼튼한 일터", "직원 만족과 안전을 모두 55점 이상으로 지켜요.", `만족 ${Math.round(player.morale)} · 안전 ${Math.round(player.safety)}`, player.morale >= 55 && player.safety >= 55, "company", "직원 환경 살피기");
+      return mission(id, "😊", "튼튼한 일터", "직원 행복과 안전을 모두 55점 이상으로 지켜요.", `행복 ${Math.round(player.morale)} · 안전 ${Math.round(player.safety)}`, player.morale >= 55 && player.safety >= 55, "company", "직원 환경 살피기");
     case "building-combo":
       return mission(id, "🧩", "건물 팀 만들기", "서로 돕는 건물을 상하좌우로 붙여 조합 1개를 완성해요.", `${comboCount} / 1개`, comboCount >= 1, "company", "건물 조합하기");
     case "first-investment":
-      return mission(id, "🌱", "첫 분산 투자", "현금을 모두 쓰지 말고 작은 금액으로 자산 하나를 경험해요.", invested > 0 ? `${Math.round(invested).toLocaleString()}원 투자 중` : "아직 0원", invested > 0, "invest", "투자 둘러보기");
+      return mission(id, "🌱", "첫 투자 해 보기", "돈을 다 쓰지 말고 조금만 주식이나 예금에 넣어 봐요.", invested > 0 ? `${Math.round(invested).toLocaleString()}원 투자 중` : "아직 0원", invested > 0, "invest", "투자 둘러보기");
     case "healthy-debt":
-      return mission(id, "⚖️", "감당할 수 있는 빚", "현금을 빚보다 많이 유지하면 이자 변화에도 버티기 쉬워요.", `현금 ${Math.round(player.cash).toLocaleString()} · 빚 ${Math.round(player.debt).toLocaleString()}원`, player.cash >= player.debt, "company", "재무 확인하기");
+      return mission(id, "⚖️", "감당할 수 있는 빚", "가진 돈이 빚보다 많으면 이자가 올라도 버티기 쉬워요.", `돈 ${Math.round(player.cash).toLocaleString()} · 빚 ${Math.round(player.debt).toLocaleString()}원`, player.cash >= player.debt, "company", "재무 확인하기");
   }
 }
 
@@ -446,15 +446,15 @@ export function getTurnHighlights(
   const highlights: TurnHighlight[] = [];
 
   if (result.profit > 0 && sellThrough >= 0.7) {
-    highlights.push({ emoji: "🎯", title: "생산과 판매가 잘 맞았어요", detail: `준비한 물건의 약 ${Math.round(Math.min(1, sellThrough) * 100)}%가 팔려 흑자를 만들었어요.`, tone: "good" });
+    highlights.push({ emoji: "🎯", title: "만든 만큼 잘 팔렸어요", detail: `만든 물건의 약 ${Math.round(Math.min(1, sellThrough) * 100)}%가 팔려서 이익이 났어요.`, tone: "good" });
   } else if (sellThrough < 0.5 && player.inventory > snapshot.inventory) {
-    highlights.push({ emoji: "📦", title: "재고가 늘었어요", detail: "만든 양보다 팔린 양이 적었어요. 다음 턴(분기)에는 생산량을 조금 줄여 시험해 보세요.", tone: "warning" });
+    highlights.push({ emoji: "📦", title: "창고에 물건이 남았어요", detail: "만든 양보다 팔린 양이 적었어요. 다음 턴에는 조금 덜 만들어 봐요.", tone: "warning" });
   } else if (result.profit <= 0 && spending > Math.max(50_000, result.revenue * 0.25)) {
-    highlights.push({ emoji: "🧾", title: "성장 지출이 컸어요", detail: "광고·연구·복지·안전에 쓴 돈이 이번 판매 수입에 비해 컸어요. 한두 항목만 남겨 보세요.", tone: "warning" });
+    highlights.push({ emoji: "🧾", title: "쓴 돈이 많았어요", detail: "광고·연구·직원·안전에 쓴 돈이 이번에 번 돈에 비해 많았어요. 한두 가지만 남겨 봐요.", tone: "warning" });
   } else if (result.profit > 0) {
-    highlights.push({ emoji: "🪙", title: "회사가 돈을 남겼어요", detail: "판매 수입이 생산비와 운영비보다 많아 현금 체력이 좋아졌어요.", tone: "good" });
+    highlights.push({ emoji: "🪙", title: "회사가 돈을 남겼어요", detail: "판 돈이 만들고 운영하는 데 쓴 돈보다 많아서 쓸 돈이 늘었어요.", tone: "good" });
   } else {
-    highlights.push({ emoji: "🧭", title: "균형을 다시 맞출 때예요", detail: "가격·생산량·지출 중 한 가지만 작게 바꾸고 다음 결과와 비교해 보세요.", tone: "warning" });
+    highlights.push({ emoji: "🧭", title: "균형을 다시 맞출 때예요", detail: "가격·만드는 양·쓰는 돈 중 한 가지만 조금 바꾸고 다음 결과와 비교해 봐요.", tone: "warning" });
   }
 
   if (summary.rateChange >= 0.1 && player.debt > 0) {
@@ -471,7 +471,7 @@ export function getTurnHighlights(
   if (newBuildings > 0) {
     const capacityNow = productionCapacity(player, game.config);
     const capacityText = snapshot.capacity != null && capacityNow !== snapshot.capacity
-      ? `생산 한도가 ${snapshot.capacity.toLocaleString()}개에서 ${capacityNow.toLocaleString()}개로 바뀌었어요. `
+      ? `최대로 만들 수 있는 양이 ${snapshot.capacity.toLocaleString()}개에서 ${capacityNow.toLocaleString()}개로 바뀌었어요. `
       : "";
     highlights.splice(1, 0, {
       emoji: "🏗️",
@@ -482,7 +482,7 @@ export function getTurnHighlights(
   } else if (result.profit <= 0 && upkeep > Math.max(20_000, result.revenue * 0.3)) {
     highlights.splice(1, 0, {
       emoji: "🏚️",
-      title: "건물 유지비가 이익을 먹고 있어요",
+      title: "건물 유지비가 많이 나가요",
       detail: `매 턴 유지비 ${Math.round(upkeep).toLocaleString()}원이 나가요. 미리보기에서 돈을 벌어 주는 건물(공장·매장)을 먼저 고르고, 안 쓰는 건물은 팔 수도 있어요.`,
       tone: "warning",
     });
@@ -501,7 +501,7 @@ export function getTurnHighlights(
     const names = formatMovementNames(rankingChange.passedBy);
     highlights.push({
       emoji: "🔥",
-      title: names ? `${names} 앞서갔어요` : "경쟁사가 앞서갔어요",
+      title: names ? `${names} 앞서갔어요` : "라이벌 회사가 앞서갔어요",
       detail: `${rankingChange.beforeRank}위에서 ${rankingChange.afterRank}위가 되었어요. 실패가 아니라 다음 전략을 고를 단서예요.`,
       tone: "warning",
     });

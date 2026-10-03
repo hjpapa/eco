@@ -149,7 +149,7 @@ export function BuildingInteriorModal({
 
         {underConstruction ? (
           <div className="mt-4 rounded-xl bg-amber-50 p-3 text-center text-sm text-amber-700">
-            🏗️ 공사 중입니다 · {building.turnsLeft}턴(분기) 남음
+            🏗️ 공사 중입니다 · {building.turnsLeft}턴 남음
           </div>
         ) : (
           <div className="mt-4 space-y-3">
@@ -161,7 +161,7 @@ export function BuildingInteriorModal({
             )}
             {showRnd && (
               <SliderRow
-                label="R&D 예산" value={d.rndBudget} min={0} max={200000}
+                label="연구 예산" value={d.rndBudget} min={0} max={200000}
                 step={5000} fmt={formatMoney} onChange={(v) => setDecisions({ rndBudget: v })}
               />
             )}

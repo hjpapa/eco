@@ -130,7 +130,7 @@ function RivalPanel({
           style={{ width: `${closeness}%` }}
         />
       </div>
-      <div className="mt-1 flex justify-between text-[11px] font-semibold text-slate-500">
+      <div className="mt-1 flex justify-between text-xs font-semibold text-slate-500">
         <span>차이 큼</span>
         <span>거의 나란히!</span>
       </div>

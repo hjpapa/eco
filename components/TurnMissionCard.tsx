@@ -29,9 +29,9 @@ export function TurnMissionCard({
           🎯
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-black text-amber-700">{game.turn}턴(분기) 모험</p>
+          <p className="text-xs font-black text-amber-700">{game.turn}턴 모험</p>
           <h2 id="turn-mission-title" className="font-black text-slate-900">
-            이번 턴(분기) 도전 2개
+            이번 턴 도전 2개
           </h2>
           <p className="text-xs leading-relaxed text-slate-600">
             꼭 해야 하는 숙제가 아니에요. 무엇을 해 볼지 고민될 때 하나씩 도전해 보세요.

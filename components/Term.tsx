@@ -12,7 +12,7 @@ import { GLOSSARY } from "@/lib/data/glossary";
  * The popover is rendered into <body> with fixed positioning and clamped to the
  * viewport so it never gets cut off at screen edges.
  */
-const TOOLTIP_W = 220;
+const TOOLTIP_W = 250;
 
 export function Term({ term, children }: { term: string; children?: React.ReactNode }) {
   const [open, setOpen] = useState(false);
@@ -64,7 +64,7 @@ export function Term({ term, children }: { term: string; children?: React.ReactN
         ref={anchorRef}
         type="button"
         onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
-        className="cursor-help underline decoration-dotted decoration-brand-400 underline-offset-2"
+        className="term-btn cursor-help underline decoration-dotted decoration-brand-400 underline-offset-2"
       >
         {text}
         <span className="ml-0.5 text-xs text-brand-500">❓</span>
@@ -80,7 +80,7 @@ export function Term({ term, children }: { term: string; children?: React.ReactN
               transform: pos.below ? undefined : "translateY(-100%)",
               zIndex: 60,
             }}
-            className="rounded-xl bg-slate-800 px-3 py-2 text-left text-xs font-normal leading-snug text-white shadow-xl"
+            className="rounded-xl bg-slate-800 px-3 py-2.5 text-left text-sm font-normal leading-snug text-white shadow-xl"
           >
             <b className="mb-0.5 block text-brand-200">{term}</b>
             {explanation}

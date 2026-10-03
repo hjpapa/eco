@@ -4,11 +4,57 @@
 
 .company-workspace button, .company-workspace input:not([type="range"]) { min-height: 44px; }
 .company-workspace input { min-width: 0; max-width: 100%; }
+.company-workspace button.term-btn { min-height: 0; }
+/* Fat, finger-friendly slider thumbs. */
+.big-range { height: 44px; }
+.big-range::-webkit-slider-thumb { width: 30px; height: 30px; }
+.big-range::-moz-range-thumb { width: 30px; height: 30px; }
 .company-workspace input[type="range"] { height: 44px; }
 .company-workspace .card { box-shadow: none; }
 .company-workspace button:focus-visible { outline: 3px solid #6366f1; outline-offset: 2px; }
 .company-workspace [hidden] { display: none !important; }
-.company-workspace .flex:has(> input[aria-label="빌리거나 갚을 금액"]) { flex-wrap: wrap; }
+
+/* ── Tablet-first touch behaviour ─────────────────────────────────────── */
+button, a, summary, [role="button"] {
+  touch-action: manipulation; /* no double-tap zoom delay */
+  -webkit-tap-highlight-color: transparent;
+}
+/* Long-presses on a tablet shouldn't select text or pop up image menus. */
+.game-shell, .game-shell img { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.game-shell input, .game-shell textarea { -webkit-user-select: text; user-select: text; }
+
+/* Map + control panel side by side on landscape tablets and up. The panel
+   stays under the sticky HUD and scrolls on its own. */
+.workspace-map-h { height: 320px; }
+@media (min-width: 768px) { .workspace-map-h { height: 440px; } }
+@media (min-width: 1024px) {
+  .workspace-map-h { height: clamp(360px, calc(100dvh - var(--hud-h, 8rem) - 6.75rem), 760px); }
+  .workspace-panel {
+    position: sticky;
+    top: calc(var(--hud-h, 8rem) + 0.5rem);
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100dvh - var(--hud-h, 8rem) - 1rem);
+  }
+}
+
+@media (min-width: 1280px) {
+  .side-sticky { position: sticky; top: calc(var(--hud-h, 8rem) + 0.5rem); align-self: start; }
+}
+
+/* Below the side-by-side layout, keep the task buttons reachable while the
+   long task panel scrolls under the HUD. */
+@media (max-width: 1023px) {
+  .workspace-tasks { position: sticky; top: var(--hud-h, 8rem); z-index: 15; box-shadow: 0 6px 10px -8px rgba(15, 23, 42, 0.25); }
+}
+
+@keyframes quest-badge-bounce {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.18); }
+}
+.quest-stack .quest-card { min-width: 0; max-width: none; }
+.quest-badge { animation: quest-badge-bounce 1.4s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .quest-badge { animation: none; } }
 
 /* ── Gmarket Sans ─────────────────────────────────────────────────────── */
 @font-face {
@@ -80,6 +126,42 @@ body {
 .fun-news-emoji { display: inline-block; animation: fun-wobble 1.4s ease-in-out 2; }
 @media (prefers-reduced-motion: reduce) {
   .fun-news-emoji { animation: none; }
+}
+
+/* request cards that are ready to claim gently glow */
+@keyframes quest-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.45); }
+  50% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+}
+.quest-ready { animation: quest-glow 1.8s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .quest-ready { animation: none; }
+}
+
+/* "what this building did" pop-ups after each turn */
+@keyframes work-pop {
+  0% { opacity: 0; transform: translateY(10px) scale(0.7); }
+  12% { opacity: 1; transform: translateY(0) scale(1.08); }
+  20% { transform: scale(1); }
+  80% { opacity: 1; transform: translateY(-6px); }
+  100% { opacity: 0; transform: translateY(-16px); }
+}
+.work-pop {
+  pointer-events: none;
+  white-space: nowrap;
+  border-radius: 999px;
+  border: 2px solid #34d399;
+  background: rgba(255, 255, 255, 0.96);
+  padding: 2px 9px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #065f46;
+  box-shadow: 0 3px 0 rgba(6, 95, 70, 0.18);
+  opacity: 0;
+  animation: work-pop 4.2s ease-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .work-pop { animation: none; opacity: 1; }
 }
 
 /* speech bubbles over the 3D campus */

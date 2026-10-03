@@ -86,7 +86,7 @@ export function Dashboard({
       <OurStock game={game} showExpert={advancedInfoUnlocked} />
       {!advancedInfoUnlocked && (
         <div className="rounded-xl bg-amber-50 px-4 py-3 text-xs text-amber-700 ring-1 ring-amber-200">
-          🔒 전문가용 회사 정보는 {getFeatureUnlockTurn(game.gameLength, "visitsPartnershipsAdvanced")}턴(분기)에 열려요.
+          🔒 전문가용 회사 정보는 {getFeatureUnlockTurn(game.gameLength, "visitsPartnershipsAdvanced")}턴에 열려요.
         </div>
       )}
 

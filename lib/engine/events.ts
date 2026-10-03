@@ -129,8 +129,8 @@ const TEMPLATES: EventTemplate[] = [
       shockAsset(state.assets, "oil", 0.18);
       state.macro.inflation += 0.8;
       return {
-        title: "국제 유가 급등",
-        body: "원유 가격이 치솟으며 물가와 에너지 관련 기업에 충격이 왔습니다.",
+        title: "기름값(유가)이 크게 올랐어요",
+        body: "석유 값이 치솟아서 물건값이 오르고, 에너지를 많이 쓰는 회사들이 힘들어졌어요.",
         tags: ["oil", ...affected],
       };
     },
@@ -148,8 +148,8 @@ const TEMPLATES: EventTemplate[] = [
         if (sens) c.inventory = Math.max(0, c.inventory * 0.85);
       }
       return {
-        title: "글로벌 공급망 위기",
-        body: "부품·물류 차질로 제조 기반 기업의 생산과 재고에 차질이 생겼습니다.",
+        title: "부품이 제때 안 와요(공급망 위기)",
+        body: "다른 나라에서 오는 부품과 배송이 늦어져서 물건을 만드는 회사들이 곤란해졌어요.",
         tags: ["supplychain", ...affected],
       };
     },
@@ -166,7 +166,7 @@ const TEMPLATES: EventTemplate[] = [
       shockMarket(state.stocks, -0.04);
       return {
         title: "감염병 확산",
-        body: "소비가 위축되고 시장이 흔들렸습니다. 다만 일부 바이오 기업은 수혜를 봅니다.",
+        body: "사람들이 밖에 덜 나가서 물건을 덜 사요. 대신 약을 만드는 바이오 회사는 바빠졌어요.",
         tags: ["pandemic", ...bioUp],
       };
     },
@@ -181,8 +181,8 @@ const TEMPLATES: EventTemplate[] = [
       const affected = applyThemeShock(state, "consumer", 0.05);
       state.macro.sentiment = clamp(state.macro.sentiment + 0.15, -1, 1);
       return {
-        title: "소비 심리 회복",
-        body: "지갑이 열리며 소비재·유통 기업의 수요가 늘었습니다.",
+        title: "사람들이 다시 물건을 사요",
+        body: "사람들이 지갑을 열어서 물건을 파는 회사들의 손님이 늘었어요.",
         tags: ["consumer", ...affected],
       };
     },
@@ -209,8 +209,8 @@ const TEMPLATES: EventTemplate[] = [
         }
       }
       return {
-        title: `${a.flag} ${a.name} ↔ ${b.flag} ${b.name} 무역분쟁`,
-        body: "관세와 보복 조치로 양국 기반 기업들이 타격을 입었습니다.",
+        title: `${a.flag} ${a.name} ↔ ${b.flag} ${b.name} 무역 다툼`,
+        body: "두 나라가 서로 물건에 세금(관세)을 매겨서 두 나라 회사들이 물건을 팔기 어려워졌어요.",
         tags: ["trade", a.id, b.id, ...affected],
       };
     },
@@ -234,8 +234,8 @@ const TEMPLATES: EventTemplate[] = [
         }
       }
       return {
-        title: `${a.flag} ${a.name} ↔ ${b.flag} ${b.name} 자유무역협정`,
-        body: "교역 장벽이 낮아져 양국 기업의 수출 기회가 늘었습니다.",
+        title: `${a.flag} ${a.name} ↔ ${b.flag} ${b.name} 자유무역 약속(FTA)`,
+        body: "두 나라가 물건을 더 쉽게 사고팔기로 약속해서 회사들이 다른 나라에 팔 기회가 늘었어요.",
         tags: ["trade", a.id, b.id, ...affected],
       };
     },
@@ -261,7 +261,7 @@ const TEMPLATES: EventTemplate[] = [
       a.reputation = clamp(a.reputation - 1, 0, 100);
       return {
         title: "치열한 가격 경쟁",
-        body: `${a.name}와(과) ${b.name}이(가) 가격 인하 경쟁에 돌입해 수익성이 압박받습니다.`,
+        body: `${a.name}와(과) ${b.name}이(가) 서로 값을 내리며 겨뤄서, 한 개에 남는 돈이 줄었어요.`,
         tags: ["intercompany", a.id, b.id],
       };
     },
@@ -277,8 +277,8 @@ const TEMPLATES: EventTemplate[] = [
       if (!target) return null;
       shockStock(state.stocks, target.id, 0.09);
       return {
-        title: "인수합병(M&A) 설",
-        body: `${target.name}의 인수설이 돌며 주가가 급등했습니다.`,
+        title: "회사를 사들인다는 소문",
+        body: `큰 회사가 ${target.name}을(를) 사들일 거라는 소문에 주식 값이 크게 올랐어요.`,
         tags: ["intercompany", "ma", target.id],
       };
     },
@@ -298,8 +298,8 @@ const TEMPLATES: EventTemplate[] = [
       shockStock(state.stocks, a.id, 0.04);
       shockStock(state.stocks, b.id, 0.04);
       return {
-        title: "전략적 제휴 발표",
-        body: `${a.name}와(과) ${b.name}이(가) 협력을 발표했습니다.`,
+        title: "두 회사가 손을 잡았어요",
+        body: `${a.name}와(과) ${b.name}이(가) 함께 일하기로 했어요.`,
         tags: ["intercompany", a.id, b.id],
       };
     },
@@ -318,8 +318,8 @@ const TEMPLATES: EventTemplate[] = [
       const star = victim.hired[nextInt(rng, 0, victim.hired.length - 1)];
       star.loyalty = Math.max(0, (star.loyalty ?? 70) - 25);
       return {
-        title: "인재 유치전",
-        body: `경쟁사가 ${victim.name}의 ${star.name}을(를) 노립니다. 충성도가 흔들립니다.`,
+        title: "인재 데려가기 경쟁",
+        body: `라이벌 회사가 ${victim.name}의 ${star.name}을(를) 데려가려고 해요. 마음이 흔들리고 있어요.`,
         tags: ["intercompany", "talent", victim.id],
       };
     },
@@ -340,8 +340,8 @@ const TEMPLATES: EventTemplate[] = [
       target.reputation = clamp(target.reputation - 8, 0, 100);
       target.safety = clamp(target.safety - 5, 0, 100);
       return {
-        title: "안전사고·제품 리콜",
-        body: `${target.name}에서 사고가 발생했습니다. 안전 투자를 소홀히 한 대가입니다.`,
+        title: "사고가 나서 물건을 다시 거둬들여요(리콜)",
+        body: `${target.name}에서 사고가 났어요. 안전을 미리 챙기지 않으면 이런 일이 생겨요.`,
         tags: ["internal", "safety", target.id],
       };
     },
@@ -359,8 +359,8 @@ const TEMPLATES: EventTemplate[] = [
       target.quality = clamp(target.quality + 8, 0, 100);
       shockStock(state.stocks, target.id, 0.08);
       return {
-        title: "기술 돌파",
-        body: `${target.name}의 R&D 투자가 결실을 맺어 신기술을 확보했습니다.`,
+        title: "새 기술 개발 성공!",
+        body: `${target.name}의 연구가 성공해서 새 기술을 얻었어요.`,
         tags: ["internal", "rnd", target.id],
       };
     },
@@ -378,8 +378,8 @@ const TEMPLATES: EventTemplate[] = [
       shockStock(state.stocks, target.id, -0.06);
       target.reputation = clamp(target.reputation - 7, 0, 100);
       return {
-        title: "경영 스캔들",
-        body: `${target.name}을(를) 둘러싼 논란이 불거져 평판이 하락했습니다.`,
+        title: "회사에 나쁜 소문이 났어요",
+        body: `${target.name}에 대한 나쁜 이야기가 퍼져서 평판이 떨어졌어요.`,
         tags: ["internal", target.id],
       };
     },
@@ -398,8 +398,8 @@ const TEMPLATES: EventTemplate[] = [
       target.morale = clamp(target.morale - 5, 0, 100);
       shockStock(state.stocks, target.id, -0.04);
       return {
-        title: "노사 갈등·파업",
-        body: `${target.name}의 직원 사기가 낮아 파업이 발생, 생산에 차질이 생겼습니다.`,
+        title: "직원들이 일을 멈췄어요(파업)",
+        body: `${target.name}의 직원들이 행복하지 않아서 일을 멈췄어요. 물건을 덜 만들게 됐어요.`,
         tags: ["internal", target.id],
       };
     },
@@ -425,7 +425,7 @@ const TEMPLATES: EventTemplate[] = [
       shockStock(state.stocks, target.id, 0.06);
       return {
         title: "신제품 대히트",
-        body: `${target.name}의 신제품이 시장에서 큰 인기를 끌고 있습니다.`,
+        body: `${target.name}의 새 물건이 엄청 인기예요!`,
         tags: ["internal", target.id],
       };
     },
@@ -446,8 +446,8 @@ const TEMPLATES: EventTemplate[] = [
       if (!target) return null;
       shockStock(state.stocks, target.id, -0.07);
       return {
-        title: "신용등급 강등",
-        body: `${target.name}의 과도한 부채로 신용등급이 내려가 조달 비용이 올랐습니다.`,
+        title: "은행이 믿음 점수를 낮췄어요",
+        body: `${target.name}의 빚이 너무 많아서 은행이 믿음 점수(신용등급)를 낮췄어요. 돈을 빌리기가 더 비싸졌어요.`,
         tags: ["internal", "debt", target.id],
       };
     },
@@ -466,8 +466,8 @@ const TEMPLATES: EventTemplate[] = [
       shockAsset(state.assets, "gold", 0.06);
       shockAsset(state.assets, "crypto", -0.15);
       return {
-        title: "주식시장 폭락 (서킷브레이커)",
-        body: "패닉셀이 번지며 증시가 급락했습니다. 안전자산으로 자금이 몰립니다.",
+        title: "주식 값이 와르르 떨어졌어요",
+        body: "겁먹은 사람들이 주식을 한꺼번에 팔아서 값이 크게 떨어졌어요. 예금·금처럼 안전한 곳으로 돈이 몰려요.",
         tags: ["market", "crash"],
       };
     },
@@ -482,8 +482,8 @@ const TEMPLATES: EventTemplate[] = [
       shockMarket(state.stocks, nextRange(state.rng, 0.03, 0.07));
       state.macro.sentiment = clamp(state.macro.sentiment + 0.2, -1, 1);
       return {
-        title: "강세장 랠리",
-        body: "낙관론이 퍼지며 증시 전반이 상승했습니다.",
+        title: "주식 값이 쭉쭉 올라요",
+        body: "앞으로 경제가 좋아질 거라는 기대에 대부분의 주식 값이 올랐어요.",
         tags: ["market", "rally"],
       };
     },
@@ -499,8 +499,8 @@ const TEMPLATES: EventTemplate[] = [
       if (!target) return null;
       shockStock(state.stocks, target.id, nextRange(rng, 0.06, 0.12));
       return {
-        title: "어닝 서프라이즈",
-        body: `${target.name}이(가) 시장 예상을 뛰어넘는 실적을 발표했습니다.`,
+        title: "깜짝 놀랄 만큼 돈을 벌었어요",
+        body: `${target.name}이(가) 모두의 예상보다 훨씬 많이 벌었다고 발표했어요.`,
         tags: ["market", target.id],
       };
     },
@@ -517,8 +517,8 @@ const TEMPLATES: EventTemplate[] = [
       const up = nextFloat(rng) > 0.4;
       const affected = applyThemeShock(state, theme, up ? 0.07 : -0.06);
       return {
-        title: `테마 순환매: ${themeLabel(theme)} ${up ? "부각" : "조정"}`,
-        body: `자금이 ${themeLabel(theme)} 테마로 ${up ? "유입" : "이탈"}되고 있습니다.`,
+        title: `${themeLabel(theme)} 주식 ${up ? "인기 상승" : "인기 하락"}`,
+        body: `사람들이 ${themeLabel(theme)} 회사 주식을 ${up ? "많이 사고 있어요" : "팔고 있어요"}.`,
         tags: ["market", theme, ...affected],
       };
     },
@@ -536,7 +536,7 @@ const TEMPLATES: EventTemplate[] = [
       applyThemeShock(state, "crypto", pct * 0.4);
       return {
         title: `암호화폐 ${up ? "급등" : "급락"}`,
-        body: `암호화폐 시장이 ${up ? "폭등" : "폭락"}하며 관련 종목이 출렁입니다.`,
+        body: `비트코인 같은 코인 값이 ${up ? "크게 올라서" : "크게 떨어져서"} 관련 회사 주식도 출렁여요.`,
         tags: ["market", "crypto"],
       };
     },
@@ -553,7 +553,7 @@ const TEMPLATES: EventTemplate[] = [
       const affected = applyThemeShock(state, "ai", 0.12);
       return {
         title: "AI 혁신 붐",
-        body: "인공지능 열풍으로 AI·반도체 기업이 주목받습니다.",
+        body: "인공지능(AI)이 인기라서 AI·반도체 회사들이 주목받아요.",
         tags: ["market", "ai", ...affected],
       };
     },
@@ -567,8 +567,8 @@ const TEMPLATES: EventTemplate[] = [
     run: ({ state }) => {
       const affected = applyThemeShock(state, "space", 0.1);
       return {
-        title: "우주 개발 경쟁 가속",
-        body: "각국의 우주 투자 확대로 우주항공 기업이 수혜를 봅니다.",
+        title: "우주 개발 경쟁이 뜨거워요",
+        body: "여러 나라가 우주에 돈을 많이 써서 우주 회사들이 바빠졌어요.",
         tags: ["geopolitics", "space", ...affected],
       };
     },
@@ -582,8 +582,8 @@ const TEMPLATES: EventTemplate[] = [
     run: ({ state }) => {
       const affected = applyThemeShock(state, "ev", 0.09);
       return {
-        title: "전기차 전환 가속",
-        body: "친환경 정책과 수요 확대로 전기차·배터리 산업이 성장합니다.",
+        title: "전기차가 쑥쑥 늘어요",
+        body: "환경을 지키려는 사람들이 늘어 전기차·배터리 회사가 자라고 있어요.",
         tags: ["macro", "ev", ...affected],
       };
     },
@@ -597,8 +597,8 @@ const TEMPLATES: EventTemplate[] = [
     run: ({ state }) => {
       const affected = applyThemeShock(state, "climate", -0.05);
       return {
-        title: "환경·ESG 규제 강화",
-        body: "탄소 규제가 강화되며 일부 산업의 비용 부담이 커집니다.",
+        title: "환경 지키기 규칙이 엄격해졌어요",
+        body: "공기를 더럽히는 연기(탄소)를 줄이는 규칙이 생겨 일부 회사는 돈이 더 들어요.",
         tags: ["geopolitics", "climate", ...affected],
       };
     },
@@ -620,8 +620,8 @@ const TEMPLATES: EventTemplate[] = [
       shockStock(state.stocks, a.id, 0.05);
       shockStock(state.stocks, b.id, 0.05);
       return {
-        title: "합작법인(JV) 설립",
-        body: `${a.name}와(과) ${b.name}이(가) 공동 출자로 합작법인을 세웁니다.`,
+        title: "두 회사가 함께 새 회사를 세워요",
+        body: `${a.name}와(과) ${b.name}이(가) 돈을 같이 내서 새 회사를 만들어요.`,
         tags: ["intercompany", a.id, b.id],
       };
     },
@@ -638,8 +638,8 @@ const TEMPLATES: EventTemplate[] = [
       buyer.quality = clamp(buyer.quality + 6, 0, 100);
       shockStock(state.stocks, buyer.id, 0.04);
       return {
-        title: "기술 이전 계약",
-        body: `${buyer.name}이(가) 핵심 기술을 이전받아 품질을 끌어올립니다.`,
+        title: "기술을 배워 왔어요",
+        body: `${buyer.name}이(가) 중요한 기술을 배워 와서 품질이 좋아져요.`,
         tags: ["intercompany", "tech", buyer.id],
       };
     },
@@ -658,8 +658,8 @@ const TEMPLATES: EventTemplate[] = [
       shockStock(state.stocks, a.id, 0.03);
       shockStock(state.stocks, b.id, 0.02);
       return {
-        title: "장기 공급계약 체결",
-        body: `${a.name}이(가) ${b.name}과(와) 안정적인 공급계약을 맺었습니다.`,
+        title: "오래 거래하기로 약속했어요",
+        body: `${a.name}이(가) ${b.name}과(와) 오랫동안 물건을 주고받기로 약속했어요.`,
         tags: ["intercompany", a.id, b.id],
       };
     },
@@ -679,8 +679,8 @@ const TEMPLATES: EventTemplate[] = [
       shockStock(state.stocks, a.id, -0.04);
       shockStock(state.stocks, b.id, -0.04);
       return {
-        title: "특허 분쟁 발생",
-        body: `${a.name}와(과) ${b.name}이(가) 특허 침해를 두고 법정 다툼에 들어갔습니다.`,
+        title: "발명 주인을 두고 다퉈요(특허 다툼)",
+        body: `${a.name}와(과) ${b.name}이(가) "그건 우리 발명이야!" 하며 법원에서 다투고 있어요.`,
         tags: ["intercompany", "patent", a.id, b.id],
       };
     },
@@ -704,7 +704,7 @@ const TEMPLATES: EventTemplate[] = [
       shockStock(state.stocks, p.id, 0.03);
       return {
         title: `${name}, ${p.name} 방문`,
-        body: `${name}이(가) 우리 회사를 찾아 격려했습니다. 규제 환경이 우호적으로 바뀌고 평판이 올랐습니다.`,
+        body: `${name}이(가) 우리 회사를 찾아와 응원했어요. 회사 일이 수월해지고 평판이 올랐어요.`,
         portrait: "🎩",
         portraitImg: img1,
         tags: ["visitor", "politician", p.id],
@@ -728,8 +728,8 @@ const TEMPLATES: EventTemplate[] = [
       p.reputation = clamp(p.reputation + 3, 0, 100);
       shockStock(state.stocks, p.id, 0.04);
       return {
-        title: `${name}, 협력 논의차 방문`,
-        body: `${name}이(가) ${p.name}을(를) 방문해 협업을 타진했습니다. 시장의 기대가 커집니다.`,
+        title: `${name}, 함께 일하자며 방문`,
+        body: `${name}이(가) ${p.name}에 와서 함께 일하자고 했어요. 사람들의 기대가 커졌어요.`,
         portrait: "🤵",
         portraitImg: img2,
         tags: ["visitor", "ceo", p.id],
@@ -755,7 +755,7 @@ const TEMPLATES: EventTemplate[] = [
       shockStock(state.stocks, p.id, 0.05);
       return {
         title: `유명인 ${name} 방문·홍보`,
-        body: `${name}이(가) ${p.name}을(를) 찾아 화제가 됐습니다. 평판과 직원 사기가 오르고 협찬 효과로 매출에 보탬이 됩니다.`,
+        body: `${name}이(가) ${p.name}에 와서 화제가 됐어요! 평판과 직원 행복이 오르고 물건도 더 팔렸어요.`,
         portrait: "🌟",
         portraitImg: img3,
         tags: ["visitor", "celebrity", p.id],
@@ -775,7 +775,7 @@ const TEMPLATES: EventTemplate[] = [
       state.talentPool = [candidate, ...state.talentPool];
       return {
         title: `인재 ${candidate.name}, 직접 찾아오다`,
-        body: `${candidate.traitName} 성향의 ${candidate.name}(이)가 우리 회사에 관심을 보이며 직접 찾아왔습니다. 인재 탭에서 할인된 조건으로 영입할 수 있어요!`,
+        body: `✨ ${candidate.traitName} 능력을 가진 ${candidate.name}(이)가 우리 회사에서 일하고 싶다며 찾아왔어요. 인재 탭에서 싸게 뽑을 수 있어요!`,
         portrait: candidate.avatar,
         tags: ["visitor", "talent"],
       };
@@ -797,8 +797,8 @@ const TEMPLATES: EventTemplate[] = [
       p.cash += inflow;
       shockStock(state.stocks, p.id, 0.05);
       return {
-        title: `${name}, ${p.name} 실사 방문`,
-        body: `${name}이(가) 우리 회사를 둘러보고 ${formatMoneyShort(inflow)} 규모의 투자를 약속했습니다. 현금과 주가가 올랐습니다.`,
+        title: `${name}, ${p.name}에 투자하러 왔어요`,
+        body: `${name}이(가) 우리 회사를 둘러보고 ${formatMoneyShort(inflow)}을 투자하기로 했어요. 쓸 돈과 주식 값이 올랐어요.`,
         portrait: "💰",
         portraitImg: img4,
         tags: ["visitor", "investor", p.id],
@@ -823,8 +823,8 @@ const TEMPLATES: EventTemplate[] = [
       adjustRivalry(state.relations, p.id, rival.id, 0.15);
       p.quality = clamp(p.quality + 2, 0, 100);
       return {
-        title: `${rival.name} 벤치마킹단 방문`,
-        body: `${rival.name}의 임원진이 ${p.name}을(를) 시찰하며 우리 노하우를 살폈습니다. 자극을 받아 품질 개선에 나섭니다.`,
+        title: `${rival.name}이(가) 배우러 왔어요`,
+        body: `${rival.name} 사람들이 ${p.name}의 비법을 보고 갔어요. 우리도 자극을 받아 품질을 더 높여요.`,
         portrait: "🕵️",
         portraitImg: img5,
         tags: ["visitor", "rival", p.id, rival.id],
@@ -849,7 +849,7 @@ const TEMPLATES: EventTemplate[] = [
       shockStock(state.stocks, p.id, 0.04);
       return {
         title: `${name}, ${p.name} 라이브 방송`,
-        body: `${name}이(가) 우리 회사에서 생방송을 진행해 화제가 됐습니다. 평판이 오르고 깜짝 매출이 발생했습니다.`,
+        body: `${name}이(가) 우리 회사에서 생방송을 해서 화제가 됐어요. 평판이 오르고 물건도 깜짝 팔렸어요.`,
         portrait: "📱",
         portraitImg: img6,
         tags: ["visitor", "influencer", p.id],
@@ -870,7 +870,7 @@ const TEMPLATES: EventTemplate[] = [
       p.reputation = clamp(p.reputation + 3, 0, 100);
       return {
         title: `학생 견학단, ${p.name} 방문`,
-        body: `미래의 인재들이 우리 회사를 견학했습니다. 직원들이 자부심을 느끼며 사기가 올랐습니다.`,
+        body: `학생들이 우리 회사를 구경하러 왔어요. 직원들이 뿌듯해서 행복이 올랐어요.`,
         portrait: "🎒",
         tags: ["visitor", "students", p.id],
       };
@@ -892,8 +892,8 @@ const TEMPLATES: EventTemplate[] = [
       p.reputation = clamp(p.reputation + 3, 0, 100);
       shockStock(state.stocks, p.id, 0.04);
       return {
-        title: `${name}, ${p.name} 자문 방문`,
-        body: `${name}이(가) 우리 연구진과 협업해 기술 자문을 제공했습니다. 품질과 평판이 올랐습니다.`,
+        title: `${name}, ${p.name}에 도움 주러 왔어요`,
+        body: `${name}이(가) 우리 연구원들에게 비법을 알려 줬어요. 품질과 평판이 올랐어요.`,
         portrait: "🔬",
         portraitImg: img7,
         tags: ["visitor", "scientist", p.id],
@@ -917,8 +917,8 @@ const TEMPLATES: EventTemplate[] = [
       p.cash += order;
       shockStock(state.stocks, p.id, 0.04);
       return {
-        title: `${country.flag} ${country.name} 통상 대표단 방문`,
-        body: `${country.name} 대표단이 ${p.name}과(와) 수출 상담을 진행해 해외 주문을 따냈습니다.`,
+        title: `${country.flag} ${country.name}에서 손님들이 왔어요`,
+        body: `${country.name}에서 온 손님들이 우리 물건을 사 가기로 했어요. 다른 나라에 물건을 파는 걸 수출이라고 해요.`,
         portrait: "🌐",
         portraitImg: img8,
         tags: ["visitor", "export", p.id, country.id],
@@ -1044,12 +1044,12 @@ export function generateEvents(state: GameState): NewsItem[] {
 }
 
 export const LAYER_LABELS: Record<EventLayer, string> = {
-  macro: "거시경제",
-  monetary: "통화정책",
-  geopolitics: "국가/지정학",
-  intercompany: "기업 간",
-  internal: "회사 내부",
-  market: "주식시장",
-  visitor: "외부 방문",
+  macro: "나라 경제",
+  monetary: "은행·이자",
+  geopolitics: "세계 소식",
+  intercompany: "회사들 소식",
+  internal: "우리 회사",
+  market: "주식 시장",
+  visitor: "손님 방문",
   fun: "깜짝 소식",
 };

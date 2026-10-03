@@ -24,7 +24,7 @@ export const BUILDINGS: Record<BuildingType, BuildingDef> = {
   },
   rnd: {
     type: "rnd",
-    name: "R&D 연구소",
+    name: "연구소",
     emoji: "🔬",
     cost: 200_000,
     buildTurns: 2,
@@ -35,7 +35,7 @@ export const BUILDINGS: Record<BuildingType, BuildingDef> = {
   },
   office: {
     type: "office",
-    name: "본사·오피스",
+    name: "본사",
     emoji: "🏢",
     cost: 150_000,
     buildTurns: 1,
@@ -57,7 +57,7 @@ export const BUILDINGS: Record<BuildingType, BuildingDef> = {
   },
   store: {
     type: "store",
-    name: "매장·마케팅센터",
+    name: "매장",
     emoji: "🏬",
     cost: 120_000,
     buildTurns: 1,
@@ -68,7 +68,7 @@ export const BUILDINGS: Record<BuildingType, BuildingDef> = {
   },
   power: {
     type: "power",
-    name: "발전·인프라",
+    name: "발전소",
     emoji: "⚡",
     cost: 150_000,
     buildTurns: 2,
@@ -114,7 +114,7 @@ export const BUILDINGS: Record<BuildingType, BuildingDef> = {
   },
   dorm: {
     type: "dorm",
-    name: "사택·기숙사",
+    name: "기숙사",
     emoji: "🏠",
     cost: 120_000,
     buildTurns: 1,
@@ -126,7 +126,7 @@ export const BUILDINGS: Record<BuildingType, BuildingDef> = {
   },
   gym: {
     type: "gym",
-    name: "사내 헬스장",
+    name: "헬스장",
     emoji: "🏋️",
     cost: 90_000,
     buildTurns: 1,
@@ -149,7 +149,7 @@ export const BUILDINGS: Record<BuildingType, BuildingDef> = {
   },
   clinic: {
     type: "clinic",
-    name: "의무실·클리닉",
+    name: "보건실",
     emoji: "🏥",
     cost: 100_000,
     buildTurns: 1,
@@ -161,14 +161,14 @@ export const BUILDINGS: Record<BuildingType, BuildingDef> = {
   },
   lab: {
     type: "lab",
-    name: "연구동·데이터센터",
+    name: "데이터센터",
     emoji: "🧪",
     cost: 190_000,
     buildTurns: 2,
     upkeep: 8_000,
     maxLevel: 3,
     effects: { rndPower: 14, productionEfficiency: 0.02 },
-    description: "연구 속도가 더 빨라져요. R&D 연구소 옆에 두면 더 좋아요.",
+    description: "연구 속도가 더 빨라져요. 연구소 옆에 두면 더 좋아요.",
     unlockCityScore: 10,
   },
 
@@ -350,6 +350,24 @@ export function getActiveBuildingCombos(buildings: PlacedBuilding[]): BuildingCo
   }
   return combos;
 }
+
+/** Growth stages of the student's city, by city score. */
+export interface CityStage {
+  id: string;
+  emoji: string;
+  label: string;
+  /** Minimum city score for this stage. */
+  min: number;
+}
+
+export const CITY_STAGES: readonly CityStage[] = [
+  { id: "village", emoji: "🏡", label: "작은 마을", min: 0 },
+  { id: "town", emoji: "🏘️", label: "마을", min: 5 },
+  { id: "small-city", emoji: "🏙️", label: "소도시", min: 10 },
+  { id: "city", emoji: "🌆", label: "도시", min: 18 },
+  { id: "metropolis", emoji: "🌃", label: "대도시", min: 28 },
+  { id: "dragon-city", emoji: "🐉", label: "드래곤 시티", min: 40 },
+];
 
 /** City score: every operational building level is a point, every combination two more. */
 export function cityScore(buildings: PlacedBuilding[]): number {

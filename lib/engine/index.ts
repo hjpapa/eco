@@ -19,6 +19,7 @@ import { createRelations } from "./relations";
 import { defaultDecisions, productionCapacity } from "./company";
 import { shuffle } from "./rng";
 import { netWorth, playerRank, recordNetWorth } from "./ranking";
+import { updateQuests } from "./quests";
 import { getIndustryProducts } from "../data/products";
 import {
   DEFAULT_GAME_LENGTH,
@@ -258,6 +259,8 @@ export function createGame(opts: NewGameOptions): GameState {
   recordNetWorth(state);
   state.initialPlayerRank = playerRank(state);
   state.initialPlayerNetWorth = netWorth(player, state);
+  // The request board starts with a first order and a city request.
+  updateQuests(state);
   return state;
 }
 
@@ -279,6 +282,9 @@ export { LEVEL_CONFIGS, getLevelConfig } from "./levels";
 export { PHASE_LABELS, PHASE_EMOJI } from "./economy";
 export { LAYER_LABELS } from "./events";
 export { generateFunEvent, latestFunEvent } from "./funEvents";
+export * from "./quests";
+export * from "./dilemmas";
+export * from "./achievements";
 export {
   ADJACENCY_PAIRS,
   BASE_EXECUTIVE_SLOTS,
@@ -288,7 +294,9 @@ export {
   buildingConstructionCost,
   buildingCostFor,
   buildingSellRefund,
+  CITY_STAGES,
   cityScore,
+  type CityStage,
   executiveSlots,
   isBuildingTypeUnlocked,
   type BuildingComboDef,

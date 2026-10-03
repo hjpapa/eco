@@ -50,7 +50,7 @@ export function trendOf(history: number[], span = 10): TrendSummary {
 /** Tiny area chart for list cards. */
 export function MiniTrend({ history, span = 10 }: { history: number[]; span?: number }) {
   const data = history.slice(-(span + 1));
-  if (data.length < 2) return <div className="h-9 text-[10px] text-slate-600">아직 기록이 없어요</div>;
+  if (data.length < 2) return <div className="h-9 text-xs text-slate-600">아직 기록이 없어요</div>;
   const min = Math.min(...data);
   const max = Math.max(...data);
   const range = max - min || 1;
@@ -96,7 +96,7 @@ export function KidPriceChart({
   if (series.length < 2) {
     return (
       <div className="mx-4 mt-3 rounded-xl bg-white/[0.04] p-4 text-center text-xs text-slate-400">
-        📊 아직 가격 기록이 짧아요. 다음 턴(분기)부터 그래프가 그려져요!
+        📊 아직 가격 기록이 짧아요. 다음 턴부터 그래프가 그려져요!
       </div>
     );
   }
@@ -121,13 +121,13 @@ export function KidPriceChart({
               type="button"
               aria-pressed={span === range.span}
               onClick={() => setSpan(range.span)}
-              className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${span === range.span ? "bg-blue-600 text-white" : "bg-white/5 text-slate-400"}`}
+              className={`rounded-full px-2.5 py-1 text-xs font-bold ${span === range.span ? "bg-blue-600 text-white" : "bg-white/5 text-slate-400"}`}
             >
               {range.label}
             </button>
           ))}
         </div>
-        <span className="text-[11px] text-slate-500">가로: 턴(분기) · 세로: 가격</span>
+        <span className="text-xs text-slate-500">가로: 턴 · 세로: 가격</span>
       </div>
 
       <div className="h-44 w-full">
@@ -167,7 +167,7 @@ export function KidPriceChart({
             <ReferenceDot x={low.turn} y={low.price} r={4} fill="#ef4444" stroke="#ffffff" label={{ value: "최저", position: "bottom", fill: "#fca5a5", fontSize: 10 }} />
             <Tooltip
               formatter={(v: number) => [`${formatNum(v)}원`, "가격"]}
-              labelFormatter={(t: number) => `${t}턴(분기)`}
+              labelFormatter={(t: number) => `${t}턴`}
               contentStyle={{ fontSize: 11, borderRadius: 8, background: "#1e293b", border: "1px solid #334155", color: "#f1f5f9" }}
             />
             <Area type="monotone" dataKey="price" stroke={color} strokeWidth={2.4} fill="url(#kidChartFill)" dot={false} isAnimationActive={false} />
@@ -179,7 +179,7 @@ export function KidPriceChart({
         {up ? "📈" : "📉"} {periodLabel} 가격이 <b className={up ? "text-emerald-400" : "text-red-400"}>
           {up ? "+" : ""}{changePct.toFixed(1)}%
         </b> {up ? "올랐어요" : "내렸어요"}. 가장 비쌀 때 {formatNum(high.price)}원({high.turn}턴), 가장 쌀 때 {formatNum(low.price)}원({low.turn}턴).
-        <span className="mt-1 block text-[11px] text-slate-400">
+        <span className="mt-1 block text-xs text-slate-400">
           그래프 선이 오른쪽으로 갈수록 올라가면 가격이 오른 거예요. 오르내림이 클수록 위험도 커요.
         </span>
       </p>
@@ -189,7 +189,7 @@ export function KidPriceChart({
         <select
           value={whatIfQty}
           onChange={(e) => setWhatIfQty(Number(e.target.value))}
-          className="rounded-md bg-slate-900 px-1.5 py-0.5 text-xs font-bold text-white ring-1 ring-violet-400/40"
+          className="min-h-10 rounded-md bg-slate-900 px-2 py-1 text-sm font-bold text-white ring-1 ring-violet-400/40"
           aria-label="만약에 샀을 수량"
         >
           {[1, 10, 100].map((q) => (
@@ -250,7 +250,7 @@ export function MarketOverview({
           <h3 id="market-overview-title" className="text-sm font-black text-slate-100">
             🐉 드래곤 종합지수 <span className={up ? "text-emerald-400" : "text-red-400"}>{last.toFixed(1)}</span>
           </h3>
-          <p className="text-[11px] text-slate-500">모든 회사 주가의 평균 변화예요. 100보다 크면 처음보다 올랐다는 뜻!</p>
+          <p className="text-xs text-slate-500">모든 회사 주가의 평균 변화예요. 100보다 크면 처음보다 올랐다는 뜻!</p>
         </div>
         <span className="rounded-full bg-white/5 px-2.5 py-1 text-xs font-bold text-slate-200">
           {mood.emoji} {mood.text}
@@ -270,7 +270,7 @@ export function MarketOverview({
             <ReferenceLine y={100} stroke="#334155" strokeDasharray="3 3" />
             <Tooltip
               formatter={(v: number) => [v.toFixed(1), "지수"]}
-              labelFormatter={(t: number) => `${t}턴(분기)`}
+              labelFormatter={(t: number) => `${t}턴`}
               contentStyle={{ fontSize: 11, borderRadius: 8, background: "#1e293b", border: "1px solid #334155", color: "#f1f5f9" }}
             />
             <Area type="monotone" dataKey="value" stroke={up ? UP : DOWN} strokeWidth={2} fill="url(#indexFill)" dot={false} isAnimationActive={false} />
@@ -296,7 +296,7 @@ function MoverList({
 }) {
   return (
     <div className="rounded-xl bg-white/[0.035] p-2 ring-1 ring-white/[0.06]">
-      <div className="mb-1 text-[11px] font-bold text-slate-400">{title}</div>
+      <div className="mb-1 text-xs font-bold text-slate-400">{title}</div>
       {items.map((item) => (
         <button
           key={item.id}
@@ -359,7 +359,7 @@ export function PortfolioBasket({
           ))}
         </div>
       </div>
-      <p className="mt-2 rounded-xl bg-white/[0.05] px-3 py-2 text-[11px] leading-relaxed text-slate-300">
+      <p className="mt-2 rounded-xl bg-white/[0.05] px-3 py-2 text-xs leading-relaxed text-slate-300">
         분산 점수 <b className="text-amber-300">{"⭐".repeat(spread)}{"☆".repeat(3 - spread)}</b>
         {spread === 3
           ? " — 여러 바구니에 잘 나눠 담았어요! 하나가 떨어져도 덜 흔들려요."

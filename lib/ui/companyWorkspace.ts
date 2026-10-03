@@ -1,6 +1,7 @@
 import type { BuildingType } from "@/lib/engine";
 
 export type CompanyTask =
+  | "quests"
   | "production"
   | "sales"
   | "research"
@@ -18,11 +19,12 @@ export function taskForBuilding(type: BuildingType): CompanyTask {
 export const COMPANY_TASKS: { id: CompanyTask; label: string; icon: string }[] =
   [
     { id: "construction", label: "건설", icon: "🏗️" },
-    { id: "production", label: "생산", icon: "🏭" },
-    { id: "sales", label: "판매", icon: "🏬" },
-    { id: "research", label: "연구", icon: "🔬" },
+    { id: "quests", label: "의뢰", icon: "📜" },
+    { id: "production", label: "만들기", icon: "🏭" },
+    { id: "sales", label: "팔기", icon: "🏬" },
     { id: "staff", label: "직원", icon: "👥" },
-    { id: "finance", label: "재무", icon: "💰" },
+    { id: "research", label: "연구", icon: "🔬" },
+    { id: "finance", label: "돈 관리", icon: "💰" },
   ];
 
 /** Which workspace task a turn mission's button should open. */

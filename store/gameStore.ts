@@ -2,9 +2,16 @@
 
 import { create } from "zustand";
 import {
+  acceptQuest as acceptQuestAction,
   advanceTurn,
+  checkAchievements,
+  claimQuest as claimQuestAction,
   createGame,
+  declineQuest as declineQuestAction,
   isFeatureUnlocked,
+  planWithOrder,
+  resolveDilemma,
+  syncQuestProgress,
   type AssetClass,
   type BuildingType,
   type CompanyDecisions,
@@ -85,6 +92,12 @@ interface GameStore {
   loan: (amount: number, side: "borrow" | "repay") => void;
   setProductPrice: (index: number, price: number) => void;
   toggleProduct: (index: number) => void;
+  acceptQuest: (questId: string) => void;
+  declineQuest: (questId: string) => void;
+  claimQuest: (questId: string) => void;
+  chooseDilemma: (optionIndex: number) => void;
+  /** Set the production plan to market demand + the accepted order. */
+  planForOrder: () => void;
   dismissToast: () => void;
 }
 
@@ -95,6 +108,22 @@ function player(game: GameState) {
 function persist(game: GameState): boolean {
   const storage = getBrowserStorage();
   return storage ? saveGameToStorage(storage, game) : false;
+}
+
+/**
+ * After any action: finished city requests become claimable and newly earned
+ * achievements replace the toast so the student notices them.
+ */
+function afterAction(game: GameState, toast: { text: string; tone: "good" | "bad" | "info" }) {
+  syncQuestProgress(game);
+  const earned = checkAchievements(game);
+  if (earned.length === 0) return toast;
+  playSfx("win");
+  const first = earned[0];
+  return {
+    text: `🏅 업적 달성! ${first.emoji} ${first.title}${earned.length > 1 ? ` 외 ${earned.length - 1}개` : ""}`,
+    tone: "good" as const,
+  };
 }
 
 export const useGameStore = create<GameStore>((set, get) => ({
@@ -166,12 +195,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (!game) return;
     const p = player(game);
     let cell: { x: number; y: number } | null = x != null && y != null ? { x, y } : emptyCell(p, game.config.mapSize);
-    if (!cell) return showToast(set, "빈 칸이 없습니다.", "bad");
+    if (!cell) return showToast(set, "빈 땅이 없어요.", "bad");
     const res = buildBuilding(game, p, type, cell.x, cell.y);
     if (!res.ok) return showToast(set, res.error ?? "건설 실패", "bad");
     playSfx("build");
+    const toast = afterAction(game, { text: res.message ?? "건설 완료!", tone: "good" });
     persist(game);
-    set({ game: { ...game }, toast: { text: res.message ?? "건설 완료!", tone: "good" } });
+    set({ game: { ...game }, toast });
   },
 
   upgrade: (buildingId) => {
@@ -180,8 +210,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const res = upgradeBuilding(game, player(game), buildingId);
     if (!res.ok) return showToast(set, res.error ?? "업그레이드 실패", "bad");
     playSfx("build");
+    const toast = afterAction(game, { text: res.message ?? "업그레이드 완료!", tone: "good" });
     persist(game);
-    set({ game: { ...game }, toast: { text: res.message ?? "업그레이드 완료!", tone: "good" } });
+    set({ game: { ...game }, toast });
   },
 
   demolish: (buildingId) => {
@@ -200,8 +231,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const res = applyCompanyAction(game, player(game), actionId);
     if (!res.ok) return showToast(set, res.error ?? "실패", "bad");
     playSfx("click");
+    const toast = afterAction(game, { text: res.message ?? "실행 완료!", tone: "good" });
     persist(game);
-    set({ game: { ...game }, toast: { text: res.message ?? "실행 완료!", tone: "good" } });
+    set({ game: { ...game }, toast });
   },
 
   proposeDeal: (targetCompanyId, dealId) => {
@@ -222,7 +254,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (!res.ok) return showToast(set, res.error ?? "영입 실패", "bad");
     playSfx("hire");
     persist(game);
-    const msg = overrideSalary ? "⭐ 전설 인재 계약 체결!" : "인재 영입 성공!";
+    const msg = overrideSalary ? "⭐ 전설 인재와 계약했어요!" : "🎉 인재를 뽑았어요!";
     set({ game: { ...game }, toast: { text: msg, tone: "good" } });
   },
 
@@ -233,7 +265,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (!res.ok) return showToast(set, res.error ?? "해고 실패", "bad");
     playSfx("click");
     persist(game);
-    set({ game: { ...game }, toast: { text: "해고 처리 완료", tone: "info" } });
+    set({ game: { ...game }, toast: { text: "👋 인재를 내보냈어요", tone: "info" } });
   },
 
   poach: (targetCompanyId, characterId, overrideSalary, loyaltyBonus) => {
@@ -253,7 +285,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (!res.ok) return showToast(set, res.error ?? "실패", "bad");
     playSfx("click");
     persist(game);
-    set({ game: { ...game }, toast: { text: res.message ?? "연봉 인상 완료!", tone: "good" } });
+    set({ game: { ...game }, toast: { text: res.message ?? "💝 급여를 올렸어요!", tone: "good" } });
   },
 
   tradeStock: (companyId, shares, side) => {
@@ -272,8 +304,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
       text = `매도 완료 · 실현 ${sign}${formatMoney(Math.abs(res.realized))}`;
     }
     const updated = { ...game, companies };
+    const toast = afterAction(updated, { text, tone: "good" });
     persist(updated);
-    set({ game: updated, toast: { text, tone: "good" } });
+    set({ game: updated, toast });
     return true;
   },
 
@@ -287,8 +320,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
     playSfx(side === "buy" ? "buy" : "sell");
     const companies = game.companies.map((c) => (c.id === p.id ? { ...p, portfolio: { ...p.portfolio, assets: { ...p.portfolio.assets } } } : c));
     const updated = { ...game, companies };
+    const toast = afterAction(updated, { text: side === "buy" ? `매수 완료 · 잔고 ${formatMoney(p.cash)}` : "매도 완료", tone: "good" });
     persist(updated);
-    set({ game: updated, toast: { text: side === "buy" ? `매수 완료 · 잔고 ${formatMoney(p.cash)}` : "매도 완료", tone: "good" } });
+    set({ game: updated, toast });
     return true;
   },
 
@@ -300,7 +334,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (!res.ok) return showToast(set, res.error ?? "실패", "bad");
     playSfx("click");
     persist(game);
-    set({ game: { ...game }, toast: { text: side === "borrow" ? "대출 실행" : "상환 완료", tone: "good" } });
+    set({ game: { ...game }, toast: { text: side === "borrow" ? "💳 돈을 빌렸어요" : "✅ 빚을 갚았어요", tone: "good" } });
   },
 
   setProductPrice: (index, price) => {
@@ -321,6 +355,58 @@ export const useGameStore = create<GameStore>((set, get) => ({
     p.productEnabled = p.productEnabled.map((v, i) => (i === index ? !v : v));
     persist(game);
     set({ game: { ...game } });
+  },
+
+  acceptQuest: (questId) => {
+    const game = get().game;
+    if (!game) return;
+    const res = acceptQuestAction(game, questId);
+    if (!res.ok) return showToast(set, res.error ?? "실패", "bad");
+    playSfx("hire");
+    persist(game);
+    set({ game: { ...game }, toast: { text: res.message ?? "주문을 받았어요!", tone: "good" } });
+  },
+
+  declineQuest: (questId) => {
+    const game = get().game;
+    if (!game) return;
+    const res = declineQuestAction(game, questId);
+    if (!res.ok) return showToast(set, res.error ?? "실패", "bad");
+    playSfx("click");
+    persist(game);
+    set({ game: { ...game }, toast: { text: res.message ?? "거절했어요.", tone: "info" } });
+  },
+
+  claimQuest: (questId) => {
+    const game = get().game;
+    if (!game) return;
+    const res = claimQuestAction(game, questId);
+    if (!res.ok) return showToast(set, res.error ?? "실패", "bad");
+    playSfx("sell");
+    const toast = afterAction(game, { text: res.message ?? "보상 받기 완료!", tone: "good" });
+    persist(game);
+    set({ game: { ...game }, toast });
+  },
+
+  chooseDilemma: (optionIndex) => {
+    const game = get().game;
+    if (!game) return;
+    const res = resolveDilemma(game, optionIndex);
+    if (!res.ok) return showToast(set, res.error ?? "실패", "bad");
+    playSfx("click");
+    const toast = afterAction(game, { text: res.message ?? "결정했어요!", tone: "good" });
+    persist(game);
+    set({ game: { ...game }, toast });
+  },
+
+  planForOrder: () => {
+    const game = get().game;
+    if (!game) return;
+    const company = player(game);
+    const { plan } = planWithOrder(game, company);
+    company.decisions.productionTarget = plan;
+    persist(game);
+    set({ game: { ...game }, toast: { text: `생산 계획을 ${plan.toLocaleString()}개로 맞췄어요`, tone: "info" } });
   },
 
   dismissToast: () => set({ toast: null }),

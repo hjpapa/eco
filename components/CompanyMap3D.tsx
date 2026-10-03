@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Canvas, useFrame } from "@react-three/fiber";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Html, OrbitControls, RoundedBox } from "@react-three/drei";
 import * as THREE from "three";
 import { useGameStore } from "@/store/gameStore";
@@ -775,6 +775,7 @@ function Scene({
   workspace = false,
   reducedMotion = false,
   buildingLabels = {},
+  workReport,
 }: {
   game: GameState; company: Company; readOnly: boolean; overview: boolean;
   selectedType: BuildingType | null;
@@ -788,6 +789,7 @@ function Scene({
   workspace?: boolean;
   reducedMotion?: boolean;
   buildingLabels?: Record<string, string>;
+  workReport?: { key: number; labels: Record<string, string> } | null;
 }) {
   const n = game.config.mapSize;
   const half = (n * TILE) / 2;
@@ -962,6 +964,23 @@ function Scene({
                     />
                     {b.turnsLeft <= 0 && <LevelStars type={b.type} level={b.level} />}
                   </PopIn>
+                  {workReport?.labels[b.id] && (
+                    <Html
+                      key={`work-${workReport.key}`}
+                      position={[0, buildingTop(b.type, b.level) + 0.12, 0]}
+                      center
+                      distanceFactor={8}
+                      zIndexRange={[44, 0]}
+                      style={{ pointerEvents: "none" }}
+                    >
+                      <div
+                        className="work-pop"
+                        style={{ animationDelay: `${(Object.keys(workReport.labels).indexOf(b.id) % 8) * 0.18}s` }}
+                      >
+                        {workReport.labels[b.id]}
+                      </div>
+                    </Html>
+                  )}
                   {chatter?.id === b.id && (
                     <Html
                       key={chatter.key}
@@ -1017,6 +1036,7 @@ function Scene({
         <VisitorAgent visitor={company.visitor} half={half} company={company} />
       )}
 
+      {workspace && <FitBoard />}
       <OrbitControls
         enabled={cameraEnabled}
         enablePan
@@ -1032,10 +1052,28 @@ function Scene({
   );
 }
 
+/**
+ * The workspace camera was framed for a wide 16:9 box. On tablets the map
+ * box is closer to square, so widen the view (zoom out) until the whole
+ * board fits again instead of cutting off the corner plots.
+ */
+function FitBoard({ wide = 1.6 }: { wide?: number }) {
+  const camera = useThree((state) => state.camera);
+  const width = useThree((state) => state.size.width);
+  const height = useThree((state) => state.size.height);
+  useEffect(() => {
+    if (!(camera instanceof THREE.PerspectiveCamera)) return;
+    const aspect = width / Math.max(1, height);
+    camera.zoom = Math.min(1, Math.max(0.62, aspect / wide));
+    camera.updateProjectionMatrix();
+  }, [camera, width, height, wide]);
+  return null;
+}
+
 /* ── main component ──────────────────────────────────────────────────────── */
 export function CompanyMap3D({
   game, company, readOnly = false, overview = false,
-  onWorkspaceCell, pendingType = null, inspectedId = null, confirmCell = null, cameraEnabled = true, reducedMotion = false, buildingLabels = {},
+  onWorkspaceCell, pendingType = null, inspectedId = null, confirmCell = null, cameraEnabled = true, reducedMotion = false, buildingLabels = {}, workReport,
 }: {
   game: GameState; company: Company; readOnly?: boolean; overview?: boolean;
   onWorkspaceCell?: (x: number, y: number) => void;
@@ -1045,8 +1083,18 @@ export function CompanyMap3D({
   cameraEnabled?: boolean;
   reducedMotion?: boolean;
   buildingLabels?: Record<string, string>;
+  workReport?: { key: number; labels: Record<string, string> };
 }) {
   const build = useGameStore((s) => s.build);
+  // Show the "this turn" pop-ups for a few seconds after each turn.
+  const [shownReport, setShownReport] = useState<{ key: number; labels: Record<string, string> } | null>(null);
+  useEffect(() => {
+    if (!workReport) return;
+    setShownReport(workReport);
+    const timer = window.setTimeout(() => setShownReport(null), 5200);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workReport?.key]);
   const [selectedType, setSelectedType] = useState<BuildingType | null>(null);
   const [selectedBuildingId, setSelectedBuildingId] = useState<string | null>(null);
   const [comboFeedback, setComboFeedback] = useState<{
@@ -1132,7 +1180,7 @@ export function CompanyMap3D({
   return (
     <div className="space-y-3">
       <div
-        className={`relative w-full overflow-hidden rounded-2xl ${onWorkspaceCell ? "h-[300px] md:h-[400px] xl:h-[clamp(320px,48vh,560px)]" : overview ? "" : "h-[290px] sm:h-auto"}`}
+        className={`relative w-full overflow-hidden rounded-2xl ${onWorkspaceCell ? "workspace-map-h isolate" : overview ? "" : "h-[290px] sm:h-auto"}`}
         style={{
           aspectRatio: overview ? "16 / 10" : "16 / 9",
           maxHeight: onWorkspaceCell ? undefined : overview ? 320 : 560,
@@ -1172,6 +1220,7 @@ export function CompanyMap3D({
             cameraEnabled={cameraEnabled}
             reducedMotion={reducedMotion}
             buildingLabels={buildingLabels}
+            workReport={shownReport}
             comboLinks={comboLinks}
             highlightedComboKeys={comboFeedback?.linkKeys ?? []}
             onCell={onCell}

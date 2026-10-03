@@ -56,26 +56,26 @@ export function MountainJourney({ game }: { game: GameState }) {
               </span>
             </div>
             <p className="mt-1 text-xs leading-relaxed text-sky-100 sm:text-sm">
-              한 턴(분기)씩 회사를 키우며 새로운 경제 능력이 있는 봉우리를 발견해요.
+              한 턴씩 회사를 키우며 새로운 경제 능력이 있는 봉우리를 발견해요.
             </p>
           </div>
         </div>
 
         <div className="mt-3 flex items-end justify-between gap-3 text-xs">
           <div>
-            <span className="font-black">{game.turn}/{game.maxTurns}턴(분기)</span>
+            <span className="font-black">{game.turn}/{game.maxTurns}턴</span>
             <span className="ml-2 text-sky-200">전체 여정 {campaignProgress}%</span>
           </div>
           <div className="text-right text-sky-100">
             {dragonStage.nextLabel
-              ? `${dragonStage.nextLabel}까지 ${dragonStage.turnsToNext}턴(분기)`
+              ? `${dragonStage.nextLabel}까지 ${dragonStage.turnsToNext}턴`
               : "최고 단계 달성!"}
           </div>
         </div>
         <div
           className="mt-2 h-2.5 overflow-hidden rounded-full bg-indigo-950/45 ring-1 ring-white/20"
           role="progressbar"
-          aria-label={`경제 산길 전체 진행률, ${game.maxTurns}턴(분기) 중 ${game.turn}턴(분기) 완료`}
+          aria-label={`경제 산길 전체 진행률, ${game.maxTurns}턴 중 ${game.turn}턴 완료`}
           aria-valuemin={0}
           aria-valuemax={game.maxTurns}
           aria-valuenow={game.turn}
@@ -143,7 +143,7 @@ export function MountainJourney({ game }: { game: GameState }) {
                 ? "현재 봉우리"
                 : milestone.complete
                   ? "지나온 봉우리"
-                  : `${milestone.turn}턴(분기)에 열리는 봉우리`;
+                  : `${milestone.turn}턴에 열리는 봉우리`;
 
               return (
                 <li
@@ -175,8 +175,8 @@ export function MountainJourney({ game }: { game: GameState }) {
                     }`}
                   >
                     {milestone.label}
-                    <span className="mt-0.5 block text-[11px] font-semibold opacity-75">
-                      {milestone.turn === 0 ? "출발" : `${milestone.turn}턴(분기)`}
+                    <span className="mt-0.5 block text-xs font-semibold opacity-75">
+                      {milestone.turn === 0 ? "출발" : `${milestone.turn}턴`}
                     </span>
                   </div>
                 </li>

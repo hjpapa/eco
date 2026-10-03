@@ -39,7 +39,7 @@ export function Leaderboard({
           return (
           <div key={e.companyId}>
             {separatedPlayer && (
-              <div className="my-2 flex items-center gap-2 text-[10px] text-slate-400" aria-hidden>
+              <div className="my-2 flex items-center gap-2 text-xs text-slate-400" aria-hidden>
                 <span className="h-px flex-1 bg-slate-200" />
                 내 위치
                 <span className="h-px flex-1 bg-slate-200" />

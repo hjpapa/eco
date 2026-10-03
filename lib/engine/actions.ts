@@ -14,9 +14,7 @@ import {
   executiveSlots,
   isBuildingTypeUnlocked,
 } from "./buildings";
-import { estimateDemand, productionCapacity } from "./company";
-import { getIndustry } from "../data/industries";
-import { getCountry } from "../data/countries";
+import { planWithOrder } from "./quests";
 import { autoAssignRole, generateCharacter } from "./characters";
 import { adjustRivalry, getRivalry } from "./relations";
 import { shockStock } from "./market";
@@ -61,16 +59,12 @@ function newBuildingId(state: GameState, company: Company, x: number, y: number)
   return id;
 }
 
-/** The most a sensible plan can make: what fits the factories and what sells. */
+/**
+ * The most a sensible plan can make: what fits the factories and what sells,
+ * plus whatever the student still owes an accepted order.
+ */
 function planLimit(state: GameState, company: Company): number {
-  const demand = estimateDemand(
-    company,
-    getIndustry(company.industryId),
-    getCountry(company.countryId),
-    state.macro,
-    state.config,
-  );
-  return Math.min(productionCapacity(company, state.config), Math.round(demand / 10) * 10);
+  return planWithOrder(state, company).plan;
 }
 
 /**
@@ -121,14 +115,14 @@ export function buildBuilding(
   }
   const max = state.config.mapSize;
   if (x < 0 || y < 0 || x >= max || y >= max) {
-    return { ok: false, error: "맵 범위를 벗어났습니다." };
+    return { ok: false, error: "지도 밖에는 지을 수 없어요." };
   }
   if (company.buildings.some((b) => b.x === x && b.y === y)) {
-    return { ok: false, error: "이미 건물이 있는 칸입니다." };
+    return { ok: false, error: "이미 건물이 있는 칸이에요." };
   }
   const placement = evaluateBuildingPlacement(company, type, x, y, max);
   const cost = buildingConstructionCost(company, type);
-  if (company.cash < cost) return { ok: false, error: "현금이 부족합니다." };
+  if (company.cash < cost) return { ok: false, error: "돈이 부족해요." };
 
   const limitBefore = planLimit(state, company);
   company.cash -= cost;
@@ -234,7 +228,7 @@ export function proposeDeal(
   if (!def) return { ok: false, error: "알 수 없는 제안입니다." };
   const target = findCompany(state, targetCompanyId);
   if (!target || target.id === company.id) return { ok: false, error: "대상 회사를 찾을 수 없습니다." };
-  if (company.cash < def.cost) return { ok: false, error: "현금이 부족합니다." };
+  if (company.cash < def.cost) return { ok: false, error: "돈이 부족해요." };
 
   company.cash -= def.cost;
 
@@ -251,7 +245,7 @@ export function proposeDeal(
   if (nextFloat(state.rng) > successChance) {
     // Deal failed — refund 50% of cost.
     company.cash += Math.round(def.cost * 0.5);
-    return { ok: true, message: "협상이 결렬되었습니다. 비용의 50%가 환불됩니다." };
+    return { ok: true, message: "이번엔 거절당했어요. 쓴 돈의 절반을 돌려받았어요." };
   }
 
   const growthBefore = captureCampaignGrowth(company);
@@ -285,7 +279,7 @@ export function proposeDeal(
     }
   }
   applyCampaignGrowthMultiplier(state, company, growthBefore);
-  return { ok: true, message: "협력이 성사되었습니다!" };
+  return { ok: true, message: "🤝 함께 일하기로 했어요!" };
 }
 
 function getCatEmoji(cat?: string): string {
@@ -307,7 +301,7 @@ export function applyCompanyAction(
   if (def.cat === "rnd" && !isFeatureUnlocked(state, "research")) {
     return lockedFeature("연구");
   }
-  if (company.cash < def.cost) return { ok: false, error: "현금이 부족합니다." };
+  if (company.cash < def.cost) return { ok: false, error: "돈이 부족해요." };
   company.cash -= def.cost;
   const growthBefore = captureCampaignGrowth(company);
   def.apply(company);
@@ -339,9 +333,9 @@ export function upgradeBuilding(
   if (!b) return { ok: false, error: "건물을 찾을 수 없습니다." };
   const def = BUILDINGS[b.type];
   if (b.turnsLeft > 0) return { ok: false, error: "공사가 끝난 뒤 업그레이드할 수 있어요." };
-  if (b.level >= def.maxLevel) return { ok: false, error: "이미 최고 레벨입니다." };
+  if (b.level >= def.maxLevel) return { ok: false, error: "이미 최고 레벨이에요." };
   const cost = buildingCostFor(b.type, b.level + 1);
-  if (company.cash < cost) return { ok: false, error: "현금이 부족합니다." };
+  if (company.cash < cost) return { ok: false, error: "돈이 부족해요." };
   const limitBefore = planLimit(state, company);
   company.cash -= cost;
   b.level += 1;
@@ -366,7 +360,7 @@ export function hireCharacter(
   const signingBonus = salary; // one-off hiring fee
   const slots = executiveSlots(company, state.config.adjacencyBonus);
   if (company.hired.length >= slots) return { ok: false, error: `임원 자리가 꽉 찼습니다 (최대 ${slots}명).` };
-  if (company.cash < signingBonus) return { ok: false, error: "영입 비용이 부족합니다." };
+  if (company.cash < signingBonus) return { ok: false, error: "인재를 뽑을 돈이 부족해요." };
 
   company.cash -= signingBonus;
   const baseLoyalty = character.rarity === "legendary" ? 60 : 75;
@@ -387,7 +381,7 @@ export function fireCharacter(
   const idx = company.hired.findIndex((c) => c.id === characterId);
   if (idx < 0) return { ok: false, error: "해당 직원을 찾을 수 없습니다." };
   const severance = Math.round(company.hired[idx].salary); // one-off payout
-  if (company.cash < severance) return { ok: false, error: "퇴직금을 지급할 현금이 부족합니다." };
+  if (company.cash < severance) return { ok: false, error: "퇴직금을 줄 돈이 부족해요." };
 
   company.cash -= severance;
   company.hired.splice(idx, 1);
@@ -415,7 +409,7 @@ export function poachCharacter(
   const ch = target.hired[chIdx];
   // Loyal staff demand a larger signing bonus; disloyal ones are easier to flip.
   const poachCost = Math.round(ch.salary * (1.3 + (ch.loyalty ?? 70) / 100));
-  if (company.cash < poachCost) return { ok: false, error: "스카우트 비용이 부족합니다." };
+  if (company.cash < poachCost) return { ok: false, error: "데려올 돈이 부족해요." };
   company.cash -= poachCost;
   const newSalary = overrideSalary ?? Math.round(ch.salary * 1.25);
   const newLoyalty = Math.min(100, 55 + (loyaltyBonus ?? 0));
@@ -438,7 +432,7 @@ export function raiseSalary(
   if (!isFeatureUnlocked(state, "talentNewsRanking")) return lockedFeature("인재");
   const ch = company.hired.find((c) => c.id === characterId);
   if (!ch) return { ok: false, error: "인재를 찾을 수 없습니다." };
-  if (newSalary <= ch.salary) return { ok: false, error: "현재 연봉보다 높아야 합니다." };
+  if (newSalary <= ch.salary) return { ok: false, error: "지금 급여보다 높아야 해요." };
   const ratio = (newSalary - ch.salary) / ch.salary;
   const salaryBonus = Math.round(Math.min(30, ratio * 60));
   const total = salaryBonus + miniGameBonus;
@@ -459,17 +453,17 @@ export function buyStock(
   if (!isFeatureUnlocked(state, "investment")) return lockedFeature("투자");
   if (shares <= 0) return { ok: false, error: "수량을 확인하세요." };
   if (targetCompanyId === company.id) {
-    return { ok: false, error: "자기 회사 주식은 살 수 없습니다." };
+    return { ok: false, error: "우리 회사 주식은 살 수 없어요." };
   }
   const stock = state.stocks[targetCompanyId];
   if (!stock) return { ok: false, error: "종목을 찾을 수 없습니다." };
   const alreadyHeld = company.portfolio.stocks[targetCompanyId] ?? 0;
   const float = stock.sharesOutstanding - (stock.treasury ?? 0); // tradable free float
   const maxBuyable = float - alreadyHeld;
-  if (maxBuyable <= 0) return { ok: false, error: "유통 물량을 모두 보유 중입니다." };
+  if (maxBuyable <= 0) return { ok: false, error: "살 수 있는 주식을 이미 다 가졌어요." };
   const actualShares = Math.min(shares, maxBuyable);
   const cost = stock.price * actualShares;
-  if (company.cash < cost) return { ok: false, error: "현금이 부족합니다." };
+  if (company.cash < cost) return { ok: false, error: "돈이 부족해요." };
   company.cash -= cost;
   company.portfolio.stocks[targetCompanyId] = alreadyHeld + actualShares;
   // Track cost basis for average-price / realized-P&L display.
@@ -487,7 +481,7 @@ export function sellStock(
 ): ActionResult {
   if (!isFeatureUnlocked(state, "investment")) return lockedFeature("투자");
   const held = company.portfolio.stocks[targetCompanyId] ?? 0;
-  if (shares <= 0 || held <= 0) return { ok: false, error: "보유 수량이 부족합니다." };
+  if (shares <= 0 || held <= 0) return { ok: false, error: "가진 개수가 부족해요." };
   const sellShares = Math.min(shares, held); // never sell more than held
   const stock = state.stocks[targetCompanyId];
   if (!stock) return { ok: false, error: "종목을 찾을 수 없습니다." };
@@ -522,7 +516,7 @@ export function buyAsset(
   }
   const asset = state.assets[assetClass];
   const cost = asset.price * units;
-  if (company.cash < cost) return { ok: false, error: "현금이 부족합니다." };
+  if (company.cash < cost) return { ok: false, error: "돈이 부족해요." };
   company.cash -= cost;
   company.portfolio.assets[assetClass] =
     (company.portfolio.assets[assetClass] ?? 0) + units;
@@ -537,7 +531,7 @@ export function sellAsset(
 ): ActionResult {
   if (!isFeatureUnlocked(state, "investment")) return lockedFeature("투자");
   const held = company.portfolio.assets[assetClass] ?? 0;
-  if (units <= 0 || units > held) return { ok: false, error: "보유 수량이 부족합니다." };
+  if (units <= 0 || units > held) return { ok: false, error: "가진 개수가 부족해요." };
   const asset = state.assets[assetClass];
   company.cash += asset.price * units;
   const remaining = held - units;
@@ -559,7 +553,7 @@ export function takeLoan(state: GameState, company: Company, amount: number): Ac
 export function repayLoan(state: GameState, company: Company, amount: number): ActionResult {
   if (!isFeatureUnlocked(state, "visitsPartnershipsAdvanced")) return lockedFeature("회사 돈 관리(재무)");
   const pay = Math.min(amount, company.debt, company.cash);
-  if (pay <= 0) return { ok: false, error: "상환할 수 없습니다." };
+  if (pay <= 0) return { ok: false, error: "갚을 빚이 없거나 돈이 부족해요." };
   company.cash -= pay;
   company.debt -= pay;
   return { ok: true };

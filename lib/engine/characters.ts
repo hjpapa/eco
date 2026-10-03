@@ -6,12 +6,12 @@ import { type RngState, shuffle, nextInt, nextFloat, nextRange, pick } from "./r
 // Hiring, role bonuses and loyalty/poaching for the talent system.
 
 export const ROLE_LABELS: Record<CharacterRole, string> = {
-  ceo: "대표(CEO)",
-  cto: "기술총괄(CTO)",
-  cmo: "마케팅총괄(CMO)",
-  cfo: "재무총괄(CFO)",
-  coo: "운영총괄(COO)",
-  chro: "인사총괄(CHRO)",
+  ceo: "대표",
+  cto: "기술 담당",
+  cmo: "광고 담당",
+  cfo: "돈 관리 담당",
+  coo: "공장 운영 담당",
+  chro: "직원 담당",
 };
 
 /** Build the initial talent pool (a shuffled subset of the catalog). */

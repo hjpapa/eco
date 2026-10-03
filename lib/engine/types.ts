@@ -387,8 +387,71 @@ export interface GameState {
   relations: RelationState;
   news: NewsItem[];
 
+  /** Student-only request board (orders and city requests). Missing on old saves. */
+  quests?: Quest[];
+  /** A pending "사장님의 선택" card, if any. */
+  dilemma?: PendingDilemma | null;
+  /** Achievements the student has earned, in order. */
+  achievements?: EarnedAchievement[];
+  questStats?: QuestStats;
+
   createdAt: number;
   updatedAt: number;
+}
+
+// ---------------------------------------------------------------------------
+// Request board, choices and achievements (student company only)
+// ---------------------------------------------------------------------------
+
+/** order: deliver units; build/combo/upgrade/stage: grow the city. */
+export type QuestKind = "order" | "build" | "combo" | "upgrade" | "stage";
+/** offered → (accept) active → ready → (claim) done; or failed/expired. */
+export type QuestStatus = "offered" | "active" | "ready" | "done" | "failed";
+
+export interface QuestReward {
+  cash: number;
+  reputation?: number;
+  morale?: number;
+}
+
+export interface Quest {
+  id: string;
+  kind: QuestKind;
+  status: QuestStatus;
+  client: string;
+  clientEmoji: string;
+  title: string;
+  detail: string;
+  postedTurn: number;
+  /** Must be finished before the clock reaches this turn. */
+  deadlineTurn: number;
+  reward: QuestReward;
+  // order
+  units?: number;
+  unitPrice?: number;
+  delivered?: number;
+  // build / combo / upgrade / stage
+  buildingType?: BuildingType;
+  baseline?: number;
+  comboId?: string;
+  level?: number;
+  cityScore?: number;
+}
+
+export interface PendingDilemma {
+  id: string;
+  postedTurn: number;
+}
+
+export interface EarnedAchievement {
+  id: string;
+  turn: number;
+}
+
+export interface QuestStats {
+  completed: number;
+  failed: number;
+  bigOrders: number;
 }
 
 export interface RankingEntry {

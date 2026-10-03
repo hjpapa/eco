@@ -47,7 +47,7 @@ export function EconomyIndicators({ game }: { game: GameState }) {
 
       <div className="p-4">
         <p className="mb-3 text-xs leading-relaxed text-slate-600">
-          숫자를 외우지 않아도 괜찮아요. 날씨와 쉬운 뜻을 보고 이번 턴(분기) 결정을 생각해 보세요.
+          숫자를 외우지 않아도 괜찮아요. 날씨와 쉬운 뜻을 보고 이번 턴 결정을 생각해 보세요.
         </p>
         <div className="grid grid-cols-2 gap-2 text-sm">
           <Metric icon={ECONOMY_ICONS.gdp} term="GDP 성장률" label="경제 성장(GDP)" value={`${m.gdpGrowth.toFixed(1)}%`} hint={m.gdpGrowth >= 0 ? "경제가 커지고 있어요" : "경제가 잠시 줄고 있어요"} />
@@ -59,9 +59,9 @@ export function EconomyIndicators({ game }: { game: GameState }) {
           ) : null}
         </div>
         <div className="mt-3 rounded-xl bg-blue-50 px-3 py-2 text-xs leading-relaxed text-blue-900 ring-1 ring-blue-100">
-          🧭 <b>이번 턴(분기) 힌트:</b> {weather.advice}
+          🧭 <b>이번 턴 힌트:</b> {weather.advice}
         </div>
-        <div className="mt-2 px-1 text-[11px] leading-relaxed text-slate-500">
+        <div className="mt-2 px-1 text-xs leading-relaxed text-slate-500">
           <b>{country.centralBank}</b>이 기준금리를 바꾸면 빚의 이자와 예금 수익도 함께 달라질 수 있어요.
         </div>
       </div>

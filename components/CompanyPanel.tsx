@@ -4,8 +4,9 @@ import { useRef, useState } from "react";
 import { useGameStore } from "@/store/gameStore";
 import {
   estimateDemand,
-  productionCapacity,
   isFeatureUnlocked,
+  planWithOrder,
+  productionCapacity,
   roleBonuses,
   type Company,
   type GameState,
@@ -16,520 +17,513 @@ import { getIndustryProducts } from "@/lib/data/products";
 import { formatMoney, formatNum } from "@/lib/format";
 import { Bar } from "./Sparkline";
 import { Term } from "./Term";
-import { MGMT_ICONS, BUILDING_IMG } from "@/lib/assetMap";
-import { CompanyTicker } from "./CompanyTicker";
+import { MGMT_ICONS } from "@/lib/assetMap";
+import { OrderPlanner } from "./QuestBoard";
+import { PriceLab } from "./PriceLab";
 
-// Management action definitions for button-based UI
-const ACTION_SECTIONS = [
-  {
-    key: "marketing",
-    label: "마케팅",
-    icon: MGMT_ICONS.marketing,
-    actions: [
-      { id: "promo", label: "프로모션", cost: 50_000 },
-      { id: "mkt_basic",     label: "기본 마케팅",     cost: 30_000 },
-      { id: "mkt_active",    label: "적극 마케팅",     cost: 80_000 },
-      { id: "mkt_intensive", label: "집중 캠페인",     cost: 150_000 },
-      { id: "mkt_event",     label: "특별 이벤트",     cost: 50_000 },
-    ],
-  },
-  {
-    key: "rnd",
-    label: "연구개발",
-    icon: MGMT_ICONS.rnd,
-    actions: [
-      { id: "research", label: "집중 연구", cost: 60_000 },
-      { id: "rnd_basic",  label: "기초 연구", cost: 30_000 },
-      { id: "rnd_active", label: "기술 개발", cost: 80_000 },
-      { id: "rnd_patent", label: "특허 출원", cost: 100_000 },
-    ],
-  },
-  {
-    key: "welfare",
-    label: "직원 복지",
-    icon: MGMT_ICONS.welfare,
-    actions: [
-      { id: "training", label: "직원 교육", cost: 50_000 },
-      { id: "welfare", label: "복지 강화", cost: 40_000 },
-      { id: "wlf_dinner",   label: "직원 회식", cost: 20_000 },
-      { id: "wlf_training", label: "사내 교육", cost: 40_000 },
-      { id: "wlf_workshop", label: "워크숍",    cost: 60_000 },
-    ],
-  },
-  {
-    key: "safety",
-    label: "안전 관리",
-    icon: MGMT_ICONS.safety,
-    actions: [
-      { id: "inspect", label: "라인 점검", cost: 40_000 },
-      { id: "sft_inspect",  label: "안전 점검", cost: 15_000 },
-      { id: "sft_training", label: "안전 교육", cost: 30_000 },
-    ],
-  },
-  {
-    key: "extra",
-    label: "기타 경영",
-    icon: undefined as string | undefined,
-    actions: [
-      { id: "csr",         label: "ESG활동",    cost: 50_000 },
-      { id: "consulting",  label: "외부컨설팅", cost: 80_000 },
-      { id: "pr_campaign", label: "언론홍보",   cost: 40_000 },
-    ],
-  },
-] as const;
+export type PanelTask = "production" | "sales" | "research" | "staff" | "finance";
 
-export function CompanyPanel({ game, company, task }: { game: GameState; company: Company; task?: "production" | "sales" | "research" | "staff" | "finance" }) {
+const won = (value: number) => `${formatMoney(Math.round(value))}원`;
+
+// One-tap activities. Each tab shows a few clearly different choices instead
+// of many near-duplicates (the engine still accepts the older ids).
+const ACTIVITIES: Record<"sales" | "research" | "staff", { title: string; icon?: string; actions: { id: string; label: string; cost: number; effect: string }[] }[]> = {
+  sales: [
+    {
+      title: "광고하기",
+      icon: MGMT_ICONS.marketing,
+      actions: [
+        { id: "mkt_basic", label: "📄 전단지 돌리기", cost: 30_000, effect: "⭐ 평판 +2" },
+        { id: "mkt_event", label: "🎉 특별 이벤트", cost: 50_000, effect: "⭐ 평판 +8" },
+        { id: "mkt_intensive", label: "📺 큰 광고", cost: 150_000, effect: "⭐ 평판 +10" },
+      ],
+    },
+  ],
+  research: [
+    {
+      title: "연구하기",
+      icon: MGMT_ICONS.rnd,
+      actions: [
+        { id: "rnd_basic", label: "🧪 기초 연구", cost: 30_000, effect: "🔬 품질 +3" },
+        { id: "rnd_active", label: "⚙️ 기술 개발", cost: 80_000, effect: "🔬 품질 +7" },
+        { id: "rnd_patent", label: "📜 특허 내기", cost: 100_000, effect: "🔬 품질 +12" },
+      ],
+    },
+  ],
+  staff: [
+    {
+      title: "직원 챙기기",
+      icon: MGMT_ICONS.welfare,
+      actions: [
+        { id: "wlf_dinner", label: "🍕 회식", cost: 20_000, effect: "😊 행복 +8" },
+        { id: "wlf_training", label: "📚 직원 교육", cost: 40_000, effect: "😊 행복 +5 · 🔬 품질 +2" },
+        { id: "wlf_workshop", label: "🏕️ 워크숍", cost: 60_000, effect: "😊 행복 +12" },
+      ],
+    },
+    {
+      title: "안전 지키기",
+      icon: MGMT_ICONS.safety,
+      actions: [
+        { id: "sft_inspect", label: "🔍 안전 점검", cost: 15_000, effect: "🦺 안전 +8" },
+        { id: "sft_training", label: "⛑️ 안전 교육", cost: 30_000, effect: "🦺 안전 +15" },
+      ],
+    },
+    {
+      title: "이웃 돕기",
+      actions: [
+        { id: "csr", label: "💚 나눔 활동", cost: 50_000, effect: "⭐ 평판 +10" },
+      ],
+    },
+  ],
+};
+
+const BUDGET_STEPS = [
+  { value: 0, label: "안 함" },
+  { value: 20_000, label: "조금" },
+  { value: 50_000, label: "보통" },
+  { value: 100_000, label: "많이" },
+];
+
+export function CompanyPanel({ game, company, task }: { game: GameState; company: Company; task: PanelTask }) {
   const setDecisions = useGameStore((s) => s.setDecisions);
   const companyAction = useGameStore((s) => s.companyAction);
-  const loan = useGameStore((s) => s.loan);
-  const setProductPrice = useGameStore((s) => s.setProductPrice);
-  const toggleProduct = useGameStore((s) => s.toggleProduct);
-  const [loanAmt, setLoanAmt] = useState(0);
   const actionUntil = useRef(0);
   const once = (action: () => void) => {
     if (Date.now() < actionUntil.current) return;
     actionUntil.current = Date.now() + 500;
     action();
   };
-
-  // Per-quarter interest ≈ debt × (annual rate / 4). (engine: company.ts)
-  const quarterlyRate = game.macro.interestRate / 100 / 4 * roleBonuses(company).financeCostMult;
-  const currentInterest = Math.round(company.debt * quarterlyRate);
-  const loanInterest = Math.round(loanAmt * quarterlyRate);
-  const lastCost = Math.max(0, company.lastRevenue - company.lastProfit);
-
-  const industry = getIndustry(company.industryId);
-  const country = getCountry(company.countryId);
-  const facCap = productionCapacity(company, game.config);
-  const demand = estimateDemand(company, industry, country, game.macro, game.config);
-  const d = company.decisions;
   const researchUnlocked = isFeatureUnlocked(game, "research");
-  const advancedInfoUnlocked = isFeatureUnlocked(game, "visitsPartnershipsAdvanced");
 
+  const activities = task === "sales" || task === "research" || task === "staff" ? ACTIVITIES[task] : [];
+
+  return (
+    <div className="space-y-3">
+      {task === "production" && <ProductionControls game={game} company={company} />}
+      {task === "sales" && <SalesControls game={game} company={company} />}
+
+      {task === "sales" && (
+        <BudgetPicker
+          title="📣 매 턴 광고비"
+          hint="광고를 하면 손님이 조금 더 늘어요. 다음 턴부터 매 턴 이만큼 써요."
+          value={company.decisions.marketingBudget}
+          onChange={(v) => setDecisions({ marketingBudget: v })}
+        />
+      )}
+      {task === "research" && (
+        <>
+          <ScoreBar emoji="🔬" label={<Term term="품질">품질</Term>} value={company.quality} color="#6366f1" hint="품질이 높을수록 더 비싸게, 더 좋은 물건을 팔 수 있어요." />
+          {researchUnlocked && (
+            <BudgetPicker
+              title="🔬 매 턴 연구비"
+              hint="꾸준히 연구하면 품질이 조금씩 올라요. 다음 턴부터 매 턴 이만큼 써요."
+              value={company.decisions.rndBudget}
+              onChange={(v) => setDecisions({ rndBudget: v })}
+            />
+          )}
+        </>
+      )}
+      {task === "staff" && (
+        <div className="space-y-2 rounded-2xl bg-slate-50 p-3">
+          <ScoreBar emoji="😊" label={<Term term="사기">직원 행복</Term>} value={company.morale} color="#16a34a" hint={company.morale < 45 ? "행복이 낮으면 일을 덜 하고 회사를 떠날 수 있어요!" : undefined} />
+          <ScoreBar emoji="🦺" label={<Term term="안전" />} value={company.safety} color="#f59e0b" hint={company.safety < 40 ? "안전이 낮으면 사고가 날 수 있어요!" : undefined} />
+          <ScoreBar emoji="⭐" label={<Term term="평판" />} value={company.reputation} color="#0ea5e9" />
+        </div>
+      )}
+
+      {activities.map((section) => (
+        <section key={section.title} className="rounded-2xl border border-slate-200 bg-white p-3">
+          <h3 className="mb-2 flex items-center gap-1.5 text-base font-black text-slate-800">
+            {section.icon && <img src={section.icon} alt="" className="h-6 w-6 object-contain" />}
+            {section.title}
+            <span className="ml-auto text-xs font-bold text-slate-400">누르면 바로 해요</span>
+          </h3>
+          <div className="grid grid-cols-2 gap-2">
+            {section.actions.map((action) => {
+              const canAfford = company.cash >= action.cost;
+              return (
+                <button
+                  key={action.id}
+                  type="button"
+                  disabled={!canAfford}
+                  onClick={() => once(() => companyAction(action.id))}
+                  className={`rounded-xl border px-3 py-2 text-left transition-colors ${
+                    canAfford
+                      ? "border-brand-200 bg-brand-50 text-brand-800 hover:bg-brand-100 active:bg-brand-200"
+                      : "cursor-not-allowed border-slate-200 bg-slate-50 text-slate-400"
+                  }`}
+                >
+                  <div className="text-base font-black leading-tight">{action.label}</div>
+                  <div className="mt-0.5 text-sm font-bold text-slate-700">{action.effect}</div>
+                  <div className={`mt-0.5 text-sm ${canAfford ? "text-brand-600" : "text-slate-400"}`}>
+                    {canAfford ? `💸 ${won(action.cost)}` : `💸 ${won(action.cost)} · 돈이 모자라요`}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      ))}
+
+      {task === "finance" && <FinanceControls game={game} company={company} />}
+    </div>
+  );
+}
+
+/** 🏭 만들기: how many to make next turn, with big tap targets. */
+function ProductionControls({ game, company }: { game: GameState; company: Company }) {
+  const setDecisions = useGameStore((s) => s.setDecisions);
+  const capacity = productionCapacity(company, game.config);
+  const demand = estimateDemand(company, getIndustry(company.industryId), getCountry(company.countryId), game.macro, game.config);
+  const target = company.decisions.productionTarget;
+  const suggestion = planWithOrder(game, company);
+  const set = (value: number) => setDecisions({ productionTarget: Math.max(0, Math.min(capacity, Math.round(value))) });
+
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-3 gap-2 text-center">
+        <StatTile emoji="🏭" label="최대 만들 수 있는 양" value={`${formatNum(capacity)}개`} />
+        <StatTile emoji="🛍️" label={<Term term="수요">사려는 손님</Term>} value={`약 ${formatNum(demand)}명`} />
+        <StatTile emoji="📦" label={<Term term="재고">창고 재고</Term>} value={`${formatNum(company.inventory)}개`} />
+      </div>
+
+      <OrderPlanner game={game} company={company} />
+
+      <section className="rounded-2xl border-2 border-emerald-200 bg-emerald-50/60 p-3">
+        <h3 className="text-base font-black text-emerald-950">다음 턴에 몇 개 만들까요?</h3>
+        {capacity <= 0 ? (
+          <p className="mt-2 rounded-xl bg-white p-3 text-base text-slate-700">🏗️ 먼저 공장을 지어야 물건을 만들 수 있어요.</p>
+        ) : (
+          <>
+            <Stepper
+              value={target}
+              unit="개"
+              steps={[100, 10]}
+              onChange={set}
+              min={0}
+              max={capacity}
+              label="만들 개수"
+            />
+            <input
+              type="range"
+              aria-label="만들 개수 슬라이더"
+              min={0}
+              max={capacity}
+              step={10}
+              value={Math.min(target, capacity)}
+              onChange={(e) => set(Number(e.target.value))}
+              className="big-range mt-1 w-full accent-emerald-600"
+            />
+            <div className="mt-2 grid grid-cols-3 gap-2">
+              <button type="button" className="btn-primary !px-2 text-sm" onClick={() => set(suggestion.plan)}>
+                🎯 딱 맞게<br />({formatNum(suggestion.plan)}개)
+              </button>
+              <button type="button" className="btn-ghost !px-2 text-sm" onClick={() => set(capacity)}>
+                🏭 최대로<br />({formatNum(capacity)}개)
+              </button>
+              <button type="button" className="btn-ghost !px-2 text-sm" onClick={() => set(0)}>
+                ⏸️ 쉬기<br />(0개)
+              </button>
+            </div>
+            <p className={`mt-2 rounded-xl px-3 py-2 text-sm ${target > suggestion.plan + 50 ? "bg-amber-100 text-amber-900" : "bg-white text-slate-600"}`}>
+              {target > suggestion.plan + 50
+                ? "⚠️ 손님보다 많이 만들면 팔리지 않고 창고에 남아요(재고)."
+                : "🎯 ‘딱 맞게’는 손님 수에서 창고 재고를 빼고, 받은 주문까지 더한 개수예요."}
+            </p>
+          </>
+        )}
+        <p className="mt-1 text-xs font-bold text-slate-500">⏭️ 다음 턴을 누르면 만들어져요.</p>
+      </section>
+    </div>
+  );
+}
+
+/** 🏬 팔기: which products to sell and at what price. */
+function SalesControls({ game, company }: { game: GameState; company: Company }) {
+  const setProductPrice = useGameStore((s) => s.setProductPrice);
+  const toggleProduct = useGameStore((s) => s.toggleProduct);
+  const industry = getIndustry(company.industryId);
   const productDefs = getIndustryProducts(company.industryId);
   const productPrices = company.productPrices ?? productDefs.map((p) => Math.round(industry.basePrice * p.priceRatio));
   const productEnabled = company.productEnabled ?? productDefs.map((_, i) => i === 0);
   const productInventory = company.productInventory ?? productDefs.map(() => 0);
   const rndUnlockDone = company.rndUnlockDone ?? false;
-
-  // Active product tab index (defaults to first enabled product)
   const firstActive = productEnabled.findIndex(Boolean);
-  const [activeProduct, setActiveProduct] = useState(firstActive >= 0 ? firstActive : 0);
+  const [active, setActive] = useState(firstActive >= 0 ? firstActive : 0);
 
-  const activeIdx = activeProduct;
-  const activeDef = productDefs[activeIdx];
-  const activeTierRef = activeDef ? industry.basePrice * activeDef.priceRatio : industry.basePrice;
-  const activeMaxPrice = activeDef ? Math.round(activeTierRef * (1 + company.quality / 100)) : Math.round(industry.basePrice * 2);
-  const activePrice = productPrices[activeIdx] ?? Math.round(activeTierRef);
-  const activeInventory = productInventory[activeIdx] ?? 0;
-  const recommendation = (() => {
-    if (facCap <= 0) {
-      return "먼저 캠퍼스에서 공장을 지어 생산할 수 있게 해 보세요.";
-    }
-    if (company.inventory > demand) return "재고가 예상 수요보다 많아요. 생산 목표를 낮추거나 판매 가격을 조금 내려 보세요.";
-    if (activePrice > activeTierRef * 1.3) return "현재 상품 가격이 높은 편이에요. 가격을 낮추면 더 많이 팔릴 수 있어요.";
-    if (company.lastProfit < 0) return "지난 턴(분기)에 손해가 났어요. 생산 목표를 예상 수요와 비슷하게 맞춰 보세요.";
-    if (company.quality < 45 && researchUnlocked) return "기초 연구로 품질을 높이면 더 좋은 상품과 높은 가격을 사용할 수 있어요.";
-    return `예상 수요 ${formatNum(demand)}개에 맞춰 생산 목표를 조절해 보세요.`;
-  })();
+  const def = productDefs[active];
+  if (!def) return null;
+  const tierRef = industry.basePrice * def.priceRatio;
+  const maxPrice = Math.round(tierRef * (1 + company.quality / 100));
+  const price = productPrices[active] ?? Math.round(tierRef);
+  const unlocked = def.isRndUnlock ? rndUnlockDone : true;
+  const meetsQuality = company.quality >= def.qualityRequired;
+  const canEnable = unlocked && meetsQuality;
+  const isOn = productEnabled[active] && canEnable;
+  const step = Math.max(1, Math.round(tierRef * 0.05));
+  const priceTag = price > tierRef * 1.3 ? { text: "비싼 편", cls: "bg-orange-100 text-orange-700" }
+    : price < tierRef * 0.7 ? { text: "싼 편", cls: "bg-sky-100 text-sky-700" }
+    : { text: "보통 값", cls: "bg-emerald-100 text-emerald-700" };
 
   return (
-    <div className="space-y-4">
-      {/* ── Ticker ─────────────────────────────────────────────────────── */}
-      {!task && <div className="overflow-hidden rounded-2xl shadow-sm">
-        <CompanyTicker game={game} company={company} />
-      </div>}
-
-      <div hidden={!!task} className="rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 p-4 ring-1 ring-amber-200">
-        <div className="text-xs font-black uppercase tracking-wide text-amber-700">💡 이번 턴(분기) 추천 행동</div>
-        <p className="mt-1 text-sm font-semibold leading-relaxed text-slate-700">{recommendation}</p>
-      </div>
-
-      {/* ── 상품 라인업 탭 (최상단) ────────────────────────────────────── */}
-      <div hidden={!!task && task !== "sales"} className="card p-4">
-        <div className="mb-3 flex items-center justify-between">
-          <h3 className="flex items-center gap-2 text-base font-bold text-slate-800">
-            📦 상품 라인업
-          </h3>
-          <span className="text-xs text-slate-400">R&D 투자로 가격 한도 ↑</span>
-        </div>
-
-        {/* Product tabs */}
-        <div className="flex gap-1 overflow-x-auto pb-1">
-          {productDefs.map((def, i) => {
-            const isRndProduct = def.isRndUnlock;
-            const isUnlocked = isRndProduct ? rndUnlockDone : true;
-            const meetsQuality = company.quality >= def.qualityRequired;
-            const canEnable = isUnlocked && meetsQuality;
-            const isOn = productEnabled[i] && canEnable;
+    <div className="space-y-3">
+      <section>
+        <h3 className="mb-2 text-base font-black text-slate-800">📦 우리 물건</h3>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-2">
+          {productDefs.map((p, i) => {
+            const pUnlocked = p.isRndUnlock ? rndUnlockDone : true;
+            const pCan = pUnlocked && company.quality >= p.qualityRequired;
+            const pOn = productEnabled[i] && pCan;
             return (
               <button
-                key={def.id}
-                onClick={() => setActiveProduct(i)}
-                className={`flex shrink-0 flex-col items-center gap-0.5 rounded-xl px-3 py-2 text-center transition-all ${
-                  activeProduct === i
-                    ? "bg-brand-600 text-white shadow"
-                    : isOn
-                      ? "bg-brand-50 text-brand-700 ring-1 ring-brand-200"
-                      : canEnable
-                        ? "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                        : "bg-slate-50 text-slate-400 opacity-50"
+                key={p.id}
+                type="button"
+                aria-pressed={active === i}
+                onClick={() => setActive(i)}
+                className={`flex items-center gap-2 rounded-xl px-2.5 py-2 text-left ring-2 transition ${
+                  active === i ? "bg-brand-50 ring-brand-500" : pCan ? "bg-white ring-slate-200" : "bg-slate-50 ring-slate-100 opacity-60"
                 }`}
               >
-                <span className="text-lg leading-none">{def.emoji}</span>
-                <span className="text-[10px] font-semibold leading-tight">{def.name}</span>
-                {!canEnable && (
-                  <span className="text-[9px] leading-tight opacity-70">
-                    {!isUnlocked ? "🔒" : `품질${def.qualityRequired}`}
+                <span className="text-2xl" aria-hidden>{pCan ? p.emoji : "🔒"}</span>
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-black text-slate-800">{p.name}</span>
+                  <span className={`block text-xs font-bold ${pOn ? "text-emerald-600" : "text-slate-400"}`}>
+                    {!pCan ? (!pUnlocked ? "연구로 열기" : `품질 ${p.qualityRequired} 필요`) : pOn ? "● 파는 중" : "○ 쉬는 중"}
                   </span>
-                )}
-                {isOn && activeProduct !== i && (
-                  <span className="h-1 w-1 rounded-full bg-brand-500" />
-                )}
-                {isRndProduct && isUnlocked && (
-                  <span className="rounded bg-purple-100 px-1 text-[8px] font-bold text-purple-600">R&D</span>
-                )}
+                </span>
               </button>
             );
           })}
         </div>
+      </section>
 
-        {/* Active product detail */}
-        {activeDef && (() => {
-          const isRndProduct = activeDef.isRndUnlock;
-          const isUnlocked = isRndProduct ? rndUnlockDone : true;
-          const meetsQuality = company.quality >= activeDef.qualityRequired;
-          const canEnable = isUnlocked && meetsQuality;
-          const isOn = productEnabled[activeIdx] && canEnable;
-          const defaultPrice = Math.round(activeTierRef);
-          const priceSignal = activePrice > activeTierRef * 1.3
-            ? "high"
-            : activePrice > activeMaxPrice
-              ? "cap"
-              : activePrice < activeTierRef * 0.6
-                ? "low"
-                : "ok";
-
-          return (
-            <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
-              {/* Header */}
-              <div className="mb-2 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-2xl">{activeDef.emoji}</span>
-                  <div>
-                    <div className="font-bold text-slate-800">{activeDef.name}</div>
-                    <div className="text-xs text-slate-500">
-                      수요 비중 {Math.round(activeDef.demandShare * 100)}% · 기준가 {formatMoney(activeTierRef)}
-                    </div>
-                  </div>
-                </div>
-                {/* Toggle */}
-                <button
-                  aria-label={`${activeDef.name} 판매 ${isOn ? "중지" : "시작"}`}
-                  disabled={!canEnable}
-                  onClick={() => toggleProduct(activeIdx)}
-                  className={`relative h-6 w-11 shrink-0 rounded-full transition-colors focus:outline-none ${
-                    isOn ? "bg-brand-500" : "bg-slate-300"
-                  } disabled:opacity-40 disabled:cursor-not-allowed`}
-                >
-                  <span className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${isOn ? "translate-x-5" : "translate-x-0"}`} />
-                </button>
-              </div>
-
-              {!canEnable ? (
-                <div className="rounded-lg bg-amber-50 p-2 text-xs text-amber-700">
-                  {!isUnlocked
-                    ? "🔒 R&D 품질 75점 달성 시 해제됩니다"
-                    : `품질 ${activeDef.qualityRequired}점 필요 (현재 ${Math.round(company.quality)}점)`}
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {/* Price input with cap indicator */}
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-slate-500 shrink-0 w-10">판매가</span>
-                    <input
-                      aria-label={`${activeDef.name} 판매 가격`}
-                      type="number"
-                      value={activePrice}
-                      min={1}
-                      max={activeMaxPrice}
-                      step={Math.max(1, Math.round(defaultPrice * 0.05))}
-                      disabled={!isOn}
-                      onChange={(e) => {
-                        const v = Math.max(1, Math.min(activeMaxPrice, Number(e.target.value)));
-                        setProductPrice(activeIdx, v);
-                      }}
-                      className="flex-1 rounded border border-slate-300 px-2 py-1 text-right text-sm font-bold text-slate-800 outline-none focus:border-brand-500 disabled:opacity-50 bg-white"
-                    />
-                    <span className="text-xs text-slate-400 shrink-0">원</span>
-                    <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold ${
-                      priceSignal === "cap"  ? "bg-red-100 text-red-700" :
-                      priceSignal === "high" ? "bg-orange-100 text-orange-600" :
-                      priceSignal === "low"  ? "bg-blue-100 text-blue-600" :
-                                               "bg-green-100 text-green-700"
-                    }`}>
-                      {priceSignal === "cap"  ? "🔒 한도" :
-                       priceSignal === "high" ? "↑ 고가" :
-                       priceSignal === "low"  ? "↓ 저가" : "✓ 적정"}
-                    </span>
-                  </div>
-                  {/* Max price bar */}
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-slate-400 w-10">한도</span>
-                    <div className="relative flex-1 h-2 rounded-full bg-slate-200 overflow-hidden">
-                      <div
-                        className="absolute inset-y-0 left-0 rounded-full bg-brand-400 transition-all"
-                        style={{ width: `${Math.min(100, (activePrice / activeMaxPrice) * 100)}%` }}
-                      />
-                    </div>
-                    <span className="text-xs text-slate-500 shrink-0">{formatMoney(activeMaxPrice)}</span>
-                  </div>
-                  <div className="text-[10px] text-slate-400">
-                    최대 가격 = 기준가 × (1 + 품질/100). 지금 품질 {Math.round(company.quality)} → 최대 {formatMoney(activeMaxPrice)}
-                  </div>
-
-                  {/* Inventory */}
-                  <div className="mt-2 flex items-center justify-between rounded-lg bg-white px-3 py-1.5">
-                    <span className="text-xs text-slate-500">현재 재고</span>
-                    <span className={`text-sm font-bold ${activeInventory > 200 ? "text-amber-600" : "text-slate-800"}`}>
-                      {formatNum(activeInventory)}개
-                      {activeInventory > 200 && <span className="ml-1 text-xs text-amber-500">⚠ 과잉</span>}
-                    </span>
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })()}
-      </div>
-
-      {/* ── 경영 결정 ──────────────────────────────────────────────────── */}
-      <div hidden={task === "finance"} className="card p-5">
-        <h3 className="mb-4 flex items-center gap-2 text-base font-bold text-slate-800">
-          {BUILDING_IMG.office && <img src={BUILDING_IMG.office} alt="" className="h-7 w-7 object-contain" />}
-          경영 결정
-        </h3>
-
-        {(!task || task === "production") && <Slider
-          icon={MGMT_ICONS.production}
-          label="생산 목표 (수량)"
-          value={d.productionTarget}
-          min={0}
-          max={facCap}
-          step={10}
-          format={(v) => `${formatNum(v)}개`}
-          onChange={(v) => setDecisions({ productionTarget: Math.min(v, facCap) })}
-          hint={facCap > 0 ? `현재 생산 한도 ${formatNum(facCap)}개${d.productionTarget > facCap ? " · 목표가 한도보다 높아도 한도까지만 생산해요" : " (공장 건설로 늘리기)"}` : undefined}
-        />}
-        {task === "sales" && <Slider label="다음 턴 마케팅 예산" value={d.marketingBudget} min={0} max={200000} step={5000} format={formatMoney} onChange={(v) => setDecisions({ marketingBudget: v })} />}
-        {task === "research" && researchUnlocked && <Slider label="다음 턴 연구 예산" value={d.rndBudget} min={0} max={200000} step={5000} format={formatMoney} onChange={(v) => setDecisions({ rndBudget: v })} />}
-
-        {/* Management action buttons */}
-        <details open={!!task && task !== "production"} className="group mt-4 rounded-xl border border-slate-200 bg-white p-3">
-          <summary className="cursor-pointer list-none text-sm font-bold text-slate-700">
-            {task === "production" ? "생산 수치 자세히 보기" : "경영 활동 선택"}
-            <span className="float-right text-slate-400 transition group-open:rotate-180">⌄</span>
-          </summary>
-          <div className="mt-4 space-y-4">
-          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">마케팅·연구·직원·안전</div>
-          {ACTION_SECTIONS.filter((section) => (researchUnlocked || section.key !== "rnd") && (!task || (task === "sales" ? section.key === "marketing" : task === "research" ? section.key === "rnd" : task === "staff" ? ["welfare", "safety", "extra"].includes(section.key) : false))).map((section) => (
-            <div key={section.key}>
-              <div className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-slate-600">
-                {section.icon && <img src={section.icon} alt="" className="h-4 w-4 object-contain" />}
-                {section.label}
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                {section.actions.map((action) => {
-                  const canAfford = company.cash >= action.cost;
-                  return (
-                    <button
-                      key={action.id}
-                      disabled={!canAfford}
-                      onClick={() => once(() => companyAction(action.id))}
-                      className={`rounded-lg border px-2 py-1.5 text-left text-xs transition-colors ${
-                        canAfford
-                          ? "border-brand-200 bg-brand-50 text-brand-700 hover:bg-brand-100 active:bg-brand-200"
-                          : "cursor-not-allowed border-slate-200 bg-slate-50 text-slate-400"
-                      }`}
-                    >
-                      <div className="font-semibold leading-tight">{action.label}</div>
-                      <div className={`mt-0.5 text-xs ${canAfford ? "text-brand-500" : "text-slate-400"}`}>
-                        즉시 실행 · {formatMoney(action.cost)}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
+      <section className="rounded-2xl border-2 border-brand-200 bg-brand-50/40 p-3">
+        <div className="flex items-center gap-2">
+          <span className="text-3xl" aria-hidden>{def.emoji}</span>
+          <div className="min-w-0 flex-1">
+            <div className="text-lg font-black text-slate-900">{def.name}</div>
+            <div className="text-sm text-slate-500">창고에 {formatNum(productInventory[active] ?? 0)}개</div>
           </div>
-
-          <div className="mt-4 grid grid-cols-2 gap-3 rounded-xl bg-slate-50 p-3 text-sm">
-            <Info label="공장 생산 한도" value={`${formatNum(facCap)}개`} />
-            <Info label="예상 총 수요" value={`${formatNum(demand)}개`} hint={demand < d.productionTarget ? "수요<생산: 재고 위험" : "수요 충분"} />
-            <Info label="총 재고" value={`${formatNum(company.inventory)}개`} />
-            <Info label="지난 턴(분기) 이익" value={formatMoney(company.lastProfit)} tone={company.lastProfit >= 0 ? "good" : "bad"} />
-          </div>
-        </details>
-      </div>
-
-      {/* Company stats */}
-      <details className="card group p-5">
-        <summary className="flex cursor-pointer list-none items-center gap-2 text-base font-bold text-slate-800">
-          {BUILDING_IMG.rnd && <img src={BUILDING_IMG.rnd} alt="" className="h-7 w-7 object-contain" />}
-          회사 상태 자세히 보기
-          <span className="ml-auto text-slate-400 transition group-open:rotate-180">⌄</span>
-        </summary>
-        <div className="mt-4">
-          <StatBar label={<Term term="품질">품질 / 기술</Term>} value={company.quality} color="#6366f1" />
-          <StatBar label={<Term term="평판" />} value={company.reputation} color="#0ea5e9" />
-          <StatBar label={<Term term="사기">직원 사기</Term>} value={company.morale} color="#16a34a" />
-          <StatBar label={<Term term="안전" />} value={company.safety} color="#f59e0b" hint={company.safety < 40 ? "낮음! 사고 위험" : undefined} />
+          <button
+            type="button"
+            disabled={!canEnable}
+            onClick={() => toggleProduct(active)}
+            className={isOn ? "btn-bull !px-3 text-sm" : "btn-ghost !px-3 text-sm"}
+          >
+            {isOn ? "✅ 파는 중" : "▶️ 팔기 시작"}
+          </button>
         </div>
-      </details>
 
-      {/* Finance */}
-      {game.config.showAdvancedMetrics && advancedInfoUnlocked && (!task || task === "finance") && (
-        <details open={task === "finance"} className="card group p-5">
-          <summary className="flex cursor-pointer list-none items-center gap-2 text-base font-bold text-slate-800">
-            {BUILDING_IMG.office && <img src={BUILDING_IMG.office} alt="" className="h-7 w-7 object-contain" />}
-            우리 회사 돈 살펴보기(재무)
-            <span className="ml-auto text-slate-400 transition group-open:rotate-180">⌄</span>
-          </summary>
-          <div className="mt-4 space-y-4">
-          <p className="rounded-xl bg-blue-50 px-3 py-2 text-sm leading-relaxed text-blue-800">
-            <Term term="재무">재무</Term>는 회사에 들어온 돈, 쓴 돈, 남은 돈과 빚을 함께 살펴보는 일이에요.
+        {!canEnable ? (
+          <p className="mt-2 rounded-xl bg-amber-50 p-3 text-base text-amber-800">
+            {!unlocked
+              ? "🔒 연구로 품질 75점을 넘기면 만들 수 있어요."
+              : `🔒 품질 ${def.qualityRequired}점이 필요해요 (지금 ${Math.round(company.quality)}점). 연구로 품질을 올려 봐요!`}
           </p>
-          <div className="grid grid-cols-3 gap-2 text-center text-xs">
-            <div className="rounded-xl bg-slate-50 p-2">
-              <div className="text-slate-500"><Term term="매출">들어온 돈(매출)</Term></div>
-              <div className="mt-1 font-bold text-slate-800">{formatMoney(company.lastRevenue)}</div>
+        ) : (
+          <>
+            <div className="mt-3 flex items-center justify-between gap-2">
+              <span className="text-base font-black text-slate-700">한 개 가격</span>
+              <span className={`rounded-full px-2.5 py-1 text-sm font-black ${priceTag.cls}`}>{priceTag.text}</span>
             </div>
-            <div className="rounded-xl bg-slate-50 p-2">
-              <div className="text-slate-500"><Term term="비용">쓴 돈(비용)</Term></div>
-              <div className="mt-1 font-bold text-slate-800">{formatMoney(lastCost)}</div>
-            </div>
-            <div className="rounded-xl bg-slate-50 p-2">
-              <div className="text-slate-500"><Term term="이익">남은 돈(이익)</Term></div>
-              <div className={`mt-1 font-bold ${company.lastProfit >= 0 ? "text-bull" : "text-bear"}`}>{formatMoney(company.lastProfit)}</div>
-            </div>
-          </div>
-          <div className="mb-1 flex justify-between text-sm">
-            <span className="text-slate-500"><Term term="부채">빌린 돈(부채)</Term></span>
-            <span className="font-bold text-slate-800">{formatMoney(company.debt)}</span>
-          </div>
-          <div className="mb-3 flex justify-between text-xs">
-            <span className="text-slate-400"><Term term="이자">이번 턴(분기)에 내는 이자</Term> (연 {game.macro.interestRate.toFixed(2)}%)</span>
-            <span className="font-semibold text-bear">≈ {formatMoney(currentInterest)}/턴(분기)</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <input
-              type="number"
-              aria-label="빌리거나 갚을 금액"
-              value={loanAmt}
-              step={50000}
-              onChange={(e) => setLoanAmt(Math.max(0, Number(e.target.value)))}
-              className="w-32 rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-800"
+            <Stepper
+              value={price}
+              unit="원"
+              steps={[step]}
+              onChange={(v) => setProductPrice(active, Math.max(1, Math.min(maxPrice, Math.round(v))))}
+              min={1}
+              max={maxPrice}
+              label={`${def.name} 가격`}
+              disabled={!isOn}
             />
-            <button className="btn-ghost" disabled={!Number.isFinite(loanAmt) || loanAmt <= 0} onClick={() => once(() => loan(loanAmt, "borrow"))}>
-              돈 빌리기(대출)
-            </button>
-            <button className="btn-ghost" disabled={!Number.isFinite(loanAmt) || loanAmt <= 0 || loanAmt > company.cash || loanAmt > company.debt} onClick={() => once(() => loan(loanAmt, "repay"))}>
-              갚기(상환)
-            </button>
-          </div>
-          {loanAmt > 0 && (
-            <div className="mt-2 text-xs text-slate-500">
-              {formatMoney(loanAmt)}을 빌리면 턴(분기) 이자가 약 <b className="text-bear">{formatMoney(loanInterest)}</b>씩
-              늘어요. 빌린 원금도 나중에 갚아야 해요.
-            </div>
-          )}
-          </div>
-        </details>
-      )}
+            <p className="mt-1 text-sm text-slate-600">
+              ⭐ 품질이 오르면 더 비싸게 팔 수 있어요. 지금은 <b>{formatMoney(maxPrice)}원</b>까지!
+            </p>
+            {isOn && <PriceLab game={game} company={company} productIndex={active} />}
+          </>
+        )}
+      </section>
     </div>
   );
 }
 
-function Slider({
-  icon,
-  label,
+/** 💰 돈 관리: income, costs, and borrowing with preset amounts. */
+function FinanceControls({ game, company }: { game: GameState; company: Company }) {
+  const loan = useGameStore((s) => s.loan);
+  const lock = useRef(0);
+  const once = (action: () => void) => {
+    if (Date.now() < lock.current) return;
+    lock.current = Date.now() + 500;
+    action();
+  };
+  // Per-turn interest ≈ debt × (annual rate / 4). (engine: company.ts)
+  const quarterlyRate = game.macro.interestRate / 100 / 4 * roleBonuses(company).financeCostMult;
+  const interest = (amount: number) => Math.round(amount * quarterlyRate);
+  const lastCost = Math.max(0, company.lastRevenue - company.lastProfit);
+
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-3 gap-2 text-center">
+        <StatTile emoji="💰" label={<Term term="매출">들어온 돈</Term>} value={won(company.lastRevenue)} />
+        <StatTile emoji="🧾" label={<Term term="비용">쓴 돈</Term>} value={won(lastCost)} />
+        <StatTile
+          emoji={company.lastProfit >= 0 ? "🪙" : "📉"}
+          label={<Term term="이익">남은 돈</Term>}
+          value={`${company.lastProfit >= 0 ? "+" : "−"}${won(Math.abs(company.lastProfit))}`}
+          tone={company.lastProfit >= 0 ? "good" : "bad"}
+        />
+      </div>
+
+      <section className="rounded-2xl border-2 border-slate-200 bg-white p-3">
+        <div className="flex items-baseline justify-between">
+          <span className="text-base font-black text-slate-800">💳 <Term term="부채">빌린 돈(빚)</Term></span>
+          <span className="text-lg font-black text-slate-900">{won(company.debt)}</span>
+        </div>
+        <p className="mt-1 text-sm text-slate-600">
+          매 턴 <Term term="이자">이자</Term> 약 <b className="text-bear">{won(interest(company.debt))}</b>을 내요 (은행 <Term term="금리">금리</Term> 1년에 {game.macro.interestRate.toFixed(1)}%).
+        </p>
+
+        <h4 className="mt-3 text-sm font-black text-slate-700">돈 빌리기</h4>
+        <div className="mt-1 grid grid-cols-3 gap-2">
+          {[100_000, 300_000, 500_000].map((amount) => (
+            <button key={amount} type="button" className="btn-ghost flex-col !px-1 text-sm" onClick={() => once(() => loan(amount, "borrow"))}>
+              <span className="font-black">+{won(amount)}</span>
+              <span className="text-xs text-slate-500">이자 +{won(interest(amount))}/턴</span>
+            </button>
+          ))}
+        </div>
+
+        <h4 className="mt-3 text-sm font-black text-slate-700">빚 갚기</h4>
+        <div className="mt-1 grid grid-cols-3 gap-2">
+          {[100_000, 300_000].map((amount) => (
+            <button
+              key={amount}
+              type="button"
+              className="btn-ghost !px-1 text-sm"
+              disabled={company.debt <= 0 || company.cash < Math.min(amount, company.debt)}
+              onClick={() => once(() => loan(Math.min(amount, company.debt), "repay"))}
+            >
+              −{won(amount)}
+            </button>
+          ))}
+          <button
+            type="button"
+            className="btn-bull !px-1 text-sm"
+            disabled={company.debt <= 0 || company.cash <= 0}
+            onClick={() => once(() => loan(Math.min(company.debt, company.cash), "repay"))}
+          >
+            모두 갚기
+          </button>
+        </div>
+        <p className="mt-2 rounded-xl bg-blue-50 p-2.5 text-sm text-blue-900">
+          💡 빌린 돈은 언젠가 꼭 갚아야 하고, 갚을 때까지 매 턴 이자를 내요.
+        </p>
+      </section>
+    </div>
+  );
+}
+
+function BudgetPicker({ title, hint, value, onChange }: { title: string; hint: string; value: number; onChange: (v: number) => void }) {
+  const known = BUDGET_STEPS.some((s) => s.value === value);
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-3">
+      <h3 className="text-base font-black text-slate-800">{title}</h3>
+      <div className="mt-2 grid grid-cols-4 gap-1.5" role="group" aria-label={title}>
+        {BUDGET_STEPS.map((step) => (
+          <button
+            key={step.value}
+            type="button"
+            aria-pressed={value === step.value}
+            onClick={() => onChange(step.value)}
+            className={`flex flex-col items-center rounded-xl px-1 py-1.5 text-sm font-black ring-2 transition ${
+              value === step.value ? "bg-brand-600 text-white ring-brand-600" : "bg-slate-50 text-slate-700 ring-slate-200"
+            }`}
+          >
+            {step.label}
+            <span className={`text-xs font-bold ${value === step.value ? "text-white/80" : "text-slate-500"}`}>{step.value ? formatMoney(step.value) : "0원"}</span>
+          </button>
+        ))}
+      </div>
+      {!known && <p className="mt-1 text-xs text-slate-500">지금: {won(value)}</p>}
+      <p className="mt-1.5 text-sm text-slate-600">{hint}</p>
+    </section>
+  );
+}
+
+/** Big − / + buttons around a number. No keyboard needed on a tablet. */
+function Stepper({
   value,
+  unit,
+  steps,
+  onChange,
   min,
   max,
-  step,
-  format,
-  onChange,
-  hint,
+  label,
+  disabled = false,
 }: {
-  icon?: string;
-  label: React.ReactNode;
   value: number;
+  unit: string;
+  steps: number[];
+  onChange: (v: number) => void;
   min: number;
   max: number;
-  step: number;
-  format: (v: number) => string;
-  onChange: (v: number) => void;
-  hint?: string;
+  label: string;
+  disabled?: boolean;
 }) {
-  const sliderMax = Math.max(max, value);
+  const down = [...steps];
+  const up = [...steps].reverse();
   return (
-    <div className="mb-4">
-      <div className="mb-1 flex items-center justify-between gap-2 text-sm">
-        <span className="flex items-center gap-1.5 font-semibold text-slate-600">
-          {icon && <img src={icon} alt="" className="h-5 w-5 object-contain" />}
-          {label}
-        </span>
-        <div className="flex items-center gap-1">
-          <input
-            type="number"
-            aria-label={typeof label === "string" ? label : "경영 수량"}
-            value={Math.round(value)}
-            min={min}
-            max={max}
-            step={step}
-            onChange={(e) => onChange(Math.max(min, Math.min(max, Number(e.target.value))))}
-            className="w-24 rounded-lg border border-slate-300 px-2 py-1 text-right font-bold text-brand-700 outline-none focus:border-brand-500"
-          />
-          <span className="text-xs text-slate-400">{format(value)}</span>
-        </div>
-      </div>
-      <input
-        type="range"
-        aria-label={typeof label === "string" ? `${label} 슬라이더` : "경영 수량 슬라이더"}
-        min={min}
-        max={sliderMax}
-        step={step}
-        value={Math.min(value, sliderMax)}
-        onChange={(e) => onChange(Math.min(Number(e.target.value), max))}
-        className="w-full accent-brand-600"
-      />
-      {hint && <div className="mt-0.5 text-xs text-slate-400">{hint}</div>}
+    <div className="mt-2 flex items-center gap-1.5" role="group" aria-label={label}>
+      {down.map((step) => (
+        <button
+          key={`down-${step}`}
+          type="button"
+          disabled={disabled || value <= min}
+          onClick={() => onChange(Math.max(min, value - step))}
+          className="btn-ghost !min-h-12 shrink-0 !px-2.5 text-base font-black"
+          aria-label={`${label} ${step} 줄이기`}
+        >
+          −{steps.length > 1 ? step : ""}
+        </button>
+      ))}
+      <output className="min-w-0 flex-1 rounded-xl bg-white py-2 text-center text-2xl font-black text-slate-900 ring-1 ring-slate-200" aria-live="polite">
+        {formatNum(value)}<span className="ml-0.5 text-base">{unit}</span>
+      </output>
+      {up.map((step) => (
+        <button
+          key={`up-${step}`}
+          type="button"
+          disabled={disabled || value >= max}
+          onClick={() => onChange(Math.min(max, value + step))}
+          className="btn-ghost !min-h-12 shrink-0 !px-2.5 text-base font-black"
+          aria-label={`${label} ${step} 늘리기`}
+        >
+          +{steps.length > 1 ? step : ""}
+        </button>
+      ))}
     </div>
   );
 }
 
-function Info({ label, value, hint, tone }: { label: string; value: string; hint?: string; tone?: "good" | "bad" }) {
+function StatTile({ emoji, label, value, tone }: { emoji: string; label: React.ReactNode; value: string; tone?: "good" | "bad" }) {
+  return (
+    <div className="rounded-xl bg-slate-50 px-1.5 py-2 ring-1 ring-slate-200">
+      <div className="text-xl" aria-hidden>{emoji}</div>
+      <div className="text-xs font-bold leading-tight text-slate-500">{label}</div>
+      <div className={`mt-0.5 text-sm font-black ${tone === "good" ? "text-bull" : tone === "bad" ? "text-bear" : "text-slate-900"}`}>{value}</div>
+    </div>
+  );
+}
+
+function ScoreBar({ emoji, label, value, color, hint }: { emoji: string; label: React.ReactNode; value: number; color: string; hint?: string }) {
   return (
     <div>
-      <div className="text-xs text-slate-500">{label}</div>
-      <div className={`font-bold ${tone === "good" ? "text-bull" : tone === "bad" ? "text-bear" : "text-slate-800"}`}>
-        {value}
-      </div>
-      {hint && <div className="text-xs text-amber-600">{hint}</div>}
-    </div>
-  );
-}
-
-function StatBar({ label, value, color, hint }: { label: React.ReactNode; value: number; color: string; hint?: string }) {
-  return (
-    <div className="mb-3">
-      <div className="mb-1 flex justify-between text-xs">
-        <span className="text-slate-500">{label}</span>
-        <span className="font-semibold text-slate-700">{Math.round(value)}</span>
+      <div className="mb-1 flex items-center justify-between text-sm">
+        <span className="font-bold text-slate-700">{emoji} {label}</span>
+        <span className="font-black text-slate-900">{Math.round(value)}점</span>
       </div>
       <Bar value={value} color={color} />
-      {hint && <div className="mt-0.5 text-xs text-amber-600">{hint}</div>}
+      {hint && <div className="mt-0.5 text-sm font-bold text-amber-700">{hint}</div>}
     </div>
   );
 }

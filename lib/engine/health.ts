@@ -84,8 +84,8 @@ export function getTurnTenRecoveryPlan(state: GameState): RecoveryPlan | null {
   if (company.lastProfit < 0) {
     steps.push({
       emoji: "🏷️",
-      title: "가격과 원가 비교하기",
-      detail: `물건 1개의 기본 원가는 약 ${unitCost.toLocaleString()}원이에요. 판매 가격이 원가보다 충분히 높은지 확인하세요.`,
+      title: "파는 값과 만드는 값 비교하기",
+      detail: `물건 1개를 만드는 데 약 ${unitCost.toLocaleString()}원(원가)이 들어요. 파는 값이 이보다 충분히 비싼지 확인해요.`,
     });
   }
   if (health.lowCash) {
@@ -108,13 +108,13 @@ export function getTurnTenRecoveryPlan(state: GameState): RecoveryPlan | null {
     steps.push({
       emoji: "🎯",
       title: "한 번에 하나씩 바꾸기",
-      detail: "가격이나 생산량 중 하나만 바꾸고 다음 턴(분기) 결과를 비교하면 원인을 쉽게 찾을 수 있어요.",
+      detail: "가격이나 생산량 중 하나만 바꾸고 다음 턴 결과를 비교하면 원인을 쉽게 찾을 수 있어요.",
     });
   }
 
   return {
     level: health.level === "insolvent" ? "danger" : health.level,
-    title: "10턴(분기) 경영 구조대",
+    title: "10턴 경영 구조대",
     summary: health.level === "danger"
       ? "회사가 위험 신호를 보내고 있어요. 아래 순서대로 고치지 않으면 경영에 실패할 수 있어요."
       : "조금 불안한 신호가 보여요. 지금 바로 손보면 충분히 회복할 수 있어요.",

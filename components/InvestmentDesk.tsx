@@ -1,12 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { useGameStore } from "@/store/gameStore";
-import { avgCost, getFeatureUnlockTurn, isFeatureUnlocked, portfolioValue, stockMetrics, STOCK_KIND_LABELS } from "@/lib/engine";
+import { avgCost, isFeatureUnlocked, portfolioValue } from "@/lib/engine";
 import type { AssetClass, Company, GameState, StockKind } from "@/lib/engine";
 import { getIndustry } from "@/lib/data/industries";
 import { formatMoney, formatNum, changePct } from "@/lib/format";
-import { Sparkline } from "./Sparkline";
 import { KidPriceChart, MarketOverview, MiniTrend, PortfolioBasket, trendOf } from "./StockCharts";
 import { ASSET_ICONS } from "@/lib/assetMap";
 import { PRESET_MAP } from "@/lib/data/companyPresets";
@@ -20,8 +20,6 @@ type Selection =
   | { kind: "asset"; id: AssetClass }
   | null;
 
-type SortKey = "cap" | "price" | "change" | "per" | "pbr" | "roe" | "name";
-
 interface Listing {
   id: string;
   name: string;
@@ -33,9 +31,6 @@ interface Listing {
   prevPrice: number;
   change: number;
   cap: number;
-  per: number | null;
-  pbr: number | null;
-  roe: number | null;
   history: number[];
 }
 
@@ -49,16 +44,10 @@ export function InvestmentDesk() {
   const [tab, setTab] = useState<"stocks" | "assets">("stocks");
   const [sel, setSel] = useState<Selection>(null);
   const [qty, setQty] = useState(10);
-  const [query, setQuery] = useState("");
-  const [scope, setScope] = useState<"all" | "held" | "rivals">("all");
-  const [sortBy, setSortBy] = useState<SortKey>("cap");
-  const [sortAsc, setSortAsc] = useState(false);
-  const [view, setView] = useState<"simple" | "expert">("simple");
 
   if (!storeGame) return null;
   const game = storeGame;
   const company = game.companies.find((c) => c.id === game.playerCompanyId)!;
-  const advancedInfoUnlocked = isFeatureUnlocked(game, "visitsPartnershipsAdvanced");
   const newsUnlocked = isFeatureUnlocked(game, "talentNewsRanking");
 
   const companyById = new Map(game.companies.map((c) => [c.id, c]));
@@ -69,7 +58,6 @@ export function InvestmentDesk() {
     .map((s) => {
       const c = companyById.get(s.companyId);
       const cap = s.price * s.sharesOutstanding;
-      const m = stockMetrics(s, c);
       const prev = s.history[s.history.length - 2] ?? s.price;
       return {
         id: s.companyId,
@@ -82,95 +70,53 @@ export function InvestmentDesk() {
         prevPrice: prev,
         change: changePct(s.price, prev),
         cap,
-        per: m.per,
-        pbr: m.pbr,
-        roe: m.roe,
         history: s.history,
       };
     });
-
-  const q = query.trim().toLowerCase();
-  const listings = allListings
-    .filter((l) => {
-      if (scope === "rivals" && l.external) return false;
-      if (scope === "held" && (company.portfolio.stocks[l.id] ?? 0) <= 0) return false;
-      if (q && !l.name.toLowerCase().includes(q) && !getIndustry(l.industryId).name.toLowerCase().includes(q))
-        return false;
-      return true;
-    })
-    .sort((a, b) => {
-      let diff = 0;
-      switch (sortBy) {
-        case "price": diff = b.price - a.price; break;
-        case "change": diff = b.change - a.change; break;
-        case "name": diff = a.name.localeCompare(b.name, "ko"); break;
-        case "per": diff = (a.per ?? Infinity) - (b.per ?? Infinity); break;
-        case "pbr": diff = (a.pbr ?? Infinity) - (b.pbr ?? Infinity); break;
-        case "roe": diff = (b.roe ?? -Infinity) - (a.roe ?? -Infinity); break;
-        default: diff = b.cap - a.cap;
-      }
-      return sortAsc ? -diff : diff;
-    });
-
-  function toggleSort(k: SortKey) {
-    if (sortBy === k) setSortAsc(!sortAsc);
-    else { setSortBy(k); setSortAsc(false); }
-  }
-
-  // Top 14 by cap for ticker
-  const tickerItems = [...allListings].sort((a, b) => b.cap - a.cap).slice(0, 14);
 
   return (
     <div
       className="overflow-hidden rounded-2xl text-white shadow-2xl"
       style={{ background: "#080e1a", border: "1px solid rgba(148,163,184,0.08)" }}
     >
-      {tab === "assets" && <div className="bg-blue-950 p-4 text-sm text-blue-100"><b>📘 {WORK_LESSONS.fx.term}</b><p>{WORK_LESSONS.fx.text}</p><p className="mt-1 text-xs">{WORK_LESSONS.fx.impact}</p></div>}
-      {/* ── Status bar ── */}
-      <div
-        className="flex items-center justify-between px-4 py-2"
-        style={{ background: "#060b14", borderBottom: "1px solid rgba(148,163,184,0.06)" }}
-      >
-        <div className="flex items-center gap-2">
-          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
-          <span className="font-mono text-xs tracking-[0.2em] text-slate-500">DRAGON MOUNTAIN MARKET</span>
-        </div>
-        <div className="flex items-center gap-5 font-mono text-xs">
-          <span>
-            <span className="text-slate-600">현금 </span>
-            <span className="font-bold text-slate-200">{formatMoney(company.cash)}</span>
+      {/* ── Header: how much money is where ── */}
+      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3" style={{ background: "#060b14" }}>
+        <h2 className="text-lg font-black text-white">📈 남는 돈 불리기</h2>
+        <div className="flex gap-2 text-sm">
+          <span className="rounded-xl bg-white/5 px-3 py-1.5">
+            <span className="block text-xs text-slate-400">💰 쓸 수 있는 돈</span>
+            <b className="text-slate-100">{formatMoney(company.cash)}원</b>
           </span>
-          <span>
-            <span className="text-slate-600">투자자산 </span>
-            <span className={`font-bold ${pv > 0 ? "text-emerald-400" : "text-slate-500"}`}>
-              {formatMoney(pv)}
-            </span>
+          <span className="rounded-xl bg-white/5 px-3 py-1.5">
+            <span className="block text-xs text-slate-400">🧺 투자한 돈의 지금 값</span>
+            <b className={pv > 0 ? "text-emerald-400" : "text-slate-400"}>{formatMoney(pv)}원</b>
           </span>
         </div>
       </div>
 
-      {/* ── Live ticker ── */}
-      <TickerBar items={tickerItems} />
-
       {/* ── Tab bar ── */}
-      <div
-        className="flex gap-px px-3 pt-2"
-        style={{ background: "#0a1121", borderBottom: "1px solid rgba(148,163,184,0.06)" }}
-      >
+      <div className="grid grid-cols-2 gap-2 px-3 pb-3" style={{ background: "#060b14" }} role="tablist">
         {(["stocks", "assets"] as const).map((t) => (
           <button
             key={t}
+            role="tab"
+            aria-selected={tab === t}
             onClick={() => { setTab(t); setSel(null); }}
-            className={`rounded-t-lg px-4 py-2 text-xs font-bold transition-all ${
+            className={`min-h-12 rounded-xl px-4 text-base font-black transition-all ${
               tab === t
-                ? "bg-slate-800 text-white"
-                : "text-slate-600 hover:text-slate-400"
+                ? "bg-blue-600 text-white"
+                : "bg-white/5 text-slate-400 hover:text-slate-200"
             }`}
           >
-            {t === "stocks" ? "📈 주식 시장" : "💰 대체 자산"}
+            {t === "stocks" ? "📈 회사 주식" : "🏦 예금·금·달러"}
           </button>
         ))}
       </div>
+      {tab === "assets" && (
+        <div className="bg-blue-950 px-4 py-3 text-sm leading-relaxed text-blue-100">
+          <b>📘 {WORK_LESSONS.fx.term}</b> — {WORK_LESSONS.fx.text} {WORK_LESSONS.fx.impact}
+        </div>
+      )}
 
       {tab === "stocks" ? (
         <div>
@@ -195,191 +141,21 @@ export function InvestmentDesk() {
           />
           <MarketOverview game={game} listings={allListings} onPick={(id) => setSel({ kind: "stock", id })} />
 
-          <div className="flex items-center justify-between gap-3 border-b border-slate-800/60 bg-slate-950/40 px-3 py-3">
-            <div>
-              <div className="text-sm font-bold text-slate-200">주식 고르기</div>
-              <div className="text-xs text-slate-500">위험도를 먼저 보고 천천히 선택해 보세요.</div>
-            </div>
-            <div className="flex rounded-lg bg-slate-900 p-1 ring-1 ring-slate-800" role="group" aria-label="투자 화면 방식">
-              <button
-                type="button"
-                onClick={() => setView("simple")}
-                className={`rounded-md px-2.5 py-1.5 text-xs font-bold ${view === "simple" ? "bg-blue-600 text-white" : "text-slate-500"}`}
-              >
-                쉬운 보기
-              </button>
-              <button
-                type="button"
-                onClick={() => advancedInfoUnlocked && setView("expert")}
-                disabled={!advancedInfoUnlocked}
-                title={!advancedInfoUnlocked ? `${getFeatureUnlockTurn(game.gameLength, "visitsPartnershipsAdvanced")}턴(분기)에 열려요` : undefined}
-                className={`rounded-md px-2.5 py-1.5 text-xs font-bold ${view === "expert" ? "bg-blue-600 text-white" : advancedInfoUnlocked ? "text-slate-500" : "cursor-not-allowed text-slate-700"}`}
-              >
-                {advancedInfoUnlocked ? "전문가 보기" : "🔒 전문가 보기"}
-              </button>
-            </div>
+          <div className="border-b border-slate-800/60 bg-slate-950/40 px-4 py-3">
+            <div className="text-base font-black text-slate-100">어떤 회사 주식을 살까요?</div>
+            <div className="text-sm text-slate-400">카드를 누르면 값이 어떻게 변했는지 그래프로 보고 사고팔 수 있어요.</div>
           </div>
-
-          {view === "simple" ? (
-            <SimpleRiskCards
-              listings={allListings}
-              holdings={company.portfolio.stocks}
-              onPick={(id) => setSel({ kind: "stock", id })}
-            />
-          ) : (
-            <>
-
-          {/* ── Filter row ── */}
-          <div
-            className="flex items-center gap-2 px-3 py-2"
-            style={{ background: "#0a1121", borderBottom: "1px solid rgba(148,163,184,0.06)" }}
-          >
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="🔎 종목 · 업종 검색"
-              className="min-w-0 flex-1 rounded-md px-3 py-1.5 text-xs text-slate-200 placeholder-slate-700 outline-none focus:ring-1 focus:ring-blue-500"
-              style={{ background: "rgba(255,255,255,0.04)" }}
-            />
-            {(["all", "rivals", "held"] as const).map((s) => (
-              <button
-                key={s}
-                onClick={() => setScope(s)}
-                className={`shrink-0 rounded px-2.5 py-1.5 text-xs font-semibold transition ${
-                  scope === s
-                    ? "bg-blue-600 text-white"
-                    : "text-slate-600 hover:text-slate-400"
-                }`}
-              >
-                {s === "all" ? "전체" : s === "rivals" ? "경쟁사" : "보유"}
-              </button>
-            ))}
-          </div>
-
-          {/* ── Stock table ── */}
-          <div className="max-h-[54vh] overflow-y-auto scroll-thin">
-            <table className="w-full text-xs">
-              <thead
-                className="sticky top-0 z-10"
-                style={{ background: "#0a1121" }}
-              >
-                <tr style={{ borderBottom: "1px solid rgba(148,163,184,0.07)" }}>
-                  <th className="py-2 pl-4 text-left font-medium text-slate-600">종목</th>
-                  <SortTh label="현재가" k="price" sort={sortBy} asc={sortAsc} onSort={toggleSort} />
-                  <SortTh label="등락률" k="change" sort={sortBy} asc={sortAsc} onSort={toggleSort} />
-                  <SortTh label="시가총액" k="cap" sort={sortBy} asc={sortAsc} onSort={toggleSort} />
-                  <SortTh label="PER" k="per" sort={sortBy} asc={sortAsc} onSort={toggleSort} />
-                  <SortTh label="PBR" k="pbr" sort={sortBy} asc={sortAsc} onSort={toggleSort} />
-                  <SortTh label="ROE" k="roe" sort={sortBy} asc={sortAsc} onSort={toggleSort} />
-                  <th className="py-2 pr-4 text-right font-medium text-slate-600">차트</th>
-                </tr>
-              </thead>
-              <tbody>
-                {listings.length === 0 && (
-                  <tr>
-                    <td colSpan={8} className="py-12 text-center text-slate-700">
-                      종목이 없습니다
-                    </td>
-                  </tr>
-                )}
-                {listings.map((l, idx) => {
-                  const stock = game.stocks[l.id];
-                  const held = company.portfolio.stocks[l.id] ?? 0;
-                  const ind = getIndustry(l.industryId);
-                  const up = l.change >= 0;
-                  return (
-                    <tr
-                      key={l.id}
-                      onClick={() => setSel({ kind: "stock", id: l.id })}
-                      className="cursor-pointer transition-colors"
-                      style={{
-                        background: idx % 2 === 0 ? "transparent" : "rgba(255,255,255,0.012)",
-                        borderBottom: "1px solid rgba(148,163,184,0.04)",
-                      }}
-                      onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.04)")}
-                      onMouseLeave={(e) => (e.currentTarget.style.background = idx % 2 === 0 ? "transparent" : "rgba(255,255,255,0.012)")}
-                    >
-                      {/* 종목명 */}
-                      <td className="py-2.5 pl-4">
-                        <div className="flex items-center gap-2">
-                          <CompanyMark
-                            color={l.logoColor}
-                            mark={PRESET_MAP[l.id]?.mark ?? ind.emoji}
-                            name={l.name}
-                            size="sm"
-                          />
-                          <div className="min-w-0">
-                            <div className="truncate font-semibold text-slate-200">{l.name}</div>
-                            <div className="flex items-center gap-1 text-xs">
-                              {!l.external && (
-                                <span className="text-blue-500">경쟁</span>
-                              )}
-                              {l.kind && (
-                                <span
-                                  className={
-                                    l.kind === "growth"
-                                      ? "text-fuchsia-400"
-                                      : l.kind === "dividend"
-                                      ? "text-emerald-400"
-                                      : "text-slate-500"
-                                  }
-                                >
-                                  {STOCK_KIND_LABELS[l.kind]}
-                                </span>
-                              )}
-                              {held > 0 && (
-                                <span className="text-yellow-500">{formatNum(held)}주</span>
-                              )}
-                              {!held && l.external && (
-                                <span className="text-slate-700">{ind.name}</span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-                      {/* 현재가 */}
-                      <td className="py-2.5 pr-3 text-right font-mono font-semibold text-slate-100">
-                        {formatNum(Math.round(l.price))}
-                      </td>
-                      {/* 등락률 */}
-                      <td className={`py-2.5 pr-3 text-right font-mono font-bold ${up ? "text-emerald-400" : "text-red-400"}`}>
-                        {up ? "▲" : "▼"}&thinsp;{Math.abs(l.change).toFixed(2)}%
-                      </td>
-                      {/* 시가총액 */}
-                      <td className="py-2.5 pr-3 text-right font-mono text-slate-600">
-                        {formatMoney(l.cap)}
-                      </td>
-                      {/* PER */}
-                      <td className="py-2.5 pr-3 text-right font-mono text-slate-600">
-                        {l.per != null ? l.per.toFixed(1) : "—"}
-                      </td>
-                      {/* PBR */}
-                      <td className="py-2.5 pr-3 text-right font-mono text-slate-600">
-                        {l.pbr != null ? l.pbr.toFixed(2) : "—"}
-                      </td>
-                      {/* ROE */}
-                      <td className={`py-2.5 pr-3 text-right font-mono ${l.roe != null && l.roe >= 10 ? "text-emerald-400" : "text-slate-600"}`}>
-                        {l.roe != null ? l.roe.toFixed(1) + "%" : "—"}
-                      </td>
-                      {/* 차트 */}
-                      <td className="py-2.5 pr-4">
-                        <Sparkline data={stock?.history.slice(-20) ?? []} width={60} height={22} />
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-            </>
-          )}
+          <SimpleRiskCards
+            listings={allListings}
+            holdings={company.portfolio.stocks}
+            onPick={(id) => setSel({ kind: "stock", id })}
+          />
         </div>
       ) : (
         /* ── Asset list ── */
         <div className="divide-y divide-slate-800/40">
-          <div className="bg-blue-950/30 px-4 py-3 text-xs leading-relaxed text-blue-200">
-            🌍 경제 지표와 연결해 보세요: 금리는 예금·채권, 물가(인플레이션)는 금,
-            다른 나라 돈값(환율)은 달러 환율에 영향을 줄 수 있어요.
+          <div className="bg-blue-950/30 px-4 py-3 text-sm leading-relaxed text-blue-200">
+            🌍 이자(금리)가 오르면 예금·채권, 물건값(물가)이 오르면 금, 다른 나라 돈값(환율)이 오르면 달러가 좋아질 수 있어요.
           </div>
           {game.config.enabledAssets.map((id) => {
             const a = game.assets[id];
@@ -404,13 +180,13 @@ export function InvestmentDesk() {
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="font-semibold text-slate-200">{a.name}</div>
-                  <div className="text-xs text-slate-600">
-                    {held > 0 ? `보유 ${formatNum(held)}` : a.desc}
+                  <div className="text-sm text-slate-400">
+                    {held > 0 ? `${formatNum(held)}개 가지고 있어요` : a.desc}
                   </div>
                 </div>
                 <div className="w-24 shrink-0">
                   <MiniTrend history={a.history} />
-                  <div className="text-center text-[10px] text-slate-500">{trendOf(a.history).emoji} {trendOf(a.history).label}</div>
+                  <div className="text-center text-xs text-slate-400">{trendOf(a.history).emoji} {trendOf(a.history).label}</div>
                 </div>
                 <div className="w-28 shrink-0 text-right">
                   <div className="font-mono font-bold text-slate-100">{formatNum(Math.round(a.price))}</div>
@@ -432,7 +208,6 @@ export function InvestmentDesk() {
           sel={sel}
           qty={qty}
           setQty={setQty}
-          showMetrics={view === "expert" && advancedInfoUnlocked}
           showNews={newsUnlocked}
           onClose={() => setSel(null)}
           onTrade={(side) => {
@@ -461,12 +236,12 @@ function SimpleRiskCards({
   const cards = [...listings].sort((a, b) => b.cap - a.cap);
   return (
     <div className="p-3">
-      <div className="mb-3 grid grid-cols-3 gap-2 text-center text-[11px]">
-        <div className="rounded-lg bg-emerald-500/10 p-2 text-emerald-300">🛡️ 안정적<br /><span className="text-emerald-500/80">변화가 비교적 작아요</span></div>
-        <div className="rounded-lg bg-amber-500/10 p-2 text-amber-300">⚖️ 보통<br /><span className="text-amber-500/80">수익과 위험이 중간</span></div>
-        <div className="rounded-lg bg-rose-500/10 p-2 text-rose-300">🎢 도전적<br /><span className="text-rose-500/80">크게 오르내릴 수 있어요</span></div>
+      <div className="mb-3 grid grid-cols-3 gap-2 text-center text-sm">
+        <div className="rounded-lg bg-emerald-500/10 p-2 text-emerald-300">🛡️ 안정적<br /><span className="text-xs text-emerald-500/90">값이 조금씩 변해요</span></div>
+        <div className="rounded-lg bg-amber-500/10 p-2 text-amber-300">⚖️ 보통<br /><span className="text-xs text-amber-500/90">벌 수도 잃을 수도 중간</span></div>
+        <div className="rounded-lg bg-rose-500/10 p-2 text-rose-300">🎢 도전적<br /><span className="text-xs text-rose-500/90">크게 오르내려요</span></div>
       </div>
-      <div className="grid max-h-[54vh] gap-2 overflow-y-auto pr-1 scroll-thin sm:grid-cols-2">
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-2">
         {cards.map((listing) => {
           const held = holdings[listing.id] ?? 0;
           const risk = listing.kind === "dividend"
@@ -492,15 +267,15 @@ function SimpleRiskCards({
                 />
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm font-bold text-slate-100">{listing.name}</div>
-                  <div className="text-xs text-slate-600">{industry.name}{held > 0 ? ` · ${formatNum(held)}주 보유` : ""}</div>
+                  <div className="text-xs text-slate-400">{industry.name}{held > 0 ? ` · ${formatNum(held)}주 가지고 있어요` : ""}</div>
                 </div>
-                <span className={`rounded-full px-2 py-1 text-[10px] font-bold ring-1 ${risk.cls}`}>
+                <span className={`shrink-0 rounded-full px-2 py-1 text-xs font-bold ring-1 ${risk.cls}`}>
                   {risk.emoji} {risk.label}
                 </span>
               </div>
               <div className="mt-2">
                 <MiniTrend history={listing.history} />
-                <div className="mt-0.5 flex items-center justify-between text-[11px]">
+                <div className="mt-0.5 flex items-center justify-between text-xs">
                   <span className="text-slate-400">{trend.emoji} 최근 10턴 {trend.label}</span>
                   <span className={`font-bold ${trend.changePct >= 0 ? "text-emerald-400" : "text-red-400"}`}>
                     {trend.changePct >= 0 ? "+" : ""}{trend.changePct.toFixed(1)}%
@@ -509,48 +284,22 @@ function SimpleRiskCards({
               </div>
               <div className="mt-2 flex items-end justify-between">
                 <div>
-                  <div className="text-[10px] text-slate-600">한 주 가격</div>
+                  <div className="text-xs text-slate-500">주식 1주 값</div>
                   <div className="font-mono text-base font-black text-white">{formatNum(Math.round(listing.price))}</div>
                 </div>
                 <div className={`text-sm font-bold ${listing.change >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                  <span className="mr-1 text-[10px] font-normal text-slate-500">이번 턴</span>
+                  <span className="mr-1 text-xs font-normal text-slate-500">이번 턴</span>
                   {listing.change >= 0 ? "▲" : "▼"} {Math.abs(listing.change).toFixed(1)}%
                 </div>
               </div>
-              <div className="mt-2 text-right text-xs font-bold text-blue-400">사고팔기 →</div>
+              <div className="mt-2 text-right text-sm font-black text-blue-400">사고팔기 →</div>
             </button>
           );
         })}
       </div>
-      <p className="mt-3 text-center text-[11px] text-slate-600">
-        위험도는 최근 가격 변화와 종목 특징을 바탕으로 한 쉬운 안내이며, 결과를 보장하지 않아요.
+      <p className="mt-3 text-center text-xs text-slate-500">
+        🛡️⚖️🎢 표시는 최근 값 변화를 보고 붙인 쉬운 안내예요. 앞으로도 꼭 그렇다는 뜻은 아니에요.
       </p>
-    </div>
-  );
-}
-
-function TickerBar({ items }: { items: Listing[] }) {
-  if (items.length === 0) return null;
-  const doubled = [...items, ...items]; // seamless loop
-  return (
-    <div
-      className="overflow-hidden py-1.5"
-      style={{ background: "#060b14", borderBottom: "1px solid rgba(148,163,184,0.06)" }}
-    >
-      <div className="flex animate-ticker gap-8 whitespace-nowrap" style={{ width: "max-content" }}>
-        {doubled.map((l, i) => {
-          const up = l.change >= 0;
-          return (
-            <span key={i} className="flex items-center gap-1.5 font-mono text-xs">
-              <span className="text-slate-600">{l.name}</span>
-              <span className="text-slate-300">{formatNum(Math.round(l.price))}</span>
-              <span className={up ? "text-emerald-400" : "text-red-400"}>
-                {up ? "▲" : "▼"}{Math.abs(l.change).toFixed(2)}%
-              </span>
-            </span>
-          );
-        })}
-      </div>
     </div>
   );
 }
@@ -593,10 +342,10 @@ function PortfolioBar({
   if (holdings.length === 0) {
     return (
       <div
-        className="px-4 py-3 text-xs text-slate-700"
+        className="px-4 py-3 text-sm text-slate-400"
         style={{ borderBottom: "1px solid rgba(148,163,184,0.06)" }}
       >
-        보유 주식 없음 · 아래 종목에서 매수해 보세요
+        🧺 아직 산 주식이 없어요. 아래에서 마음에 드는 회사를 골라 보세요.
       </div>
     );
   }
@@ -614,12 +363,12 @@ function PortfolioBar({
         className="flex w-full items-center justify-between px-4 py-2.5 transition-colors hover:bg-white/[0.02]"
       >
         <div className="flex items-center gap-2 text-xs">
-          <span className="font-semibold text-slate-400">내 보유 주식</span>
+          <span className="text-sm font-black text-slate-300">내가 산 주식</span>
           <span
             className="rounded px-1.5 py-0.5 font-mono text-xs text-slate-500"
             style={{ background: "rgba(255,255,255,0.05)" }}
           >
-            {holdings.length}종목
+            {holdings.length}개 회사
           </span>
         </div>
         <div className="flex items-center gap-3 font-mono text-xs">
@@ -657,7 +406,7 @@ function PortfolioBar({
                 <div className="min-w-0 flex-1 text-xs">
                   <div className="font-semibold text-slate-300">{h.name}</div>
                   <div className="font-mono text-slate-600">
-                    {formatNum(h.shares)}주 · 평단 {formatNum(Math.round(h.avg))}
+                    {formatNum(h.shares)}주 · 산 값 {formatNum(Math.round(h.avg))}
                     <span className="mx-1 text-slate-800">→</span>
                     {formatNum(Math.round(h.price))}
                   </div>
@@ -678,31 +427,6 @@ function PortfolioBar({
   );
 }
 
-// ── Sort Header ────────────────────────────────────────────────────────────────
-
-function SortTh({
-  label, k, sort, asc, onSort,
-}: {
-  label: string;
-  k: SortKey;
-  sort: SortKey;
-  asc: boolean;
-  onSort: (k: SortKey) => void;
-}) {
-  const active = sort === k;
-  return (
-    <th
-      onClick={() => onSort(k)}
-      className={`cursor-pointer select-none py-2 pr-3 text-right text-xs font-medium transition-colors ${
-        active ? "text-blue-400" : "text-slate-600 hover:text-slate-400"
-      }`}
-    >
-      {label}
-      {active && <span className="ml-0.5 text-[9px]">{asc ? "▲" : "▼"}</span>}
-    </th>
-  );
-}
-
 // ── Trade Modal ────────────────────────────────────────────────────────────────
 
 function TradeModal({
@@ -711,7 +435,6 @@ function TradeModal({
   sel,
   qty,
   setQty,
-  showMetrics,
   showNews,
   onClose,
   onTrade,
@@ -721,7 +444,6 @@ function TradeModal({
   sel: NonNullable<Selection>;
   qty: number;
   setQty: (n: number) => void;
-  showMetrics: boolean;
   showNews: boolean;
   onClose: () => void;
   onTrade: (side: "buy" | "sell") => void;
@@ -745,10 +467,6 @@ function TradeModal({
   const up = change >= 0;
   const priceChange = price - prevPrice;
 
-  const cap = isStock && stock ? stock.price * stock.sharesOutstanding : 0;
-  const metrics = isStock && stock ? stockMetrics(stock, stockCompany) : null;
-  const per = metrics?.per ?? null;
-  const float = isStock && stock ? stock.sharesOutstanding - (stock.treasury ?? 0) : 0;
 
   const indEmoji = isStock
     ? getIndustry(stockCompany?.industryId ?? "tech").emoji
@@ -763,7 +481,8 @@ function TradeModal({
   const heldPl = isStock && held > 0 ? (price - stockAvg) * held : 0;
   const heldPlPct = stockAvg > 0 ? ((price - stockAvg) / stockAvg) * 100 : 0;
 
-  return (
+  // Portal to <body> so the sheet sits above the sticky HUD.
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-end justify-center p-0 backdrop-blur-sm sm:items-center sm:p-4"
       style={{ background: "rgba(0,0,0,0.75)" }}
@@ -791,12 +510,13 @@ function TradeModal({
           <div className="min-w-0 flex-1">
             <div className="font-bold text-white">{name}</div>
             <div className="text-xs text-slate-600">
-              {isStock ? (stockCompany ? "경쟁사 상장주" : "외부 상장주") : "대체 자산"}
+              {isStock ? (stockCompany ? "라이벌 회사 주식" : "다른 회사 주식") : "예금·금·달러"}
             </div>
           </div>
           <button
             onClick={onClose}
-            className="rounded-lg p-1.5 text-slate-600 transition hover:bg-white/[0.04] hover:text-slate-400"
+            aria-label="닫기"
+            className="flex h-11 w-11 items-center justify-center rounded-xl text-lg text-slate-400 transition hover:bg-white/[0.06] hover:text-white"
           >
             ✕
           </button>
@@ -812,7 +532,7 @@ function TradeModal({
             <span className="text-slate-700">|</span>
             <span>{up ? "+" : ""}{change.toFixed(2)}%</span>
             <span className="text-slate-700">|</span>
-            <span className="text-slate-500 text-xs font-normal">전일 대비</span>
+            <span className="text-slate-500 text-xs font-normal">지난 턴보다</span>
           </div>
         </div>
 
@@ -824,36 +544,6 @@ function TradeModal({
           unit={isStock ? "주" : "개"}
         />
 
-        {/* ── Metrics ── */}
-        {isStock && showMetrics && (
-          <div
-            style={{ borderTop: "1px solid rgba(148,163,184,0.07)", borderBottom: "1px solid rgba(148,163,184,0.07)", background: "rgba(255,255,255,0.02)" }}
-          >
-            <div className="grid grid-cols-4 divide-x text-center">
-              <div className="px-2 py-2.5">
-                <div className="text-xs text-slate-600">시가총액</div>
-                <div className="font-mono text-xs font-semibold text-slate-300">{formatMoney(cap)}</div>
-              </div>
-              <div className="px-2 py-2.5">
-                <div className="text-xs text-slate-600">PER</div>
-                <div className="font-mono text-xs font-semibold text-slate-300">{per != null ? per.toFixed(1) + "배" : "—"}</div>
-              </div>
-              <div className="px-2 py-2.5">
-                <div className="text-xs text-slate-600">PBR</div>
-                <div className="font-mono text-xs font-semibold text-slate-300">{metrics?.pbr != null ? metrics.pbr.toFixed(2) + "배" : "—"}</div>
-              </div>
-              <div className="px-2 py-2.5">
-                <div className="text-xs text-slate-600">ROE</div>
-                <div className={`font-mono text-xs font-semibold ${metrics?.roe != null && metrics.roe >= 10 ? "text-emerald-400" : "text-slate-300"}`}>{metrics?.roe != null ? metrics.roe.toFixed(1) + "%" : "—"}</div>
-              </div>
-            </div>
-            <div className="px-3 pb-2 text-center font-mono text-xs text-slate-600">
-              유통주식 {formatNum(float)} / {formatNum(stock?.sharesOutstanding ?? 0)}주
-              <span className="ml-1 text-slate-700">(자사주 {formatNum((stock?.treasury ?? 0))})</span>
-            </div>
-          </div>
-        )}
-
         {/* ── Related news ── */}
         {isStock && showNews && (() => {
           const relatedNews = game.news
@@ -864,7 +554,7 @@ function TradeModal({
           if (relatedNews.length === 0) return null;
           return (
             <div style={{ borderTop: "1px solid rgba(148,163,184,0.07)", borderBottom: "1px solid rgba(148,163,184,0.07)" }}>
-              <div className="px-3 pt-2 pb-1 text-xs font-semibold uppercase tracking-wide text-slate-700">관련 뉴스 · 주가 변동 이유</div>
+              <div className="px-3 pt-2 pb-1 text-sm font-bold text-slate-400">📰 값이 바뀐 이유 (뉴스)</div>
               <div className="max-h-28 overflow-y-auto">
                 {relatedNews.map((n) => (
                   <div key={n.id} className="flex items-start gap-2 px-3 py-1.5">
@@ -875,7 +565,7 @@ function TradeModal({
                       </div>
                       <div className="text-xs text-slate-600 leading-snug">{n.body}</div>
                     </div>
-                    <span className="shrink-0 text-[9px] text-slate-800">Q{n.turn}</span>
+                    <span className="shrink-0 text-xs text-slate-600">{n.turn}턴</span>
                   </div>
                 ))}
               </div>
@@ -886,21 +576,21 @@ function TradeModal({
         {/* ── Holdings row ── */}
         {held > 0 && (
           <div
-            className="flex items-center gap-4 px-4 py-2.5 font-mono text-xs"
+            className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2.5 text-sm"
             style={{ background: "rgba(255,255,255,0.02)", borderBottom: "1px solid rgba(148,163,184,0.05)" }}
           >
             <span>
-              <span className="text-slate-600">보유 </span>
+              <span className="text-slate-500">가진 개수 </span>
               <span className="font-bold text-white">{formatNum(held)}{isStock ? "주" : ""}</span>
             </span>
             {isStock && (
               <>
                 <span>
-                  <span className="text-slate-600">평단 </span>
+                  <span className="text-slate-500">산 값(평균) </span>
                   <span className="font-bold text-white">{formatNum(Math.round(stockAvg))}</span>
                 </span>
                 <span>
-                  <span className="text-slate-600">평가손익 </span>
+                  <span className="text-slate-500">지금 팔면 </span>
                   <span className={`font-bold ${heldPl >= 0 ? "text-emerald-400" : "text-red-400"}`}>
                     {heldPl >= 0 ? "+" : ""}{formatMoney(Math.round(heldPl))}
                     <span className="ml-1 opacity-80">({heldPlPct >= 0 ? "+" : ""}{heldPlPct.toFixed(1)}%)</span>
@@ -919,7 +609,7 @@ function TradeModal({
               <button
                 key={n}
                 onClick={() => setQty(n)}
-                className="flex-1 rounded-lg py-2 text-xs font-semibold text-slate-400 transition hover:text-slate-200"
+                className="min-h-11 flex-1 rounded-lg py-2 text-sm font-bold text-slate-300 transition hover:text-white"
                 style={{ background: "rgba(255,255,255,0.04)" }}
                 onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.08)")}
                 onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.04)")}
@@ -930,12 +620,12 @@ function TradeModal({
             {held > 0 && (
               <button
                 onClick={() => setQty(held)}
-                className="flex-1 rounded-lg py-2 text-xs font-semibold text-yellow-500 transition"
+                className="min-h-11 flex-1 rounded-lg py-2 text-sm font-bold text-yellow-500 transition"
                 style={{ background: "rgba(255,255,255,0.04)" }}
                 onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.08)")}
                 onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.04)")}
               >
-                전량
+                모두
               </button>
             )}
           </div>
@@ -944,24 +634,23 @@ function TradeModal({
           <div className="flex items-center gap-2">
             <button
               onClick={() => setQty(Math.max(1, qty - 1))}
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-xl font-bold text-slate-400 transition hover:text-slate-200"
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-2xl font-bold text-slate-300 transition hover:text-white"
               style={{ background: "rgba(255,255,255,0.04)" }}
               onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.08)")}
               onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.04)")}
             >
               −
             </button>
-            <input
-              type="number"
-              value={qty}
-              min={1}
-              onChange={(e) => setQty(Math.max(1, Number(e.target.value)))}
-              className="flex-1 rounded-xl py-2.5 text-center font-mono text-2xl font-black text-white outline-none focus:ring-1 focus:ring-blue-500"
+            <output
+              aria-live="polite"
+              className="flex-1 rounded-xl py-2.5 text-center text-2xl font-black text-white"
               style={{ background: "rgba(255,255,255,0.04)" }}
-            />
+            >
+              {formatNum(qty)}{isStock ? "주" : "개"}
+            </output>
             <button
               onClick={() => setQty(qty + 1)}
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-xl font-bold text-slate-400 transition hover:text-slate-200"
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-2xl font-bold text-slate-300 transition hover:text-white"
               style={{ background: "rgba(255,255,255,0.04)" }}
               onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.08)")}
               onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.04)")}
@@ -972,17 +661,17 @@ function TradeModal({
 
           {/* Order summary */}
           <div
-            className="mt-3 rounded-xl px-4 py-3 text-xs"
+            className="mt-3 rounded-xl px-4 py-3 text-sm"
             style={{ background: "rgba(255,255,255,0.03)" }}
           >
             <div className="flex justify-between">
-              <span className="text-slate-600">주문 수량</span>
+              <span className="text-slate-400">몇 {isStock ? "주" : "개"}</span>
               <span className="font-mono font-semibold text-slate-300">
                 {formatNum(qty)}{isStock ? "주" : ""}
               </span>
             </div>
             <div className="mt-1.5 flex justify-between">
-              <span className="text-slate-600">예상 금액</span>
+              <span className="text-slate-400">필요한 돈</span>
               <span className="font-mono font-bold text-white">{formatMoney(orderValue)}</span>
             </div>
           </div>
@@ -998,11 +687,11 @@ function TradeModal({
             onMouseEnter={(e) => { if (held > 0) e.currentTarget.style.background = "#ef4444"; }}
             onMouseLeave={(e) => { if (held > 0) e.currentTarget.style.background = "#dc2626"; }}
           >
-            <span className="text-lg tracking-widest">매 도</span>
-            <span className="text-xs font-normal opacity-80">
+            <span className="text-lg">💸 팔기</span>
+            <span className="text-sm font-normal opacity-80">
               {held > 0
-                ? `${formatNum(sellQty)}주 · ${formatMoney(Math.round(price * sellQty))}`
-                : "보유 없음"}
+                ? `${formatNum(sellQty)}${isStock ? "주" : "개"} · ${formatMoney(Math.round(price * sellQty))}원 받기`
+                : "가진 게 없어요"}
             </span>
           </button>
           <button
@@ -1012,11 +701,12 @@ function TradeModal({
             onMouseEnter={(e) => (e.currentTarget.style.background = "#2563eb")}
             onMouseLeave={(e) => (e.currentTarget.style.background = "#1d4ed8")}
           >
-            <span className="text-lg tracking-widest">매 수</span>
-            <span className="text-xs font-normal opacity-80">{formatMoney(orderValue)} 필요</span>
+            <span className="text-lg">🛒 사기</span>
+            <span className="text-sm font-normal opacity-80">{formatMoney(orderValue)}원 내기</span>
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

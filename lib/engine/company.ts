@@ -28,6 +28,8 @@ export interface CompanyTurnResult {
   unitsProduced: number;
   profit: number;
   quitCount: number;
+  /** Units set aside for an accepted order before market sales. */
+  reserved?: number;
 }
 
 export function defaultDecisions(industry: IndustryDef): CompanyDecisions {
@@ -158,6 +160,8 @@ export function runCompanyTurn(
   rng: RngState,
   marketPressure?: number,
   growthMultiplier = 1,
+  /** Units promised to an accepted order: shipped before market sales. */
+  reserveUnits = 0,
 ): CompanyTurnResult {
   const industry = getIndustry(company.industryId);
   const country = getCountry(company.countryId);
@@ -210,10 +214,20 @@ export function runCompanyTurn(
 
   for (let i = 0; i < productDefs.length; i++) {
     const shareI = totalShare > 0 ? perShare[i] / totalShare : 0;
-    const productProduced = Math.round(produced * shareI);
-    const productDemand = Math.round(demand * shareI);
+    productInventory[i] = (productInventory[i] ?? 0) + Math.round(produced * shareI);
+  }
 
-    productInventory[i] = (productInventory[i] ?? 0) + productProduced;
+  // A promised order ships first (basic product first); customers buy the rest.
+  let reserved = 0;
+  for (let i = 0; i < productDefs.length && reserved < reserveUnits; i++) {
+    const take = Math.min(reserveUnits - reserved, Math.floor(productInventory[i] ?? 0));
+    productInventory[i] -= take;
+    reserved += take;
+  }
+
+  for (let i = 0; i < productDefs.length; i++) {
+    const shareI = totalShare > 0 ? perShare[i] / totalShare : 0;
+    const productDemand = Math.round(demand * shareI);
     const sold = Math.min(productInventory[i], productDemand);
     productInventory[i] -= sold;
 
@@ -284,6 +298,7 @@ export function runCompanyTurn(
     unitsProduced: produced,
     profit,
     quitCount: quit.length,
+    reserved,
   };
 }
 

@@ -71,11 +71,15 @@ export default function PlayPage() {
   const [resultsPopup, setResultsPopup] = useState<{ summary: TurnSummary; snapshot: TurnPresentationSnapshot } | null>(null);
   const [showLearningChoice, setShowLearningChoice] = useState(false);
   const [showSpotlight, setShowSpotlight] = useState(false);
+  // Bumped once the turn popups close, so the campus can show what each
+  // building did this turn.
+  const [workReportKey, setWorkReportKey] = useState(0);
   const lockUntil = useRef(0);
   // Campus size when the current turn began, so the result can show what the
   // buildings placed during this turn changed.
   const turnStartCampus = useRef<{ buildingCount: number; capacity: number } | null>(null);
   const nextTurnButtonRef = useRef<HTMLButtonElement>(null);
+  const headerRef = useRef<HTMLElement>(null);
 
   // Advance one turn (quarter). Guards against rapid double-clicks force-skipping
   // multiple turns and (b) skipping past an unacknowledged event popup.
@@ -105,11 +109,15 @@ export default function PlayPage() {
     const events = resultsPopup?.summary.events ?? [];
     setResultsPopup(null);
     if (events.length > 0) setEventPopup(events);
-    else requestAnimationFrame(() => nextTurnButtonRef.current?.focus({ preventScroll: true }));
+    else {
+      setWorkReportKey(Date.now());
+      requestAnimationFrame(() => nextTurnButtonRef.current?.focus({ preventScroll: true }));
+    }
   };
 
   const handleEventsDismiss = () => {
     setEventPopup(null);
+    setWorkReportKey(Date.now());
     requestAnimationFrame(() => nextTurnButtonRef.current?.focus({ preventScroll: true }));
   };
 
@@ -144,6 +152,18 @@ export default function PlayPage() {
     startBgm(mood);
     return () => stopBgm();
   }, [game?.macro.phase, muted, game]);
+
+  // Publish the sticky header height (--hud-h) so the company panel can stick
+  // right below it on tablets.
+  useEffect(() => {
+    const header = headerRef.current;
+    if (!header) return;
+    const update = () => document.documentElement.style.setProperty("--hud-h", `${Math.ceil(header.getBoundingClientRect().height)}px`);
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(header);
+    return () => observer.disconnect();
+  }, [ready]);
 
   // Auto-dismiss toast.
   useEffect(() => {
@@ -189,18 +209,14 @@ export default function PlayPage() {
   };
 
   return (
-    <div className={`game-shell game-shell--${game.macro.phase} min-h-screen pb-24`}>
+    <div className={`game-shell game-shell--${game.macro.phase} min-h-screen pb-4`}>
       <div className={`economic-ambience economic-ambience--${getEconomyWeather(game.macro.phase).scene}`} aria-hidden>
         <span className="economic-orb" />
         <span className="economic-cloud economic-cloud--one" />
         <span className="economic-cloud economic-cloud--two" />
       </div>
-      {/* Author bar */}
-      <div className="relative z-40 w-full bg-slate-900 py-1 text-center text-xs text-slate-400">
-        드래곤 마운틴 시티 · 제작 <span className="font-semibold text-slate-200">hjpapa</span>
-      </div>
       {/* Top bar */}
-      <header className="sticky top-0 z-30 overflow-hidden border-b border-white/60 bg-white/90 shadow-lg shadow-slate-900/5 backdrop-blur-xl">
+      <header ref={headerRef} className="sticky top-0 z-30 overflow-hidden border-b border-white/60 bg-white/90 shadow-lg shadow-slate-900/5 backdrop-blur-xl">
         <GameHud
           game={game}
           player={player}
@@ -215,29 +231,34 @@ export default function PlayPage() {
         />
 
         {/* Tabs */}
-        <nav className="mx-auto grid max-w-7xl grid-cols-4 gap-1 px-2 pb-2" aria-label="게임 메뉴">
+        <nav className="mx-auto grid max-w-7xl grid-cols-4 gap-1.5 px-2 pb-2" aria-label="게임 메뉴">
           {TABS.map((t) => {
             const locked = (t.id === "invest" && !investmentUnlocked) || (t.id === "talent" && !talentUnlocked);
+            const unlockTurn = getFeatureUnlockTurn(game.gameLength, t.id === "invest" ? "investment" : "talentNewsRanking");
             return (
               <button
                 key={t.id}
                 id={`tab-${t.id}`}
                 onClick={() => {
-                  if (locked) return;
+                  if (locked) {
+                    useGameStore.setState({ toast: { text: `🔒 ${t.label}은 ${unlockTurn}턴에 열려요! 조금만 기다려요.`, tone: "info" } });
+                    return;
+                  }
                   setTab(t.id);
                   if (t.id !== "more") setMorePage(null);
                 }}
-                disabled={locked}
-                className={`min-h-11 rounded-xl px-1 py-1.5 text-xs font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 sm:px-3 sm:text-sm ${
+                aria-disabled={locked}
+                className={`flex min-h-12 items-center justify-center gap-1.5 rounded-xl px-1 py-1.5 text-sm font-black transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 sm:px-3 sm:text-base ${
                   tab === t.id
-                    ? "bg-brand-600 text-white"
+                    ? "bg-brand-600 text-white shadow"
                     : locked
-                      ? "cursor-not-allowed text-slate-300"
-                      : "text-slate-600 hover:bg-slate-100"
+                      ? "bg-slate-50 text-slate-400"
+                      : "bg-slate-100/80 text-slate-700 hover:bg-slate-200"
                 }`}
-                title={locked ? `${getFeatureUnlockTurn(game.gameLength, t.id === "invest" ? "investment" : "talentNewsRanking")}턴(분기)에 열려요` : undefined}
               >
-                <span aria-hidden>{locked ? "🔒" : t.emoji}</span>{" "}{t.label}
+                <span aria-hidden>{locked ? "🔒" : t.emoji}</span>
+                <span>{t.label}</span>
+                {locked && <span className="hidden rounded-full bg-white px-1.5 text-xs font-bold text-slate-400 sm:inline">{unlockTurn}턴</span>}
               </button>
             );
           })}
@@ -245,9 +266,9 @@ export default function PlayPage() {
       </header>
 
       {/* Body */}
-      <main className={`relative z-10 mx-auto grid gap-4 px-3 py-4 sm:px-4 ${tab === "company" || tab === "home" ? "max-w-[1600px]" : "max-w-5xl lg:grid-cols-[1fr_320px]"}`}>
+      <main className={`relative z-10 mx-auto grid gap-4 px-3 py-4 sm:px-4 ${tab === "company" || tab === "home" ? "max-w-[1600px]" : "max-w-6xl xl:grid-cols-[1fr_320px]"}`}>
         <div className="min-w-0">
-          {(tab === "home" || tab === "company") && <CompanyWorkspace game={game} company={player} onNavigate={navigateFromMission} />}
+          {(tab === "home" || tab === "company") && <CompanyWorkspace game={game} company={player} onNavigate={navigateFromMission} workReportKey={workReportKey} />}
           {tab === "invest" && <InvestmentDesk />}
           {tab === "talent" && <TalentMarket game={game} company={player} />}
           {tab === "more" && (
@@ -264,7 +285,7 @@ export default function PlayPage() {
         </div>
 
         {/* Sidebar */}
-        {tab !== "home" && tab !== "company" && <aside className="space-y-4 lg:sticky lg:top-32 lg:self-start">
+        {tab !== "home" && tab !== "company" && <aside className="side-sticky space-y-4">
           <EconomyIndicators game={game} />
           <details className="card group p-4">
             <summary className="cursor-pointer list-none text-sm font-bold text-slate-700">
@@ -278,6 +299,11 @@ export default function PlayPage() {
           </details>
         </aside>}
       </main>
+
+      {/* Credit: at the bottom so the sticky HUD starts at the very top on tablets. */}
+      <footer className="relative z-10 pb-2 text-center text-xs text-slate-400">
+        드래곤 마운틴 시티 · 제작 <span className="font-semibold text-slate-600">hjpapa</span>
+      </footer>
 
       {/* Toast */}
       {toast && (
@@ -326,16 +352,6 @@ export default function PlayPage() {
 function campusSize(game: GameState) {
   const player = game.companies.find((c) => c.id === game.playerCompanyId)!;
   return { buildingCount: player.buildings.length, capacity: productionCapacity(player, game.config) };
-}
-
-function FeatureLockCard({ emoji, title, turn }: { emoji: string; title: string; turn: number }) {
-  return (
-    <div className="card p-5 text-center ring-1 ring-amber-200">
-      <div className="text-3xl" aria-hidden>{emoji}</div>
-      <div className="mt-2 font-bold text-slate-800">{title}</div>
-      <p className="mt-1 text-sm text-slate-500">{turn}턴(분기)에 자동으로 열립니다. 지금은 기본 운영에 집중해 보세요.</p>
-    </div>
-  );
 }
 
 function MoreHub({
@@ -388,15 +404,15 @@ function MoreHub({
       id: "rank",
       emoji: "🏆",
       label: "순위",
-      desc: "상위 5개 회사와 내 위치를 비교해요.",
+      desc: "1~5등 회사와 우리 회사를 비교해요.",
       unlocked: talentUnlocked,
       unlockTurn: getFeatureUnlockTurn(game.gameLength, "talentNewsRanking"),
     },
     {
       id: "visit",
       emoji: "🌍",
-      label: "방문·제휴",
-      desc: "다른 회사를 살펴보고 함께할 기회를 찾아요.",
+      label: "다른 회사 구경",
+      desc: "다른 회사를 둘러보고 함께 일할 기회를 찾아요.",
       unlocked: visitUnlocked,
       unlockTurn: getFeatureUnlockTurn(game.gameLength, "visitsPartnershipsAdvanced"),
     },
@@ -425,7 +441,7 @@ function MoreHub({
             <div className="mt-2 font-black text-slate-800">{item.label}</div>
             <p className="mt-1 text-sm text-slate-500">{item.desc}</p>
             <div className={`mt-3 text-xs font-bold ${item.unlocked ? "text-brand-600" : "text-amber-600"}`}>
-              {item.unlocked ? "열기 →" : `${item.unlockTurn}턴(분기)에 열려요`}
+              {item.unlocked ? "열기 →" : `${item.unlockTurn}턴에 열려요`}
             </div>
           </button>
         ))}
@@ -503,38 +519,38 @@ function ResultsPopup({
     : 0;
 
   const rows: { label: string; value: string; tone?: "good" | "bad" | "neutral" }[] = [
-    { label: "매출", value: formatMoney(r.revenue), tone: r.revenue > 0 ? "good" : "neutral" },
-    { label: "판매량", value: `${r.unitsSold.toLocaleString()}개`, tone: "neutral" },
+    { label: "번 돈(매출)", value: formatMoney(r.revenue), tone: r.revenue > 0 ? "good" : "neutral" },
+    { label: "판 개수", value: `${r.unitsSold.toLocaleString()}개`, tone: "neutral" },
     {
-      label: "영업 이익",
+      label: "남은 돈(이익)",
       value: `${r.profit >= 0 ? "+" : ""}${formatMoney(r.profit)}`,
       tone: r.profit >= 0 ? "good" : "bad",
     },
     {
-      label: "순자산 변동",
+      label: "회사 전체 재산 변화",
       value: `${nwDelta >= 0 ? "+" : ""}${formatMoney(Math.round(nwDelta))}`,
       tone: nwDelta >= 0 ? "good" : "bad",
     },
     {
-      label: "현금 변동",
+      label: "쓸 수 있는 돈 변화",
       value: `${cashDelta >= 0 ? "+" : ""}${formatMoney(Math.round(cashDelta))}`,
       tone: cashDelta >= 0 ? "good" : "bad",
     },
-    { label: "남은 재고", value: `${Math.round(player.inventory).toLocaleString()}개`, tone: player.inventory <= snapshot.inventory ? "good" : "neutral" },
-    { label: "현재 순자산", value: formatMoney(Math.round(nw)), tone: "neutral" },
+    { label: "창고에 남은 물건(재고)", value: `${Math.round(player.inventory).toLocaleString()}개`, tone: player.inventory <= snapshot.inventory ? "good" : "neutral" },
+    { label: "회사 전체 재산(순자산)", value: formatMoney(Math.round(nw)), tone: "neutral" },
     {
-      label: "현재 순위",
+      label: "지금 순위",
       value: rankingUnlocked ? `${rank}위 / ${game.companies.length}` : "🔒 아직 비공개",
       tone: rankingUnlocked && rank <= 3 ? "good" : "neutral",
     },
     {
-      label: "자사 주가",
+      label: "우리 회사 주식 값",
       value: stock ? `${stock.price.toFixed(0)} (${stockChange >= 0 ? "+" : ""}${stockChange.toFixed(1)}%)` : "—",
       tone: stockChange >= 0 ? "good" : "bad",
     },
   ];
   if (r.quitCount > 0) {
-    rows.push({ label: "퇴사 직원", value: `${r.quitCount}명`, tone: "bad" });
+    rows.push({ label: "회사를 떠난 직원", value: `${r.quitCount}명`, tone: "bad" });
   }
 
   return (
@@ -563,7 +579,7 @@ function ResultsPopup({
               <Image src={RESULT_ICONS.end} alt="결과를 설명하는 드래곤" fill sizes="80px" className="object-contain object-top" />
             </div>
             <div className="min-w-0 flex-1">
-              <div className="text-xs font-bold text-white/75">{game.turn}턴(분기) 모험 결과</div>
+              <div className="text-xs font-bold text-white/75">{game.turn}턴 모험 결과</div>
               <h2 id="turn-result-title" className="mt-0.5 text-xl font-black">
                 {r.profit > 0 ? "회사가 이익을 남겼어요!" : r.profit === 0 ? "딱 맞게 운영했어요" : "새 전략을 찾을 단서예요"}
               </h2>
@@ -576,15 +592,18 @@ function ResultsPopup({
 
         <div className="p-5">
           <section aria-labelledby="turn-flow-title">
-            <h3 id="turn-flow-title" className="text-sm font-black text-slate-800">물건과 돈은 이렇게 움직였어요</h3>
-            {!!snapshot.productPrices?.length && <p className="mt-2 text-xs text-slate-600">판매 중인 상품의 가격 계획: {snapshot.productPrices.map(price => formatMoney(price)).join(" / ")}</p>}
-            <p className="mt-2 rounded-xl bg-blue-50 p-3 text-sm text-blue-950">내 생산 계획 {snapshot.productionTarget.toLocaleString()}개 → 실제 생산 {r.unitsProduced.toLocaleString()}개 → 판매 {r.unitsSold.toLocaleString()}개. 재고는 {snapshot.inventory.toLocaleString()}개에서 {player.inventory.toLocaleString()}개로 바뀌었어요. 자금과 생산 한도, 상품 가격, 경기와 경쟁사의 선택이 함께 영향을 줘요.</p>
+            <h3 id="turn-flow-title" className="text-base font-black text-slate-800">물건과 돈은 이렇게 움직였어요</h3>
             <div className="mt-2 grid grid-cols-4 gap-1.5 text-center">
-              <ResultStep emoji="🏭" label="생산" value={`${r.unitsProduced.toLocaleString()}개`} />
-              <ResultStep emoji="🛍️" label="판매" value={`${r.unitsSold.toLocaleString()}개`} />
-              <ResultStep emoji="💰" label="매출" value={formatMoney(r.revenue)} />
-              <ResultStep emoji={r.profit >= 0 ? "🪙" : "🧾"} label="이익" value={`${r.profit >= 0 ? "+" : "−"}${formatMoney(Math.abs(r.profit))}`} tone={r.profit >= 0 ? "good" : "bad"} />
+              <ResultStep emoji="🏭" label="만든 개수" value={`${r.unitsProduced.toLocaleString()}개`} />
+              <ResultStep emoji="🛍️" label="판 개수" value={`${r.unitsSold.toLocaleString()}개`} />
+              <ResultStep emoji="💰" label="번 돈(매출)" value={formatMoney(r.revenue)} />
+              <ResultStep emoji={r.profit >= 0 ? "🪙" : "🧾"} label="남은 돈(이익)" value={`${r.profit >= 0 ? "+" : "−"}${formatMoney(Math.abs(r.profit))}`} tone={r.profit >= 0 ? "good" : "bad"} />
             </div>
+            <p className="mt-2 rounded-xl bg-blue-50 px-3 py-2 text-sm leading-relaxed text-blue-950">
+              {snapshot.productionTarget.toLocaleString()}개 만들기로 했고, {r.unitsSold.toLocaleString()}개가 팔렸어요.
+              {" "}창고에는 {Math.round(player.inventory).toLocaleString()}개가 남았어요.
+              {!!snapshot.productPrices?.length && <> 판 가격: {snapshot.productPrices.map((price) => `${formatMoney(price)}원`).join(" / ")}</>}
+            </p>
           </section>
 
           {rankingUnlocked && !snapshot.rankingUnlocked && (
@@ -612,24 +631,26 @@ function ResultsPopup({
           )}
 
           <section className="mt-4" aria-labelledby="result-reason-title">
-            <h3 id="result-reason-title" className="text-sm font-black text-slate-800">왜 이런 결과가 나왔을까요?</h3>
+            <h3 id="result-reason-title" className="text-base font-black text-slate-800">왜 이런 결과가 나왔을까요?</h3>
             <div className="mt-2 space-y-2">
               {highlights.map((highlight) => (
                 <div key={highlight.title} className={`result-clue result-clue--${highlight.tone} flex gap-2.5 rounded-xl p-3`}>
                   <span className="text-xl" aria-hidden>{highlight.emoji}</span>
                   <div>
-                    <div className="text-xs font-black text-slate-800">{highlight.title}</div>
-                    <p className="mt-0.5 text-[11px] leading-relaxed text-slate-600">{highlight.detail}</p>
+                    <div className="text-sm font-black text-slate-800">{highlight.title}</div>
+                    <p className="mt-0.5 text-sm leading-relaxed text-slate-600">{highlight.detail}</p>
                   </div>
                 </div>
               ))}
             </div>
           </section>
 
+          <QuestNews summary={summary} />
+
           <section className="mt-4 rounded-2xl bg-slate-900 p-3 text-white" aria-labelledby="mission-result-title">
             <div className="flex items-center justify-between gap-2">
-              <h3 id="mission-result-title" className="text-sm font-black">🎯 이번 턴(분기) 도전</h3>
-              <span className="rounded-full bg-white/10 px-2 py-1 text-[11px] font-bold">별 {completedMissions}/{missionResults.length}</span>
+              <h3 id="mission-result-title" className="text-sm font-black">🎯 이번 턴 도전</h3>
+              <span className="rounded-full bg-white/10 px-2 py-1 text-xs font-bold">별 {completedMissions}/{missionResults.length}</span>
             </div>
             <div className="mt-2 grid gap-2 sm:grid-cols-2">
               {missionResults.map((mission) => (
@@ -637,7 +658,7 @@ function ResultsPopup({
                   <span className="text-xl" aria-hidden>{mission.done ? "⭐" : mission.emoji}</span>
                   <div className="min-w-0">
                     <div className="truncate text-xs font-black">{mission.title}</div>
-                    <div className="text-[10px] text-white/65">{mission.done ? "도전 성공!" : "다음에 다시 도전"}</div>
+                    <div className="text-xs text-white/65">{mission.done ? "도전 성공!" : "다음에 다시 도전"}</div>
                   </div>
                 </div>
               ))}
@@ -646,7 +667,7 @@ function ResultsPopup({
 
           <details className="group mt-4 rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200">
             <summary className="cursor-pointer list-none text-xs font-black text-slate-700">
-              📊 정확한 숫자 모두 보기
+              📊 숫자로 자세히 보기
               <span className="float-right text-slate-400 transition group-open:rotate-180">⌄</span>
             </summary>
             <div className="mt-2 divide-y divide-slate-200">
@@ -677,14 +698,58 @@ function ResultsPopup({
           )}
 
           <button
-            className="btn-primary mt-4 w-full !py-3"
+            className="btn-primary mt-4 min-h-14 w-full text-lg"
             onClick={onClose}
           >
-            {summary.events.length > 0 ? `뉴스 ${summary.events.length}건 확인하기 ▶` : "다음 전략 고르기 ▶"}
+            {summary.events.length > 0 ? `뉴스 ${summary.events.length}개 보기 ▶` : "확인했어요 ▶"}
           </button>
         </div>
       </div>
     </div>
+  );
+}
+
+/** 📜 의뢰 소식: deliveries, finished or missed requests, new cards and badges. */
+function QuestNews({ summary }: { summary: TurnSummary }) {
+  const lines: { emoji: string; text: string; tone: "good" | "warn" | "info" }[] = [];
+  const delivery = summary.orderDelivery;
+  if (delivery && delivery.units > 0) {
+    lines.push({
+      emoji: "📦",
+      text: `주문 배달 ${delivery.units.toLocaleString()}개 → +${formatMoney(delivery.revenue)}원${delivery.completed ? " · 🎉 주문 완료! 게시판에서 보너스를 받아요" : ""}`,
+      tone: "good",
+    });
+  } else if (delivery) {
+    lines.push({ emoji: "📦", text: "이번 턴엔 주문에 보낼 상품이 없었어요. 생산 계획을 확인해 보세요.", tone: "warn" });
+  }
+  for (const quest of summary.questUpdate?.failed ?? []) {
+    lines.push({ emoji: "😢", text: `${quest.client}의 '${quest.title}' 기한을 놓쳤어요 (평판 −3)`, tone: "warn" });
+  }
+  for (const quest of summary.questUpdate?.ready ?? []) {
+    lines.push({ emoji: "🎉", text: `'${quest.title}' 완성! 게시판에서 보상을 받아요`, tone: "good" });
+  }
+  const posted = summary.questUpdate?.posted.length ?? 0;
+  if (posted > 0) lines.push({ emoji: "📬", text: `새 의뢰 ${posted}개가 게시판에 도착했어요`, tone: "info" });
+  if (summary.newDilemma) lines.push({ emoji: "🤔", text: "'사장님의 선택' 카드가 도착했어요", tone: "info" });
+  for (const badge of summary.achievements ?? []) {
+    lines.push({ emoji: "🏅", text: `업적 달성! ${badge.emoji} ${badge.title}`, tone: "good" });
+  }
+  if (lines.length === 0) return null;
+  return (
+    <section className="mt-4 rounded-2xl bg-amber-50 p-3 ring-1 ring-amber-200" aria-labelledby="quest-news-title">
+      <h3 id="quest-news-title" className="text-sm font-black text-slate-800">📜 의뢰·업적 소식</h3>
+      <ul className="mt-2 space-y-1.5">
+        {lines.map((line, i) => (
+          <li
+            key={i}
+            className={`flex gap-2 rounded-lg px-2.5 py-1.5 text-xs ${line.tone === "good" ? "bg-emerald-100/70 text-emerald-950" : line.tone === "warn" ? "bg-rose-100/70 text-rose-950" : "bg-white text-slate-700"}`}
+          >
+            <span aria-hidden>{line.emoji}</span>
+            <span>{line.text}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
@@ -702,16 +767,16 @@ function ResultStep({
   return (
     <div className={`result-step result-step--${tone} relative rounded-xl px-1 py-2.5 ring-1 ring-slate-200`}>
       <div className="result-step-icon text-2xl" aria-hidden>{emoji}</div>
-      <div className="mt-1 text-[10px] font-bold text-slate-500">{label}</div>
-      <div className="truncate text-[11px] font-black text-slate-900 sm:text-xs" title={value}>{value}</div>
+      <div className="mt-1 text-xs font-bold leading-tight text-slate-500">{label}</div>
+      <div className="truncate text-sm font-black text-slate-900">{value}</div>
     </div>
   );
 }
 
 const TONE_STYLE: Record<NewsItem["tone"], { ring: string; chip: string; label: string }> = {
-  positive: { ring: "ring-bull/40", chip: "bg-bull/10 text-bull", label: "호재" },
-  negative: { ring: "ring-bear/40", chip: "bg-bear/10 text-bear", label: "악재" },
-  neutral: { ring: "ring-slate-200", chip: "bg-slate-100 text-slate-500", label: "중립" },
+  positive: { ring: "ring-bull/40", chip: "bg-bull/10 text-bull", label: "😀 좋은 소식" },
+  negative: { ring: "ring-bear/40", chip: "bg-bear/10 text-bear", label: "😟 나쁜 소식" },
+  neutral: { ring: "ring-slate-200", chip: "bg-slate-100 text-slate-500", label: "📢 알림" },
 };
 
 function EventPopup({ events, onClose }: { events: NewsItem[]; onClose: () => void }) {
@@ -738,8 +803,8 @@ function EventPopup({ events, onClose }: { events: NewsItem[]; onClose: () => vo
           <div className="absolute inset-0 flex items-end bg-black/25 px-4 pb-2.5">
             <h2 id="event-popup-title" className="text-base font-black text-white drop-shadow">
               {events.every((ev) => ev.layer === "fun")
-                ? "😂 이번 턴(분기) 깜짝 소식"
-                : `이번 턴(분기) 속보 ${events.length > 1 ? `(${events.length})` : ""}`}
+                ? "😂 이번 턴 깜짝 소식"
+                : `이번 턴 뉴스 ${events.length > 1 ? `(${events.length})` : ""}`}
             </h2>
           </div>
         </div>
@@ -766,15 +831,15 @@ function EventPopup({ events, onClose }: { events: NewsItem[]; onClose: () => vo
                         {LAYER_LABELS[ev.layer]}
                       </span>
                     </div>
-                    <p className="mt-1 whitespace-pre-line text-sm leading-snug text-slate-600">{ev.body}</p>
+                    <p className="mt-1 whitespace-pre-line text-base leading-snug text-slate-600">{ev.body}</p>
                   </div>
                 </div>
               </div>
             );
           })}
         </div>
-        <button className="btn-primary mt-4 w-full" onClick={onClose}>
-          확인하고 계속 ▶
+        <button className="btn-primary mt-4 min-h-14 w-full text-lg" onClick={onClose}>
+          확인했어요 ▶
         </button>
         </div>
       </div>
@@ -801,17 +866,17 @@ function GameOver({ game, onRestart }: { game: ReturnType<typeof useGameStore.ge
           className="mx-auto h-36 w-36 object-contain"
         />
         <h2 id="game-over-title" className="mt-3 text-2xl font-black text-slate-800">
-          {failed ? "경영 위기: 이번 도전은 여기까지" : won ? "축하합니다! 1위 달성!" : "게임 종료"}
+          {failed ? "회사가 문을 닫았어요" : won ? "축하해요! 1등이에요!" : "게임 끝!"}
         </h2>
         <p className="mt-1 text-slate-500">
           {failed
-            ? `${game.turn}턴(분기)에 현금이 바닥나고 빚과 적자가 이어졌어요. 실패도 중요한 경제 실험이에요.`
-            : `${game.maxTurns}턴(분기) 경영 결과, ${rank}위로 마쳤어요.`}
+            ? `${game.turn}턴에 쓸 돈이 바닥나고 빚과 손해가 계속됐어요. 실패도 중요한 경제 공부예요.`
+            : `${game.maxTurns}턴 동안 회사를 키워 ${rank}위로 마쳤어요.`}
         </p>
         {failed && (
           <div className="mt-4 rounded-xl bg-amber-50 p-4 text-left text-sm leading-relaxed text-amber-950 ring-1 ring-amber-200">
-            <b>다음 도전의 회복 공식</b>
-            <p className="mt-1">생산량을 수요보다 낮게 줄이고 → 가격이 원가보다 높은지 확인하고 → 새 건물과 투자를 잠시 멈춰 현금을 모아 보세요.</p>
+            <b>다음엔 이렇게 해 봐요</b>
+            <p className="mt-1">손님 수보다 조금 적게 만들고 → 만드는 데 드는 돈(원가)보다 비싸게 팔고 → 새 건물과 투자는 잠시 쉬며 돈을 모아요.</p>
           </div>
         )}
         <div className="mt-4 grid grid-cols-2 gap-2 text-left">
@@ -830,7 +895,7 @@ function GameOver({ game, onRestart }: { game: ReturnType<typeof useGameStore.ge
               >
                 <div className="text-lg" aria-hidden>{badge.earned ? badge.emoji : "🔒"}</div>
                 <div className="text-xs font-black text-slate-800">{badge.label}</div>
-                <div className="mt-0.5 text-[11px] text-slate-500">{progress}</div>
+                <div className="mt-0.5 text-xs text-slate-500">{progress}</div>
               </div>
             );
           })}
