@@ -375,6 +375,7 @@ const HEIGHT: Record<BuildingType, (level: number) => number> = {
   statue: (l) => 0.2 + l * 0.06,
   clocktower: (l) => 0.7 + l * 0.25,
   ferris: (l) => 0.5 + l * 0.1,
+  house: () => 0.36,
 };
 
 /** Approximate highest point of a model, so stars and bubbles float above it. */
@@ -1131,6 +1132,60 @@ function UnderConstruction() {
   );
 }
 
+/** One cottage: pastel walls, a steep gable roof, a door, a window and a chimney. */
+function Cottage({ x, z, scale = 1, wall, roof, glow, flip = false }: {
+  x: number; z: number; scale?: number; wall: string; roof: string; glow: boolean; flip?: boolean;
+}) {
+  const w = 0.34, d = 0.28, h = 0.18;
+  const hd = d / 2 + 0.03; // roof overhang
+  const slope = Math.SQRT2 * hd + 0.02;
+  return (
+    <group position={[x, 0, z]} scale={scale} rotation={[0, flip ? Math.PI / 2 : 0, 0]}>
+      <Body w={w} d={d} h={h} color={wall} glow={glow} />
+      {/* gable ends: a diamond whose lower half hides inside the walls */}
+      <Block size={[w - 0.004, Math.SQRT1_2 * hd * 2, Math.SQRT1_2 * hd * 2]} position={[0, Y0 + h, 0]} rotation={[Math.PI / 4, 0, 0]} color={wall} glow={glow} />
+      {/* two roof slabs meeting at the ridge (45°) */}
+      <Block size={[w + 0.06, 0.03, slope]} position={[0, Y0 + h + hd / 2 + 0.012, hd / 2]} rotation={[Math.PI / 4, 0, 0]} color={roof} cast />
+      <Block size={[w + 0.06, 0.03, slope]} position={[0, Y0 + h + hd / 2 + 0.012, -hd / 2]} rotation={[-Math.PI / 4, 0, 0]} color={roof} cast />
+      <Block size={[0.05, 0.12, 0.05]} position={[0.1, Y0 + h + 0.12, -0.05]} color="#9a7b6b" />
+      <Door face="front" w={w} d={d} width={0.08} height={0.12} color="#8d5a2b" offset={-0.07} />
+      <Panes face="front" w={w} d={d} y={0.1} count={1} pw={0.08} ph={0.07} warm offset={0.08} />
+      <Panes face="side" w={w} d={d} y={0.1} count={1} pw={0.08} ph={0.07} warm />
+    </group>
+  );
+}
+
+/** 주택: one cottage, then a little cluster as it levels up. A mailbox and flowers out front. */
+function House({ level, glow }: ModelProps) {
+  const lots = [
+    { x: 0, z: -0.04, scale: 1, wall: "#fde68a", roof: "#e76f51" },
+    { x: 0.2, z: 0.2, scale: 0.72, wall: "#bfdbfe", roof: "#4f7cac", flip: true },
+    { x: -0.22, z: 0.22, scale: 0.68, wall: "#fbcfe8", roof: "#9b5de5" },
+  ];
+  const placed = level === 1
+    ? [lots[0]]
+    : level === 2
+      ? [{ ...lots[0], x: -0.1, z: -0.12, scale: 0.92 }, lots[1]]
+      : [{ ...lots[0], x: -0.06, z: -0.16, scale: 0.88 }, lots[1], lots[2]];
+  return (
+    <group>
+      <Plinth base="#cbd5c0" top="#d9e8c8" />
+      {placed.map((lot, i) => (
+        <Cottage key={i} x={lot.x} z={lot.z} scale={lot.scale} wall={lot.wall} roof={lot.roof} glow={glow} flip={"flip" in lot && !!lot.flip} />
+      ))}
+      {/* mailbox */}
+      <Block size={[0.012, 0.08, 0.012]} position={[0.34, Y0 + 0.04, 0.36]} color="#6b4f3a" />
+      <Block size={[0.05, 0.035, 0.03]} position={[0.34, Y0 + 0.095, 0.36]} color="#ef4444" />
+      {/* flowers */}
+      {[[-0.36, 0.38, "#f472b6"], [-0.3, 0.4, "#facc15"], [0.38, -0.36, "#60a5fa"]].map(([fx, fz, c]) => (
+        <Ball key={`${fx}${fz}`} r={0.022} position={[fx as number, Y0 + 0.02, fz as number]} color={c as string} />
+      ))}
+      {level === 1 && <RoundTree position={[0.32, Y0, 0.12]} scale={0.8} />}
+      <Bush position={[-0.36, Y0 + 0.03, -0.3]} />
+    </group>
+  );
+}
+
 const MODELS: Record<BuildingType, (props: ModelProps) => React.ReactElement> = {
   factory: Factory,
   warehouse: Warehouse,
@@ -1150,6 +1205,7 @@ const MODELS: Record<BuildingType, (props: ModelProps) => React.ReactElement> = 
   statue: Statue,
   clocktower: ClockTower,
   ferris: ThemePark,
+  house: House,
 };
 
 export function Building3D({

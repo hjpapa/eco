@@ -100,6 +100,12 @@ const LINES: Record<BuildingType, Lines> = {
     "꼭대기에서 우리 도시가 다 보여요! 🎡",
     "관광객 모자가 날아갔어요… 잡아 주세요! 🧢",
   ],
+  house: () => [
+    "택배 왔어요~ 우체통이 꽉 찼네요 📮",
+    "옆집에서 맛있는 냄새가 나요 🍲",
+    "창문 너머로 공원이 보이면 좋겠어요 🌳",
+    "이사 온 첫날, 이웃이 떡을 갖다줬어요 🍡",
+  ],
 };
 
 const PHASE_LINES: Partial<Record<EconomyPhase, string[]>> = {

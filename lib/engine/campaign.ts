@@ -263,6 +263,10 @@ export function migrateGameState(value: unknown): GameState | null {
     // Seasons arrived later: an older save picks up the season of its turn.
     macro: raw.macro && !raw.macro.season ? { ...raw.macro, season: seasonOf(raw.turn) } : raw.macro,
   };
+  // Homes arrived with the village: older saves can build them too.
+  if (Array.isArray(migrated.config?.enabledBuildings) && !migrated.config.enabledBuildings.includes("house")) {
+    migrated.config = { ...migrated.config, enabledBuildings: [...migrated.config.enabledBuildings, "house"] };
+  }
 
   if (migrated.turn >= migrated.maxTurns) {
     migrated.status = "ended";

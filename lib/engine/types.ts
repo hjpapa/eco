@@ -101,7 +101,9 @@ export type BuildingType =
   | "fountain"
   | "statue"
   | "clocktower"
-  | "ferris";
+  | "ferris"
+  /** A home for village residents (the village layer, see village.ts). */
+  | "house";
 
 export interface CompanyCapabilities {
   productionCapacity: number;
@@ -127,6 +129,8 @@ export interface BuildingDef {
   description: string;
   /** City score needed before this building can be built (0 = from the start). */
   unlockCityScore?: number;
+  /** Alternatively, a village star rating that also opens it (see village.ts). */
+  unlockStars?: number;
   /** Decorative city landmark rather than a working company building. */
   landmark?: boolean;
 }
@@ -399,6 +403,8 @@ export interface GameState {
   /** Achievements the student has earned, in order. */
   achievements?: EarnedAchievement[];
   questStats?: QuestStats;
+  /** Village record: the best star rating reached (its prizes are paid once). */
+  village?: { bestStars: number };
 
   createdAt: number;
   updatedAt: number;

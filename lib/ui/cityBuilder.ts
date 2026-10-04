@@ -6,6 +6,7 @@ import {
   campusDemandBoost,
   cityScore as engineCityScore,
   getActiveBuildingCombos,
+  VILLAGE_ROLES,
   type BuildingComboDef,
   type BuildingType,
   type Company,
@@ -15,12 +16,13 @@ import {
 // Presentation helpers for the construction screen. They only read game
 // state, so they never change saves or the simulation.
 
-export type BuildingRole = "money" | "smart" | "happy" | "landmark";
+export type BuildingRole = "money" | "smart" | "happy" | "home" | "landmark";
 
 export const BUILDING_ROLE_LABELS: Record<BuildingRole, { emoji: string; label: string; hint: string }> = {
   money: { emoji: "💰", label: "돈 버는 건물", hint: "생산·손님을 늘려 매출을 키워요" },
   smart: { emoji: "💡", label: "똑똑한 건물", hint: "품질·효율을 높여 회사를 튼튼하게" },
   happy: { emoji: "😊", label: "행복한 건물", hint: "직원 행복·평판을 높여요" },
+  home: { emoji: "🏡", label: "마을 건물", hint: "주민이 이사 와서 살아요" },
   landmark: { emoji: "🏛️", label: "랜드마크", hint: "도시가 커지면 열리는 명소" },
 };
 
@@ -35,7 +37,8 @@ const ROLE: Record<BuildingType, BuildingRole> = {
   hr: "happy",
   park: "happy",
   cafeteria: "happy",
-  dorm: "happy",
+  dorm: "home",
+  house: "home",
   gym: "happy",
   daycare: "happy",
   clinic: "happy",
@@ -56,7 +59,8 @@ const TAGLINE: Record<BuildingType, string> = {
   hr: "임원 자리가 늘어요",
   park: "싸고 예쁜 쉼터",
   cafeteria: "직원이 행복해요",
-  dorm: "가까운 직원 집",
+  dorm: "주민 12명이 사는 집",
+  house: "주민 8명이 사는 집",
   gym: "튼튼한 직원",
   daycare: "가족 친화 회사",
   clinic: "아프면 바로 치료",
@@ -77,7 +81,9 @@ export function buildingTagline(type: BuildingType): string {
 /** Short, child-friendly effect chips for one level of a building. */
 export function buildingEffectChips(type: BuildingType, levels = 1): string[] {
   const effects = BUILDINGS[type].effects;
+  const village = VILLAGE_ROLES[type] ?? {};
   const chips: string[] = [];
+  if (village.residents) chips.push(`👥 주민 +${village.residents * levels}명`);
   if (effects.productionCapacity) chips.push(`🏭 생산 +${effects.productionCapacity * levels}개`);
   const customers = (reach: number, logistics: number) =>
     Math.round((campusDemandBoost({ marketingReach: reach, logistics }) - 1) * 100);
@@ -85,8 +91,9 @@ export function buildingEffectChips(type: BuildingType, levels = 1): string[] {
   if (effects.logistics) chips.push(`🚚 손님 +${customers(0, effects.logistics * levels)}%`);
   if (effects.rndPower) chips.push(`🔬 연구력 +${effects.rndPower * levels}`);
   if (effects.productionEfficiency) chips.push(`💸 생산비 −${Math.round(effects.productionEfficiency * levels * 100)}%`);
-  if (effects.morale) chips.push(`😊 행복 +${effects.morale * levels}`);
+  if (effects.morale) chips.push(`😊 직원 행복 +${effects.morale * levels}`);
   if (effects.reputation) chips.push(`⭐ 평판 +${effects.reputation * levels}`);
+  if ((village.happy ?? 0) > 0) chips.push("🌳 이웃 집 행복↑");
   if (effects.hiringCap) chips.push("👔 임원 자리↑");
   return chips;
 }

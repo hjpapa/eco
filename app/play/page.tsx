@@ -22,6 +22,8 @@ import {
   seasonOutlook,
 } from "@/lib/engine";
 import type { FestivalResult } from "@/lib/engine/seasons";
+import type { VillageChange } from "@/lib/engine/village";
+import { Stars } from "@/components/VillagePanel";
 import type { GameState, NewsItem } from "@/lib/engine";
 import type { TurnSummary } from "@/lib/engine/tick";
 import { formatMoney, withJosa } from "@/lib/format";
@@ -659,6 +661,8 @@ function ResultsPopup({
 
           <QuestNews summary={summary} />
 
+          {summary.village && <VillageNews change={summary.village} />}
+
           <section className="mt-4 rounded-2xl bg-slate-900 p-3 text-white" aria-labelledby="mission-result-title">
             <div className="flex items-center justify-between gap-2">
               <h3 id="mission-result-title" className="text-sm font-black">🎯 이번 턴 도전</h3>
@@ -718,6 +722,33 @@ function ResultsPopup({
         </div>
       </div>
     </div>
+  );
+}
+
+/** 🏘️ The village after the turn: residents, happiness and any new star. */
+function VillageNews({ change }: { change: VillageChange }) {
+  const delta = change.population - change.populationBefore;
+  return (
+    <section className="mt-4 rounded-2xl bg-lime-50 p-3 ring-1 ring-lime-200" aria-labelledby="village-news-title">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 id="village-news-title" className="text-base font-black text-lime-950">🏘️ 우리 마을</h3>
+        <Stars count={change.stars} size="text-lg" />
+      </div>
+      {change.population > 0 || change.populationBefore > 0 ? (
+        <p className="mt-1 text-sm text-slate-700">
+          👥 주민 <b>{change.population}명</b>
+          {delta !== 0 && <span className={delta > 0 ? "text-emerald-700" : "text-rose-600"}> ({delta > 0 ? "+" : ""}{delta})</span>}
+          {" "}· 😊 마을 행복 <b>{change.happiness}점</b>
+        </p>
+      ) : (
+        <p className="mt-1 text-sm text-slate-700">🏡 아직 주민이 없어요. 주택을 지으면 주민이 이사 와서 동네 손님이 돼요.</p>
+      )}
+      {change.starRewards.map((goal) => (
+        <div key={goal.stars} className="star-up mt-2 rounded-xl bg-amber-100 p-2.5 text-sm font-black text-amber-950 ring-1 ring-amber-300">
+          ⭐ 마을 별 {goal.stars}개 달성! 축하금 +{formatMoney(goal.reward.cash)}원 · 평판 +{goal.reward.reputation}
+        </div>
+      ))}
+    </section>
   );
 }
 

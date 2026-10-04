@@ -372,6 +372,10 @@ body {
 .season-card__icon { animation: season-bob 2.4s ease-in-out infinite; display: inline-block; }
 @keyframes season-bob { 0%, 100% { transform: translateY(0) rotate(0); } 50% { transform: translateY(-4px) rotate(-6deg); } }
 @media (prefers-reduced-motion: reduce) { .season-card__icon { animation: none; } }
+/* ── village ── */
+.village-hero { background: linear-gradient(135deg, #f7fee7, #ecfccb); }
+.star-up { animation: season-bob 1.6s ease-in-out 2; }
+@media (prefers-reduced-motion: reduce) { .star-up { animation: none; } }
 .festival-flag { font-size: 22px; filter: drop-shadow(0 2px 2px rgba(0,0,0,0.3)); animation: season-bob 2s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .festival-flag { animation: none; } }
 .economy-chip--snow { background: #ecfeff; }

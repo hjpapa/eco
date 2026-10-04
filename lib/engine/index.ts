@@ -21,6 +21,7 @@ import { shuffle } from "./rng";
 import { netWorth, playerRank, recordNetWorth } from "./ranking";
 import { updateQuests } from "./quests";
 import { seasonOf } from "./seasons";
+import { villageStars } from "./village";
 import { getIndustryProducts } from "../data/products";
 import {
   DEFAULT_GAME_LENGTH,
@@ -257,6 +258,7 @@ export function createGame(opts: NewGameOptions): GameState {
     updatedAt: Date.now(),
   };
 
+  state.village = { bestStars: villageStars(player.buildings) };
   recordNetWorth(state);
   state.initialPlayerRank = playerRank(state);
   state.initialPlayerNetWorth = netWorth(player, state);
@@ -271,6 +273,7 @@ export * from "./campaign";
 export * from "./health";
 export { advanceTurn } from "./tick";
 export * from "./seasons";
+export * from "./village";
 export { rankings, netWorth, portfolioValue, playerRank } from "./ranking";
 export {
   fundamentalValue,

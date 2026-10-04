@@ -2,6 +2,7 @@ import type { BuildingType } from "@/lib/engine";
 
 export type CompanyTask =
   | "quests"
+  | "village"
   | "production"
   | "sales"
   | "research"
@@ -20,6 +21,7 @@ export const COMPANY_TASKS: { id: CompanyTask; label: string; icon: string }[] =
   [
     { id: "construction", label: "건설", icon: "🏗️" },
     { id: "quests", label: "의뢰", icon: "📜" },
+    { id: "village", label: "마을", icon: "🏘️" },
     { id: "production", label: "만들기", icon: "🏭" },
     { id: "sales", label: "팔기", icon: "🏬" },
     { id: "staff", label: "직원", icon: "👥" },

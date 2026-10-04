@@ -15,6 +15,9 @@ import {
   openQuests,
   questProgress,
   currentSeason,
+  plotHappiness,
+  villageStats,
+  VILLAGE_ROLES,
   type GameState,
   type Company,
   type BuildingType,
@@ -32,6 +35,8 @@ import { useGameStore } from "@/store/gameStore";
 import { MapViewport } from "./MapViewport";
 import { CompanyCity } from "./CompanyCity";
 import { SEASON_THEMES } from "./seasonTheme";
+import { VillagePanel } from "./VillagePanel";
+import { happyTintCss } from "@/lib/ui/villageMap";
 import { CompanyPanel } from "./CompanyPanel";
 import { BuildingIcon, ConstructionPanel } from "./ConstructionPanel";
 import { AchievementShelf, QuestBoard } from "./QuestBoard";
@@ -80,6 +85,7 @@ export function CompanyWorkspace({
   const [camera, setCamera] = useState(false);
   const [reduced, setReduced] = useState(false);
   const [report, setReport] = useState(false);
+  const [happyMap, setHappyMap] = useState(false);
   const [celebration, setCelebration] = useState<Celebration | null>(null);
   const actionLock = useRef(0);
   const panel = useRef<HTMLElement>(null);
@@ -92,6 +98,7 @@ export function CompanyWorkspace({
   const selected = company.buildings.find((b) => b.id === selectedId);
   const combos = getActiveBuildingCombos(company.buildings);
   const city = getCityProgress(company);
+  const village = villageStats(company.buildings);
 
   const setPending = (type: BuildingType | null) => {
     setPendingState(type);
@@ -110,15 +117,25 @@ export function CompanyWorkspace({
   // signature covers in-place engine mutations (the company object is reused).
   const signature = company.buildings.map((b) => `${b.id}:${b.level}:${b.turnsLeft > 0 ? "building" : "ready"}`).join("|");
   const comboIds = combos.map((c) => c.id);
-  const previous = useRef({ signature, comboIds, stage: city.stage.id, count: company.buildings.length, score: city.score });
+  const previous = useRef({ signature, comboIds, stage: city.stage.id, count: company.buildings.length, score: city.score, stars: village.stars });
   useEffect(() => {
     const before = previous.current;
-    previous.current = { signature, comboIds, stage: city.stage.id, count: company.buildings.length, score: city.score };
+    previous.current = { signature, comboIds, stage: city.stage.id, count: company.buildings.length, score: city.score, stars: village.stars };
     if (before.signature === signature) return;
     const newCombos = combos.filter((c) => !before.comboIds.includes(c.id));
     const grew = city.stage.id !== before.stage && city.score > before.score;
     let next: Omit<Celebration, "key"> | null = null;
-    if (grew) {
+    if (village.stars > before.stars) {
+      const opened = BUILDING_LIST.filter((def) => def.unlockStars != null && def.unlockStars > before.stars && def.unlockStars <= village.stars && game.config.enabledBuildings.includes(def.type));
+      next = {
+        emoji: "⭐",
+        title: `마을 별 ${village.stars}개!`,
+        detail: opened.length
+          ? `새 건물이 열렸어요: ${opened.map((def) => `${def.emoji} ${def.name}`).join(" · ")}`
+          : "더 살기 좋은 마을이 됐어요",
+        big: true,
+      };
+    } else if (grew) {
       const opened = BUILDING_LIST.filter((def) => {
         const need = def.unlockCityScore ?? 0;
         return need > before.score && need <= city.score && game.config.enabledBuildings.includes(def.type);
@@ -259,6 +276,9 @@ export function CompanyWorkspace({
             ? evaluateBuildingPlacement(company, pending, x, y, game.config.mapSize)
             : null;
           const isRecommended = !!pending && recommendation?.x === x && recommendation?.y === y;
+          const tint = (happyMap && !pending) || (!!pending && !b && (VILLAGE_ROLES[pending]?.residents ?? 0) > 0)
+            ? happyTintCss(plotHappiness(company.buildings, x, y))
+            : null;
           const isConfirm = confirmCell?.x === x && confirmCell?.y === y;
           const tone = b
             ? `border-emerald-300 bg-white ${b.id === selectedId ? "ring-2 ring-indigo-500" : ""}`
@@ -276,6 +296,7 @@ export function CompanyWorkspace({
               key={i}
               className={`relative flex !min-h-0 min-w-0 flex-col items-center justify-center overflow-hidden rounded-lg border p-0.5 text-[10px] leading-tight ${tone}`}
               onClick={() => onCell(x, y)}
+              style={tint ? { backgroundImage: `linear-gradient(${tint}, ${tint})` } : undefined}
               aria-label={`${x + 1}열 ${y + 1}줄 ${b ? `${BUILDINGS[b.type].name} 레벨 ${b.level}${b.turnsLeft > 0 ? ` 공사 중 ${b.turnsLeft}턴 남음` : ""}` : placement?.combos.length ? "빈 땅, 조합 보너스 칸" : "빈 땅"}`}
             >
               {b ? (
@@ -332,17 +353,14 @@ export function CompanyWorkspace({
                 <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                   <button
                     type="button"
-                    onClick={() => choose("construction")}
-                    className="flex items-center gap-1.5 rounded-full bg-violet-100 px-3 py-1 text-sm font-black text-violet-800 ring-1 ring-violet-200"
-                    aria-label={`우리 도시 단계: ${city.stage.label}${city.next ? `, ${city.next.label}까지 ${city.pointsToNext}점` : ""}`}
+                    onClick={() => choose("village")}
+                    className="flex min-h-11 items-center gap-1.5 rounded-full bg-violet-100 px-3 text-sm font-black text-violet-800 ring-1 ring-violet-200"
+                    aria-label={`우리 도시 ${city.stage.label}, 마을 별 ${village.stars}개, 주민 ${village.population}명. 마을 보기`}
                   >
                     <span aria-hidden>{city.stage.emoji}</span>
                     {city.stage.label}
-                    {city.next && (
-                      <span className="h-2 w-12 overflow-hidden rounded-full bg-white" aria-hidden>
-                        <span className="block h-full rounded-full bg-violet-500" style={{ width: `${Math.round(city.progress * 100)}%` }} />
-                      </span>
-                    )}
+                    <span className="text-amber-500" aria-hidden>★{village.stars}</span>
+                    <span className="font-bold text-violet-700" aria-hidden>👥{village.population}</span>
                   </button>
                   <button
                     type="button"
@@ -358,6 +376,7 @@ export function CompanyWorkspace({
                   >
                     🏅 {(game.achievements ?? []).length}
                   </button>
+
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   <button className="btn-ghost !px-3" onClick={() => setReport(true)} aria-label="회사 성적표 보기">
@@ -389,6 +408,7 @@ export function CompanyWorkspace({
                   previewProfit={preview?.profitDelta ?? null}
                   previewPayback={preview?.paybackTurns ?? null}
                   comboCount={preview?.combos.length ?? 0}
+                  residents={preview?.village.population ?? 0}
                   confirm={confirmCell && preview ? { cashAfter: preview.cashAfter, safetyLine: preview.safetyLine, below: preview.belowSafetyLine, x: confirmCell.x, y: confirmCell.y } : null}
                   canRecommend={!!recommendation}
                   onRecommend={() => recommendation && tryBuild(recommendation.x, recommendation.y, true)}
@@ -413,10 +433,27 @@ export function CompanyWorkspace({
                       confirmCell={confirmCell}
                       cameraEnabled={camera}
                       reducedMotion={reduced}
+                      happyMap={happyMap}
                       buildingLabels={labels}
                       workReport={workReport}
                     />
                   </MapBoundary>
+                )}
+                {!pending && (
+                  <button
+                    type="button"
+                    onClick={() => setHappyMap((v) => !v)}
+                    aria-pressed={happyMap}
+                    className={`absolute right-2 top-2 z-10 flex min-h-11 items-center gap-1 rounded-full px-3 text-sm font-black shadow-md ring-1 ${happyMap ? "bg-emerald-600 text-white ring-emerald-700" : "bg-white/90 text-emerald-800 ring-emerald-200 backdrop-blur"}`}
+                    aria-label={happyMap ? "행복 지도 끄기" : "행복 지도 보기: 살기 좋은 땅은 초록, 시끄러운 땅은 빨강"}
+                  >
+                    😊 행복 지도{happyMap ? " ✓" : ""}
+                  </button>
+                )}
+                {!pending && happyMap && (
+                  <div className="pointer-events-none absolute left-2 top-2 z-10 rounded-xl bg-white/90 px-2.5 py-1.5 text-xs font-bold text-slate-700 shadow backdrop-blur">
+                    <span className="text-emerald-600">■</span> 살기 좋은 땅 · <span className="text-rose-500">■</span> 시끄러운 땅
+                  </div>
                 )}
                 {!pending && (
                   <div role="status" className="mt-2 text-sm">
@@ -448,7 +485,7 @@ export function CompanyWorkspace({
               className="workspace-panel min-w-0 scroll-mt-36 rounded-3xl border border-slate-200 bg-white outline-none"
             >
               <nav
-                className="workspace-tasks grid grid-cols-4 gap-1.5 rounded-t-3xl border-b border-slate-100 bg-white p-2.5 sm:grid-cols-7 lg:grid-cols-4"
+                className={`workspace-tasks grid grid-cols-4 gap-1.5 rounded-t-3xl border-b border-slate-100 bg-white p-2.5 ${tasks.length > 7 ? "sm:grid-cols-8" : "sm:grid-cols-7"} lg:grid-cols-4`}
                 aria-label="회사 업무"
               >
                 {tasks.map((t) => {
@@ -506,6 +543,17 @@ export function CompanyWorkspace({
                     onGoBuild={(type) => {
                       choose("construction");
                       if (type && isBuildingTypeUnlocked(company, type)) setPending(type);
+                    }}
+                  />
+                ) : task === "village" ? (
+                  <VillagePanel
+                    game={game}
+                    company={company}
+                    happyMap={happyMap}
+                    onToggleHappyMap={() => setHappyMap((v) => !v)}
+                    onBuild={(type) => {
+                      choose("construction");
+                      setPending(type);
                     }}
                   />
                 ) : task === "construction" ? (
@@ -582,6 +630,7 @@ function PlacementBar({
   previewProfit,
   previewPayback,
   comboCount,
+  residents = 0,
   confirm,
   canRecommend,
   onRecommend,
@@ -593,6 +642,8 @@ function PlacementBar({
   previewProfit: number | null;
   previewPayback: number | null;
   comboCount: number;
+  /** Residents the building would bring to the village. */
+  residents?: number;
   confirm: { cashAfter: number; safetyLine: number; below: boolean; x: number; y: number } | null;
   canRecommend: boolean;
   onRecommend: () => void;
@@ -612,6 +663,7 @@ function PlacementBar({
         <p className="text-sm">
           {previewProfit != null && `이익 ${previewProfit >= 0 ? "+" : "−"}${formatMoney(Math.abs(Math.round(previewProfit)))}원/턴 · `}
           지으면 남는 돈 {formatMoney(confirm.cashAfter)}원
+          {residents > 0 && ` · 👥 주민 +${residents}명`}
           {comboCount > 0 && ` · ✨ 조합 ${comboCount}개`}
         </p>
         {confirm.below && (
@@ -637,7 +689,10 @@ function PlacementBar({
         📍 {def.emoji} {def.name}: 지을 빈 땅을 눌러 골라요
       </p>
       <p className="text-sm text-emerald-900">
-        ⭐ 초록 칸 = 추천 · ✨ 금색 칸 = 조합 보너스 · 한 번 누르면 미리 보고, 한 번 더 누르면 지어요
+        {(VILLAGE_ROLES[pending]?.residents ?? 0) > 0
+          ? "🟩 초록 땅 = 살기 좋은 곳 · 🟥 빨강 = 시끄러운 곳 · ⭐ 추천"
+          : "⭐ 초록 칸 = 추천 · ✨ 금색 칸 = 조합 보너스"}
+        {" "}· 한 번 누르면 미리 보고, 한 번 더 누르면 지어요
         {previewProfit != null &&
           ` · 이익 ${previewProfit >= 0 ? "+" : "−"}${formatMoney(Math.abs(Math.round(previewProfit)))}원/턴`}
         {previewPayback != null && ` · 본전까지 약 ${previewPayback}턴`}

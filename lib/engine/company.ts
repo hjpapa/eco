@@ -12,6 +12,7 @@ import { aggregateBuildingCaps, totalUpkeep, tickConstruction } from "./building
 import { roleBonuses, totalSalary, updateLoyalty } from "./characters";
 import { demandMultiplier } from "./economy";
 import { currentSeason, seasonalDemandFactor } from "./seasons";
+import { villageCustomerBoost } from "./village";
 import { getCountry } from "../data/countries";
 import { getIndustry } from "../data/industries";
 import { getIndustryProducts } from "../data/products";
@@ -149,6 +150,7 @@ export function estimateDemand(
     country.marketSize *
     demandMultiplier(macro) *
     seasonalDemandFactor(industry.id, currentSeason(macro)) *
+    villageCustomerBoost(company.buildings) *
     ownPull *
     shareFactor;
 

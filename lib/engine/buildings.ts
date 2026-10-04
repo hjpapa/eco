@@ -5,6 +5,7 @@ import type {
   CompanyCapabilities,
   PlacedBuilding,
 } from "./types";
+import { placementHappiness, villageStars } from "./village";
 
 // Building catalog. Each building contributes capability points per level.
 // `company.ts` aggregates the capabilities of all operational buildings every
@@ -184,6 +185,7 @@ export const BUILDINGS: Record<BuildingType, BuildingDef> = {
     effects: { morale: 3, reputation: 4 },
     description: "시원한 분수 광장이 생겨 직원과 이웃이 쉬어 가요. 공원 옆에 두면 더 좋아요.",
     unlockCityScore: 5,
+    unlockStars: 2,
     landmark: true,
   },
   statue: {
@@ -197,6 +199,7 @@ export const BUILDINGS: Record<BuildingType, BuildingDef> = {
     effects: { reputation: 7, marketingReach: 4 },
     description: "우리 도시의 상징이에요. 사진 찍으러 온 손님이 회사를 기억해요.",
     unlockCityScore: 10,
+    unlockStars: 3,
     landmark: true,
   },
   clocktower: {
@@ -210,6 +213,7 @@ export const BUILDINGS: Record<BuildingType, BuildingDef> = {
     effects: { productionEfficiency: 0.04, reputation: 3 },
     description: "모두가 같은 시계를 보며 손발을 맞춰요. 생산비가 조금 줄어요.",
     unlockCityScore: 18,
+    unlockStars: 4,
     landmark: true,
   },
   ferris: {
@@ -223,7 +227,21 @@ export const BUILDINGS: Record<BuildingType, BuildingDef> = {
     effects: { marketingReach: 22, morale: 4, reputation: 5 },
     description: "멀리서도 보이는 관광 명소! 관광객이 몰려와 손님이 크게 늘어요.",
     unlockCityScore: 28,
+    unlockStars: 5,
     landmark: true,
+  },
+
+  // ===== Village: homes for residents =====
+  house: {
+    type: "house",
+    name: "주택",
+    emoji: "🏡",
+    cost: 50_000,
+    buildTurns: 1,
+    upkeep: 800,
+    maxLevel: 3,
+    effects: { hiringCap: 1 },
+    description: "주민이 사는 집이에요. 주민은 우리 물건을 사는 동네 손님이 돼요. 공원 가까이, 공장에서 멀리 지으면 더 행복해요.",
   },
 };
 
@@ -377,9 +395,11 @@ export function cityScore(buildings: PlacedBuilding[]): number {
   return levels + getActiveBuildingCombos(buildings).length * 2;
 }
 
-/** New building kinds open up as the city grows. */
+/** New building kinds open up as the city grows, or as the village earns stars. */
 export function isBuildingTypeUnlocked(company: Pick<Company, "buildings">, type: BuildingType): boolean {
-  return cityScore(company.buildings) >= (BUILDINGS[type].unlockCityScore ?? 0);
+  const def = BUILDINGS[type];
+  if (cityScore(company.buildings) >= (def.unlockCityScore ?? 0)) return true;
+  return def.unlockStars != null && villageStars(company.buildings) >= def.unlockStars;
 }
 
 /** Half of everything spent on a building's levels comes back when it is sold. */
@@ -436,7 +456,9 @@ export function evaluateBuildingPlacement(
   const touching = neighbours.length > 0 ? 1 : 0;
   const center = (mapSize - 1) / 2;
   const closeness = 1 - (Math.abs(x - center) + Math.abs(y - center)) / Math.max(1, mapSize);
-  return { x, y, score: combos.length * 10 + newVariety + touching + closeness * 0.5, combos, isValid: true };
+  // Village: homes like parks and dislike factories next door.
+  const happy = placementHappiness(company.buildings, type, x, y) * 0.4;
+  return { x, y, score: combos.length * 10 + newVariety + touching + closeness * 0.5 + happy, combos, isValid: true };
 }
 
 /** Best empty cell, with stable tie-breaking for both players and AI. */

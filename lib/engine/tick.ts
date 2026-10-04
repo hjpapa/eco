@@ -29,6 +29,7 @@ import {
 import { updateDilemma } from "./dilemmas";
 import { checkAchievements } from "./achievements";
 import { startSeason, type FestivalResult } from "./seasons";
+import { ensureVillage, settleVillage, villageStats, type VillageChange } from "./village";
 import { decayRelations } from "./relations";
 import { recordNetWorth } from "./ranking";
 import { topUpTalentPool } from "./characters";
@@ -56,6 +57,8 @@ export interface TurnSummary {
   achievements?: { id: string; emoji: string; title: string }[];
   /** The new season that starts with the next turn, and its festival. */
   season?: FestivalResult | null;
+  /** Village population, happiness and any new stars. */
+  village?: VillageChange | null;
 }
 
 let monetaryCounter = 0;
@@ -71,6 +74,15 @@ export function advanceTurn(state: GameState): TurnSummary {
   );
 
   decayRelations(state.relations);
+
+  // Village before construction finishes this turn, for the results screen.
+  const villageBefore = (() => {
+    const player = state.companies.find((c) => c.id === state.playerCompanyId);
+    if (!player) return { population: 0, stars: 1 };
+    ensureVillage(state);
+    const stats = villageStats(player.buildings);
+    return { population: stats.population, stars: stats.stars };
+  })();
 
   // Clear last turn's campus visitors; events this turn may set new ones.
   for (const c of state.companies) c.visitor = undefined;
@@ -184,6 +196,8 @@ export function advanceTurn(state: GameState): TurnSummary {
 
   // A new turn is a new season, with its festival.
   const season = state.status === "playing" ? startSeason(state) : null;
+  // New village stars pay their one-off prize.
+  const village = settleVillage(state, villageBefore.population, villageBefore.stars);
 
   // The simulation may prepare news in the background, but guided players do
   // not receive news cut-ins or campus visitors until those lessons unlock.
@@ -215,6 +229,7 @@ export function advanceTurn(state: GameState): TurnSummary {
     newDilemma,
     achievements,
     season,
+    village,
   };
 }
 

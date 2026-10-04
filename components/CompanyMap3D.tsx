@@ -16,6 +16,8 @@ import {
   latestFunEvent,
   currentSeason,
   SEASONS,
+  plotHappiness,
+  VILLAGE_ROLES,
 } from "@/lib/engine";
 import type { BuildingType, Company, GameState, PlacedBuilding } from "@/lib/engine";
 import { formatMoney } from "@/lib/format";
@@ -27,6 +29,7 @@ import { Building3D, buildingTop } from "./BuildingModels3D";
 import { MapViewport } from "./MapViewport";
 import { BUILDING_IMG } from "@/lib/assetMap";
 import { SEASON_THEMES, SeasonThemeContext, type SeasonTheme } from "./seasonTheme";
+import { happyTint } from "@/lib/ui/villageMap";
 
 const PHASE_BG: Record<string, string> = {
   boom: "#bfe9ff", normal: "#d6efff", recession: "#cdd6e0",
@@ -556,12 +559,14 @@ const TILE_TONE: Record<Exclude<TileTone, "none">, { color: string; opacity: num
 };
 
 function Tile({
-  x, z, grass, tone, onClick, onHover,
+  x, z, grass, tone, tint, onClick, onHover,
 }: {
   x: number; z: number; grass: string; tone: TileTone;
+  /** Overrides the plain "valid" glow, e.g. with village happiness. */
+  tint?: { color: string; opacity: number } | null;
   onClick: () => void; onHover: (on: boolean) => void;
 }) {
-  const style = tone === "none" ? { color: grass, opacity: 0.35 } : TILE_TONE[tone];
+  const style = tone === "none" ? { color: grass, opacity: 0.35 } : tone === "valid" && tint ? tint : TILE_TONE[tone];
   return (
     <mesh
       position={[x, 0.012, z]}
@@ -787,6 +792,7 @@ function Scene({
   reducedMotion = false,
   buildingLabels = {},
   workReport,
+  happyMap = false,
 }: {
   game: GameState; company: Company; readOnly: boolean; overview: boolean;
   selectedType: BuildingType | null;
@@ -801,6 +807,7 @@ function Scene({
   reducedMotion?: boolean;
   buildingLabels?: Record<string, string>;
   workReport?: { key: number; labels: Record<string, string> } | null;
+  happyMap?: boolean;
 }) {
   const n = game.config.mapSize;
   const half = (n * TILE) / 2;
@@ -852,6 +859,10 @@ function Scene({
       }
     }
   }
+  // Homes are placed on the village happiness map, so a child sees where
+  // people would like to live (green) and where it is noisy (red).
+  const placingHome = !!selectedType && (VILLAGE_ROLES[selectedType]?.residents ?? 0) > 0;
+  const tileTint = (gx: number, gy: number) => (placingHome ? happyTint(plotHappiness(company.buildings, gx, gy)) : null);
   const tileTone = (gx: number, gy: number, key: string): TileTone => {
     if (readOnly || !selectedType) return "none";
     if (confirmCell?.x === gx && confirmCell?.y === gy) return "confirm";
@@ -959,6 +970,7 @@ function Scene({
                 <Tile
                   x={x} z={z} grass={grass}
                   tone={tileTone(gx, gy, key)}
+                  tint={tileTint(gx, gy)}
                   onClick={() => onCell(gx, gy)}
                   onHover={(on) => setHover(on ? key : null)}
                 />
@@ -1030,6 +1042,21 @@ function Scene({
           );
         }),
       )}
+
+      {/* 😊 village happiness map: every plot, built or not */}
+      {happyMap && !selectedType && Array.from({ length: n * n }, (_, i) => {
+        const gx = i % n;
+        const gy = Math.floor(i / n);
+        const tint = happyTint(plotHappiness(company.buildings, gx, gy));
+        if (!tint) return null;
+        const { x, z } = tileWorld(gx, gy);
+        return (
+          <mesh key={`happy-${i}`} position={[x, 0.075, z]} rotation={[-Math.PI / 2, 0, 0]} raycast={() => null}>
+            <planeGeometry args={[TILE * 0.98, TILE * 0.98]} />
+            <meshBasicMaterial color={tint.color} transparent opacity={tint.opacity * 0.75} depthWrite={false} />
+          </mesh>
+        );
+      })}
 
       {/* placement marker on the recommended cell */}
       {!readOnly && selectedType && recommendedCell && !confirmCell && (() => {
@@ -1224,7 +1251,7 @@ function FitBoard({ n, free }: { n: number; free: boolean }) {
 /* ── main component ──────────────────────────────────────────────────────── */
 export function CompanyMap3D({
   game, company, readOnly = false, overview = false,
-  onWorkspaceCell, pendingType = null, inspectedId = null, confirmCell = null, cameraEnabled = true, reducedMotion = false, buildingLabels = {}, workReport,
+  onWorkspaceCell, pendingType = null, inspectedId = null, confirmCell = null, cameraEnabled = true, reducedMotion = false, buildingLabels = {}, workReport, happyMap = false,
 }: {
   game: GameState; company: Company; readOnly?: boolean; overview?: boolean;
   onWorkspaceCell?: (x: number, y: number) => void;
@@ -1235,6 +1262,7 @@ export function CompanyMap3D({
   reducedMotion?: boolean;
   buildingLabels?: Record<string, string>;
   workReport?: { key: number; labels: Record<string, string> };
+  happyMap?: boolean;
 }) {
   const [viewKey, setViewKey] = useState(0);
   const build = useGameStore((s) => s.build);
@@ -1387,6 +1415,7 @@ export function CompanyMap3D({
             comboLinks={comboLinks}
             highlightedComboKeys={comboFeedback?.linkKeys ?? []}
             onCell={onCell}
+            happyMap={happyMap}
           />
         </Canvas>
       </MapViewport>

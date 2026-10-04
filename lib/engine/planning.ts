@@ -18,6 +18,7 @@ import {
 } from "./buildings";
 import { totalSalary } from "./characters";
 import { projectCompanyTurn, type TurnProjection } from "./company";
+import { villageStats } from "./village";
 
 // Read-only planning helpers for the construction screen. They answer the
 // questions a young CEO asks before spending money: "What will this building
@@ -50,6 +51,13 @@ export interface BuildingImpact {
     reputation: number;
     research: number;
     executiveSlots: number;
+  };
+  /** What the building does for the village (residents, happiness, stars). */
+  village: {
+    population: number;
+    happiness: number;
+    starsBefore: number;
+    starsAfter: number;
   };
   combos: BuildingComboDef[];
 }
@@ -136,6 +144,8 @@ function compareCampus(
   const cashAfter = company.cash - cost;
   const safetyLine = cashSafetyLine(company, nextBuildings);
   const demandBefore = Math.max(1, before.demand);
+  const villageBefore = villageStats(company.buildings);
+  const villageAfter = villageStats(nextBuildings);
 
   return {
     type,
@@ -160,6 +170,12 @@ function compareCampus(
       executiveSlots:
         executiveSlots({ buildings: nextBuildings }, config.adjacencyBonus) -
         executiveSlots(company, config.adjacencyBonus),
+    },
+    village: {
+      population: villageAfter.population - villageBefore.population,
+      happiness: villageAfter.happiness - villageBefore.happiness,
+      starsBefore: villageBefore.stars,
+      starsAfter: villageAfter.stars,
     },
     combos,
   };

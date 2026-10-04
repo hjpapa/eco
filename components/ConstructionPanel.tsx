@@ -39,11 +39,12 @@ const ROLE_STYLE: Record<BuildingRole, string> = {
   money: "border-t-amber-400",
   smart: "border-t-indigo-400",
   happy: "border-t-pink-400",
+  home: "border-t-lime-400",
   landmark: "border-t-teal-400",
 };
 
 type PaletteFilter = "all" | BuildingRole;
-const FILTERS: PaletteFilter[] = ["all", "money", "smart", "happy", "landmark"];
+const FILTERS: PaletteFilter[] = ["all", "money", "smart", "happy", "home", "landmark"];
 
 export function BuildingIcon({ type, size = "h-12 w-12" }: { type: BuildingType; size?: string }) {
   const src = BUILDING_IMG[type];
@@ -165,7 +166,7 @@ export function ConstructionPanel({
                 <div
                   key={def.type}
                   className={`relative flex flex-col items-center rounded-xl border border-t-4 border-dashed border-slate-300 bg-slate-50 p-2 text-center ${ROLE_STYLE[role]}`}
-                  aria-label={`${def.name}: ${withJosa(stage?.label ?? "더 큰 도시", "이", "가")} 되면 열려요`}
+                  aria-label={`${def.name}: ${withJosa(stage?.label ?? "더 큰 도시", "이", "가")} 되면 열려요${def.unlockStars ? ` (마을 별 ${def.unlockStars}개여도 열려요)` : ""}`}
                 >
                   <span className="opacity-40 grayscale">
                     <BuildingIcon type={def.type} />
@@ -175,6 +176,11 @@ export function ConstructionPanel({
                   <span className="mt-1 rounded-md bg-white px-1.5 py-0.5 text-xs font-bold text-slate-600">
                     🔒 {stage?.emoji} {withJosa(stage?.label ?? "더 큰 도시", "이", "가")} 되면 열려요
                   </span>
+                  {def.unlockStars && (
+                    <span className="mt-1 rounded-md bg-lime-50 px-1.5 py-0.5 text-xs font-bold text-lime-800">
+                      또는 마을 <span className="text-amber-500">★{def.unlockStars}</span>
+                    </span>
+                  )}
                 </div>
               );
             }
@@ -224,7 +230,7 @@ export function ConstructionPanel({
           {showLocked ? "지금 지을 수 있는 건물만 보기" : "🔒 앞으로 열릴 건물도 보기"}
         </button>
         <p className="mt-2 text-sm leading-relaxed text-slate-500">
-          🔓 도시가 커지면 새 건물이 열려요. 같은 건물을 또 지으면 값이 조금씩 올라요.
+          🔓 도시가 커지거나 마을 별이 오르면 새 건물이 열려요. 같은 건물을 또 지으면 값이 조금씩 올라요.
         </p>
       </section>
 
@@ -252,6 +258,8 @@ function BuildPreviewCard({
   const turnsLeft = Math.max(0, game.maxTurns - game.turn);
   const earns = impact.profitDelta > 500;
   const happyGains = [
+    impact.village.population > 0 ? `👥 주민 +${impact.village.population}명` : null,
+    impact.village.happiness > 0 ? `🏘️ 마을 행복 +${impact.village.happiness}` : null,
     impact.gains.morale > 0 ? `😊 직원 행복 +${impact.gains.morale}` : null,
     impact.gains.reputation > 0 ? `⭐ 평판 +${impact.gains.reputation}` : null,
     impact.gains.research > 0 ? `🔬 연구력 +${impact.gains.research}` : null,
@@ -313,6 +321,15 @@ function BuildPreviewCard({
       {addsCapacity && impact.before.limitedBy === "demand" && (
         <p className="mt-2 rounded-lg bg-white/80 p-2 text-sm text-slate-700">
           🛍️ 지금은 손님보다 만들 수 있는 양이 더 많아요. 매장·물류창고로 손님을 먼저 늘려 보세요.
+        </p>
+      )}
+      {(impact.village.population !== 0 || impact.village.happiness !== 0 || impact.village.starsAfter !== impact.village.starsBefore) && (
+        <p className="mt-2 rounded-lg bg-lime-100 p-2 text-sm font-bold text-lime-900">
+          🏘️ 마을:
+          {impact.village.population !== 0 && ` 👥 주민 ${impact.village.population > 0 ? "+" : ""}${impact.village.population}명`}
+          {impact.village.happiness !== 0 && ` · 😊 행복 ${impact.village.happiness > 0 ? "+" : ""}${impact.village.happiness}`}
+          {impact.village.starsAfter > impact.village.starsBefore && ` · ⭐ 별 ${impact.village.starsAfter}개 달성!`}
+          {impact.village.starsAfter < impact.village.starsBefore && ` · 별이 ${impact.village.starsAfter}개로 줄어요`}
         </p>
       )}
       {impact.combos.length > 0 && (
