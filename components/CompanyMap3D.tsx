@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Canvas, useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
+import { Canvas, events as pointerEvents, useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { Html, OrbitControls, RoundedBox } from "@react-three/drei";
 import * as THREE from "three";
 import { useGameStore } from "@/store/gameStore";
@@ -22,6 +22,7 @@ import { pickBuildingChatter } from "@/lib/data/buildingChatter";
 import { getIndustry } from "@/lib/data/industries";
 import { BuildingInteriorModal } from "./BuildingInteriorModal";
 import { Building3D, buildingTop } from "./BuildingModels3D";
+import { MapViewport } from "./MapViewport";
 import { BUILDING_IMG } from "@/lib/assetMap";
 
 const PHASE_BG: Record<string, string> = {
@@ -870,7 +871,7 @@ function Scene({
   const sayFromBuilding = (b: PlacedBuilding) =>
     setChatter({ id: b.id, text: pickBuildingChatter(b.type, latest.current.company, latest.current.phase), key: Date.now() });
   useEffect(() => {
-    if (reducedMotion) return;
+    if (reducedMotion || workspace || selectedType) return;
     const talk = window.setInterval(() => {
       const { company: c, phase, rumor: gossip, people: crowd } = latest.current;
       if (crowd.length === 0) return;
@@ -892,7 +893,7 @@ function Scene({
       window.clearInterval(talk);
       window.clearInterval(chat);
     };
-  }, [reducedMotion]);
+  }, [reducedMotion, workspace, selectedType]);
 
   const tileWorld = (gx: number, gy: number) => ({
     x: (gx - (n - 1) / 2) * TILE,
@@ -971,7 +972,7 @@ function Scene({
                     />
                     {b.turnsLeft <= 0 && <LevelStars type={b.type} level={b.level} />}
                   </PopIn>
-                  {workReport?.labels[b.id] && (
+                  {b.id === selectedBuildingId && workReport?.labels[b.id] && (
                     <Html
                       key={`work-${workReport.key}`}
                       position={[0, buildingTop(b.type, b.level) + 0.12, 0]}
@@ -1002,7 +1003,7 @@ function Scene({
                       </div>
                     </Html>
                   )}
-                  {buildingLabels[b.id] && <Html position={[0, 1.6 + Object.keys(buildingLabels).indexOf(b.id) * 1.8, 0]} center zIndexRange={[15, 0]} style={{ pointerEvents: "none" }} calculatePosition={(object, camera, size) => {
+                  {b.id === selectedBuildingId && buildingLabels[b.id] && <Html position={[0, 1.6 + Object.keys(buildingLabels).indexOf(b.id) * 1.8, 0]} center zIndexRange={[15, 0]} style={{ pointerEvents: "none" }} calculatePosition={(object, camera, size) => {
                     const point = new THREE.Vector3().setFromMatrixPosition(object.matrixWorld).project(camera);
                     const lane = 2 - Object.keys(buildingLabels).indexOf(b.id);
                     return [Math.max(60, Math.min(size.width - 60, (point.x + 1) * size.width / 2)), Math.max(18 + lane * 32, Math.min(size.height - 18, (1 - point.y) * size.height / 2))];
@@ -1050,14 +1051,15 @@ function Scene({
 
       <IndustryLandmark industryId={company.industryId} color={company.logoColor} x={-(half + 0.35)} z={half + 0.35} />
 
-      {!reducedMotion && company.visitor && (
+      {!workspace && !reducedMotion && company.visitor && (
         <VisitorAgent visitor={company.visitor} half={half} company={company} placing={!!selectedType} />
       )}
 
       {workspace && <FitBoard n={n} free={cameraEnabled} />}
       {(!workspace || cameraEnabled) && <OrbitControls
         enabled={cameraEnabled}
-        enablePan
+        enablePan={false}
+        enableZoom={false}
         minDistance={Math.max(2.2, n * 0.35)}
         maxDistance={n * 2.4}
         minPolarAngle={0.2}
@@ -1155,6 +1157,7 @@ export function CompanyMap3D({
   buildingLabels?: Record<string, string>;
   workReport?: { key: number; labels: Record<string, string> };
 }) {
+  const [viewKey, setViewKey] = useState(0);
   const build = useGameStore((s) => s.build);
   // Show the "this turn" pop-ups for a few seconds after each turn.
   const [shownReport, setShownReport] = useState<{ key: number; labels: Record<string, string> } | null>(null);
@@ -1249,8 +1252,10 @@ export function CompanyMap3D({
 
   return (
     <div className="space-y-3">
-      <div
-        className={`relative w-full overflow-hidden rounded-2xl ${onWorkspaceCell ? `workspace-map-h isolate ${cameraEnabled ? "free-camera" : ""}` : overview ? "" : "h-[290px] sm:h-auto"}`}
+      <MapViewport
+        rotate={cameraEnabled}
+        onReset={() => setViewKey((v) => v + 1)}
+        className={onWorkspaceCell ? "workspace-map-h" : "h-[290px] sm:h-[400px]"}
         style={{
           aspectRatio: overview ? "16 / 10" : "16 / 9",
           maxHeight: onWorkspaceCell ? undefined : overview ? 320 : 560,
@@ -1270,7 +1275,16 @@ export function CompanyMap3D({
             </div>
           )}
         </div>
-        <Canvas
+        <Canvas key={viewKey}
+          events={(state) => ({
+            ...pointerEvents(state),
+            compute: (event, current) => {
+              // Client coordinates account for the shared pinch/drag transform.
+              const rect = current.gl.domElement.getBoundingClientRect();
+              current.pointer.set((event.clientX - rect.left) / rect.width * 2 - 1, -(event.clientY - rect.top) / rect.height * 2 + 1);
+              current.raycaster.setFromCamera(current.pointer, current.camera);
+            },
+          })}
           shadows
           frameloop={reducedMotion ? "demand" : "always"}
           dpr={[1, 1.8]}
@@ -1296,7 +1310,7 @@ export function CompanyMap3D({
             onCell={onCell}
           />
         </Canvas>
-      </div>
+      </MapViewport>
 
       {!onWorkspaceCell && !readOnly && !overview && inspected && (
         <BuildingInteriorModal

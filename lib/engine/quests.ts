@@ -71,7 +71,7 @@ const BUILD_REASONS: Partial<Record<BuildingType, string>> = {
   fountain: "도시에 시원한 분수 광장이 있으면 좋겠어요.",
   statue: "우리 도시를 대표할 상징물이 필요해요.",
   clocktower: "모두가 볼 수 있는 큰 시계가 있으면 좋겠어요.",
-  ferris: "관광객을 부를 대관람차를 꿈꾸고 있어요.",
+  ferris: "관광객을 부를 테마파크를 꿈꾸고 있어요.",
 };
 
 function questRng(state: GameState, salt: number): RngState {

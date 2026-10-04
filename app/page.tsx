@@ -8,6 +8,8 @@ import { useGameStore } from "@/store/gameStore";
 import { initAudio, playSfx } from "@/lib/audio";
 import { HelpModal } from "@/components/HelpModal";
 
+import { HallOfFame } from "@/components/HallOfFame";
+
 const SPLASH_IMG = "/assets/splash-dragon.png";
 
 // What the game is about, in words a 4th grader can read at a glance.
@@ -44,6 +46,7 @@ export default function Home() {
     <main className="min-h-screen bg-gradient-to-b from-slate-900 via-indigo-950 to-slate-900 text-white">
       <div className="relative flex w-full items-center justify-between gap-3 bg-slate-950/90 px-4 py-2 text-xs text-slate-300">
         <span>제작 <span className="font-bold text-white">hjpapa</span></span>
+        <a href="#hall-title" className="ml-auto inline-flex min-h-11 items-center rounded-full px-3 text-sm font-bold text-amber-200">🏅 명예의 전당</a>
         <Link
           href="/learn"
           className="inline-flex min-h-11 items-center rounded-full bg-blue-600 px-4 text-sm font-bold text-white shadow-lg transition hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
@@ -116,6 +119,8 @@ export default function Home() {
             ))}
           </div>
         </section>
+
+        <HallOfFame />
 
         <footer className="mt-auto pt-10 text-center text-xs text-slate-500">
           교육용 게임이에요 · 게임 속 투자는 진짜 돈이 아니에요

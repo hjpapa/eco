@@ -28,6 +28,7 @@ import {
 import { buildingWorkReport, getCityProgress } from "@/lib/ui/cityBuilder";
 import { WORK_LESSONS } from "@/lib/learning/catalog";
 import { useGameStore } from "@/store/gameStore";
+import { MapViewport } from "./MapViewport";
 import { CompanyCity } from "./CompanyCity";
 import { CompanyPanel } from "./CompanyPanel";
 import { BuildingIcon, ConstructionPanel } from "./ConstructionPanel";
@@ -105,7 +106,7 @@ export function CompanyWorkspace({
 
   // Celebrate new buildings, upgrades, combinations and city growth. The
   // signature covers in-place engine mutations (the company object is reused).
-  const signature = company.buildings.map((b) => `${b.id}:${b.level}`).join("|");
+  const signature = company.buildings.map((b) => `${b.id}:${b.level}:${b.turnsLeft > 0 ? "building" : "ready"}`).join("|");
   const comboIds = combos.map((c) => c.id);
   const previous = useRef({ signature, comboIds, stage: city.stage.id, count: company.buildings.length, score: city.score });
   useEffect(() => {
@@ -113,7 +114,7 @@ export function CompanyWorkspace({
     previous.current = { signature, comboIds, stage: city.stage.id, count: company.buildings.length, score: city.score };
     if (before.signature === signature) return;
     const newCombos = combos.filter((c) => !before.comboIds.includes(c.id));
-    const grew = city.stage.id !== before.stage && city.score > 0;
+    const grew = city.stage.id !== before.stage && city.score > before.score;
     let next: Omit<Celebration, "key"> | null = null;
     if (grew) {
       const opened = BUILDING_LIST.filter((def) => {
@@ -132,9 +133,9 @@ export function CompanyWorkspace({
       next = { emoji: newCombos[0].emoji, title: `${newCombos[0].name} 완성!`, detail: newCombos[0].description };
     } else if (company.buildings.length > before.count) {
       const newest = company.buildings[company.buildings.length - 1];
-      next = { emoji: BUILDINGS[newest.type].emoji, title: `${BUILDINGS[newest.type].name} 완성!` };
+      next = { emoji: BUILDINGS[newest.type].emoji, title: `${BUILDINGS[newest.type].name} ${newest.turnsLeft > 0 ? "공사 시작!" : "완성!"}` };
     } else if (company.buildings.length === before.count) {
-      next = { emoji: "⬆️", title: "업그레이드 완료!", detail: "건물이 더 커지고 튼튼해졌어요" };
+      next = { emoji: "⬆️", title: "도시 건물이 새로워졌어요!", detail: "완성된 건물과 새 레벨을 지도에서 확인해요" };
     }
     if (!next) return;
     setCelebration({ ...next, key: Date.now() });
@@ -239,14 +240,13 @@ export function CompanyWorkspace({
   }
 
   const flatMap = (
-    <div
-      className="overflow-auto rounded-2xl bg-emerald-100 p-3"
-      aria-label="2D 회사 지도"
-    >
+    <MapViewport className="workspace-map-h flat-map-h" style={{ background: "#e4f4ed" }}>
       <div
-        className="grid gap-1"
+        aria-label="2D 회사 지도"
+        className="grid h-full gap-1 p-2"
         style={{
-          gridTemplateColumns: `repeat(${game.config.mapSize}, minmax(44px, 1fr))`,
+          gridTemplateColumns: `repeat(${game.config.mapSize}, minmax(0, 1fr))`,
+          gridTemplateRows: `repeat(${game.config.mapSize}, minmax(0, 1fr))`,
         }}
       >
         {Array.from({ length: game.config.mapSize ** 2 }, (_, i) => {
@@ -272,15 +272,16 @@ export function CompanyWorkspace({
           return (
             <button
               key={i}
-              className={`relative flex min-h-16 flex-col items-center justify-center rounded-lg border p-1 text-xs leading-tight ${tone}`}
+              className={`relative flex !min-h-0 min-w-0 flex-col items-center justify-center overflow-hidden rounded-lg border p-0.5 text-[10px] leading-tight ${tone}`}
               onClick={() => onCell(x, y)}
-              aria-label={`${x + 1}열 ${y + 1}줄 ${b ? `${BUILDINGS[b.type].name} 레벨 ${b.level}` : placement?.combos.length ? "빈 땅, 조합 보너스 칸" : "빈 땅"}`}
+              aria-label={`${x + 1}열 ${y + 1}줄 ${b ? `${BUILDINGS[b.type].name} 레벨 ${b.level}${b.turnsLeft > 0 ? ` 공사 중 ${b.turnsLeft}턴 남음` : ""}` : placement?.combos.length ? "빈 땅, 조합 보너스 칸" : "빈 땅"}`}
             >
               {b ? (
                 <>
-                  <BuildingIcon type={b.type} size="h-8 w-8" />
-                  <span className="font-bold text-slate-700">{BUILDINGS[b.type].name.split("·")[0]}</span>
-                  {b.level > 1 && <span className="absolute right-0.5 top-0.5 text-xs text-amber-500">{"★".repeat(b.level)}</span>}
+                  {b.turnsLeft > 0 ? <span className="text-xl" aria-hidden>🏗️</span> :
+                    <BuildingIcon type={b.type} size={b.level > 1 ? "h-[45%] w-9 max-w-full" : "h-[40%] w-7 max-w-full"} />}
+                  <span className="max-w-full shrink-0 truncate text-[9px] font-bold leading-[10px] text-slate-700">{BUILDINGS[b.type].name}</span>
+                  <span className={`shrink-0 text-[9px] leading-[10px] ${b.turnsLeft > 0 ? "text-amber-800" : "font-bold text-indigo-700"}`}>{b.turnsLeft > 0 ? `공사 ${b.turnsLeft}턴` : `Lv.${b.level}`}</span>
                 </>
               ) : (
                 <span className="text-lg text-emerald-700/70" aria-hidden>
@@ -291,7 +292,7 @@ export function CompanyWorkspace({
           );
         })}
       </div>
-    </div>
+    </MapViewport>
   );
 
   const lesson = WORK_LESSONS[task];
@@ -326,7 +327,7 @@ export function CompanyWorkspace({
           <div className="grid items-start gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(380px,420px)] xl:grid-cols-[minmax(0,1fr)_460px]">
             <section ref={mapSection} className={`min-w-0 scroll-mt-36 space-y-2.5 rounded-3xl border border-emerald-200 bg-white/90 p-2.5 shadow-sm ${pending ? "map-placing" : ""}`}>
               <div className="flex flex-wrap items-center justify-between gap-2 px-1">
-                <div className="flex min-w-0 items-center gap-1.5">
+                <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                   <button
                     type="button"
                     onClick={() => choose("construction")}
@@ -356,7 +357,7 @@ export function CompanyWorkspace({
                     🏅 {(game.achievements ?? []).length}
                   </button>
                 </div>
-                <div className="flex gap-1.5">
+                <div className="flex flex-wrap gap-1.5">
                   <button className="btn-ghost !px-3" onClick={() => setReport(true)} aria-label="회사 성적표 보기">
                     📊 <span className="hidden sm:inline lg:hidden xl:inline">회사 성적표</span>
                   </button>
@@ -365,7 +366,7 @@ export function CompanyWorkspace({
                     aria-pressed={flat}
                     onClick={() => setFlat(!flat)}
                   >
-                    {flat ? "3D" : "2D"}
+                    {flat ? "입체 지도" : "평면 지도"}
                   </button>
                   {!flat && (
                     <button
@@ -416,7 +417,7 @@ export function CompanyWorkspace({
                   </MapBoundary>
                 )}
                 {!pending && (
-                  <div role="status" className="pointer-events-none absolute left-2 top-2 z-10 max-w-[55%]">
+                  <div role="status" className="mt-2 text-sm">
                     <span className="inline-block rounded-2xl bg-white/85 px-3 py-1 text-sm font-bold text-emerald-800 shadow-sm backdrop-blur">
                       {task === "construction" ? "👉 지을 건물을 고르거나, 건물을 눌러 키워요" : "👉 건물을 누르면 그 건물이 하는 일이 열려요"}
                     </span>

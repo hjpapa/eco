@@ -1,6 +1,7 @@
 import type { BuildingType, CharacterRole } from "@/lib/engine";
 
 export const BUILDING_IMG: Partial<Record<BuildingType, string>> = {
+  ferris:    "/assets/buildings/themepark.svg",
   office:    "/assets/buildings/office.png",
   factory:   "/assets/buildings/factory.png",
   rnd:       "/assets/buildings/rnd.png",

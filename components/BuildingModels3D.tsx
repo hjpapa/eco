@@ -1071,6 +1071,44 @@ function Ferris({ level, glow }: ModelProps) {
   );
 }
 
+function ThemePark({ level, glow }: ModelProps) {
+  return (
+    <group>
+      <Plinth base="#c4b5fd" top="#fce7f3" />
+      <group position={[-0.16, 0.03, -0.18]} scale={0.62}><Ferris level={level} glow={glow} /></group>
+      {/* Castle entrance and pennants make this a whole park, not a single ride. */}
+      {[-0.26, 0.26].map((x) => <group key={x} position={[x, Y0, 0.32]}>
+        <Cyl r={0.075} h={0.27} position={[0, 0.135, 0]} color="#c4b5fd" cast />
+        <Cyl r={0.1} rTop={0} h={0.16} position={[0, 0.35, 0]} color="#8b5cf6" cast />
+        <Cyl r={0.008} h={0.13} position={[0, 0.48, 0]} color="#fbbf24" segments={6} />
+        <Block size={[0.09, 0.045, 0.008]} position={[0.04, 0.51, 0]} color="#fb7185" />
+      </group>)}
+      <Block size={[0.44, 0.08, 0.09]} position={[0, Y0 + 0.23, 0.32]} color="#f472b6" glow={glow} />
+      {[-0.12, 0, 0.12].map((x) => <Ball key={x} r={0.024} position={[x, Y0 + 0.23, 0.373]} color="#fef08a" />)}
+      {/* Carousel canopy, centre pole and colourful seats. */}
+      <group position={[0.27, Y0, -0.12]}>
+        <Cyl r={0.15} h={0.035} position={[0, 0.02, 0]} color="#fbbf24" />
+        <Cyl r={0.015} h={0.24} position={[0, 0.14, 0]} color="#fef3c7" />
+        <Cyl r={0.17} rTop={0} h={0.12} position={[0, 0.3, 0]} color="#fb7185" />
+        {[-0.09, 0.09].map((x) => <Block key={x} size={[0.055, 0.06, 0.07]} position={[x, 0.095, 0]} color="#38bdf8" cast />)}
+      </group>
+      <Block size={[0.14, 0.006, 0.18]} position={[0, Y0 + 0.005, 0.36]} color="#fef3c7" />
+    </group>
+  );
+}
+
+function StreetDetails({ brand = "#6366f1", level }: ModelProps) {
+  return <group>
+    <Block size={[0.16, 0.018, 0.09]} position={[0, Y0 + 0.01, 0.43]} color="#cbd5e1" />
+    <Block size={[0.11, 0.06, 0.075]} position={[-0.32, Y0 + 0.03, 0.41]} color="#c08457" />
+    <Ball r={0.052} position={[-0.32, Y0 + 0.09, 0.41]} color="#65a30d" scale={[1, 0.7, 0.65]} />
+    {level > 1 && <Ball r={0.02} position={[-0.32, Y0 + 0.12, 0.435]} color="#f9a8d4" />}
+    <Cyl r={0.009} h={0.28} position={[0.4, Y0 + 0.14, 0.4]} color="#475569" segments={6} />
+    <Ball r={0.03} position={[0.4, Y0 + 0.29, 0.4]} color="#fff7cd" emissive="#fde68a" emissiveIntensity={0.4} />
+    <Block size={[0.05, 0.07, 0.01]} position={[0.375, Y0 + 0.19, 0.4]} color={brand} />
+  </group>;
+}
+
 function UnderConstruction() {
   return (
     <group>
@@ -1107,7 +1145,7 @@ const MODELS: Record<BuildingType, (props: ModelProps) => React.ReactElement> = 
   fountain: Fountain,
   statue: Statue,
   clocktower: ClockTower,
-  ferris: Ferris,
+  ferris: ThemePark,
 };
 
 export function Building3D({
@@ -1115,5 +1153,8 @@ export function Building3D({
 }: { building: PlacedBuilding; selected: boolean; brand?: string }) {
   if (building.turnsLeft > 0) return <UnderConstruction />;
   const Model = MODELS[building.type];
-  return <Model level={building.level} glow={selected} brand={brand} />;
+  return <group>
+    <Model level={building.level} glow={selected} brand={brand} />
+    {["factory", "office", "store", "warehouse", "rnd", "hr"].includes(building.type) && <StreetDetails level={building.level} glow={selected} brand={brand} />}
+  </group>;
 }

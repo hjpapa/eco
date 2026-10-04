@@ -1,5 +1,9 @@
 "use client";
 
+import { ENDINGS, getEndingId } from "@/lib/endings";
+import { saveHall } from "@/lib/hallOfFame";
+import { getBrowserStorage } from "@/lib/storage";
+
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -499,6 +503,8 @@ function ResultsPopup({
   onClose: () => void;
 }) {
   const dialogRef = useDialogFocus<HTMLDivElement>();
+  const [saved, setSaved] = useState<boolean | null>(null);
+  useEffect(() => { if (game) setSaved(saveHall(getBrowserStorage(), game)); }, [game]);
   if (!game) return null;
   const r = summary.playerResult!;
   const player = game.companies.find((c) => c.id === game.playerCompanyId)!;
@@ -849,12 +855,15 @@ function EventPopup({ events, onClose }: { events: NewsItem[]; onClose: () => vo
 
 function GameOver({ game, onRestart }: { game: ReturnType<typeof useGameStore.getState>["game"] & object; onRestart: () => void }) {
   const dialogRef = useDialogFocus<HTMLDivElement>();
+  const [saved, setSaved] = useState<boolean | null>(null);
+  useEffect(() => { if (game) setSaved(saveHall(getBrowserStorage(), game)); }, [game]);
   if (!game) return null;
   const board = rankings(game);
   const outcome = getCampaignOutcome(game);
   const rank = outcome.finalRank;
   const won = outcome.isChampion;
   const failed = game.endReason === "insolvent";
+  const ending = ENDINGS[getEndingId(game)];
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
       <div ref={dialogRef} className="card max-h-[92vh] w-full max-w-lg animate-popin overflow-y-auto p-6 text-center outline-none" tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="game-over-title">
@@ -866,13 +875,18 @@ function GameOver({ game, onRestart }: { game: ReturnType<typeof useGameStore.ge
           className="mx-auto h-36 w-36 object-contain"
         />
         <h2 id="game-over-title" className="mt-3 text-2xl font-black text-slate-800">
-          {failed ? "회사가 문을 닫았어요" : won ? "축하해요! 1등이에요!" : "게임 끝!"}
+          {ending.emoji} {ending.title}
         </h2>
         <p className="mt-1 text-slate-500">
           {failed
             ? `${game.turn}턴에 쓸 돈이 바닥나고 빚과 손해가 계속됐어요. 실패도 중요한 경제 공부예요.`
             : `${game.maxTurns}턴 동안 회사를 키워 ${rank}위로 마쳤어요.`}
         </p>
+        <div className="mt-4 rounded-2xl bg-indigo-50 p-4 text-left leading-relaxed text-indigo-950">
+          <p>{ending.story}</p>
+          <p className="mt-2 text-sm font-bold">💡 {ending.tip}</p>
+        </div>
+        <p role="status" className="mt-3 text-sm text-slate-500">{saved === null ? "기록을 정리하고 있어요…" : saved ? "🏅 명예의 전당에 저장했어요. 첫 화면에서 다시 볼 수 있어요." : "이 브라우저에서 기록을 저장하지 못했어요."}</p>
         {failed && (
           <div className="mt-4 rounded-xl bg-amber-50 p-4 text-left text-sm leading-relaxed text-amber-950 ring-1 ring-amber-200">
             <b>다음엔 이렇게 해 봐요</b>

@@ -91,10 +91,11 @@ export function ConstructionPanel({
 }) {
   const safetyLine = cashSafetyLine(company);
   const [filter, setFilter] = useState<PaletteFilter>("all");
+  const [showLocked, setShowLocked] = useState(false);
   const enabled = BUILDING_LIST.filter((b) => game.config.enabledBuildings.includes(b.type));
   // Open buildings first, then the ones a bigger city will unlock.
   const types = enabled
-    .filter((b) => filter === "all" || buildingRole(b.type) === filter)
+    .filter((b) => (filter === "all" || buildingRole(b.type) === filter) && (showLocked || isBuildingTypeUnlocked(company, b.type)))
     .sort((a, b) => {
       const lockA = isBuildingTypeUnlocked(company, a.type) ? 0 : a.unlockCityScore ?? 0;
       const lockB = isBuildingTypeUnlocked(company, b.type) ? 0 : b.unlockCityScore ?? 0;
@@ -131,7 +132,7 @@ export function ConstructionPanel({
       )}
 
       <section aria-labelledby="build-palette-title">
-        <h3 id="build-palette-title" className="mb-2 flex items-center justify-between text-sm font-black text-slate-800">
+        <h3 id="build-palette-title" className="mb-2 flex flex-wrap items-center justify-between gap-1 text-sm font-black text-slate-800">
           <span>🧱 무엇을 지을까요?</span>
           <span className="text-xs font-bold text-slate-500">고른 뒤 지도의 빈 땅을 눌러요</span>
         </h3>
@@ -188,16 +189,18 @@ export function ConstructionPanel({
                   active ? "border-emerald-500 ring-2 ring-emerald-400" : "border-slate-200 hover:border-slate-300 hover:shadow"
                 }`}
               >
+                <div className="flex min-h-5 w-full flex-wrap justify-between gap-1">
                 {comboReady && (
-                  <span className="absolute left-1 top-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-black text-amber-700">
+                  <span className=" rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-black text-amber-700">
                     ✨조합
                   </span>
                 )}
                 {!owned && (
-                  <span className="absolute right-1 top-1 rounded-full bg-violet-100 px-1.5 py-0.5 text-xs font-black text-violet-700">
+                  <span className="rounded-full bg-violet-100 px-1.5 py-0.5 text-xs font-black text-violet-700">
                     NEW
                   </span>
                 )}
+                </div>
                 <BuildingIcon type={def.type} />
                 <b className="mt-1 text-sm leading-tight text-slate-900">{def.name}</b>
                 <span className="text-xs leading-tight text-slate-500">{buildingTagline(def.type)}</span>
@@ -217,6 +220,9 @@ export function ConstructionPanel({
             );
           })}
         </div>
+        <button type="button" className="btn-ghost mt-3 w-full" aria-expanded={showLocked} onClick={() => setShowLocked((v) => !v)}>
+          {showLocked ? "지금 지을 수 있는 건물만 보기" : "🔒 앞으로 열릴 건물도 보기"}
+        </button>
         <p className="mt-2 text-sm leading-relaxed text-slate-500">
           🔓 도시가 커지면 새 건물이 열려요. 같은 건물을 또 지으면 값이 조금씩 올라요.
         </p>
@@ -477,6 +483,8 @@ function CityCollection({ game, company }: { game: GameState; company: Company }
           : "최고 단계 드래곤 시티에 도착했어요! 🎉"}
       </p>
 
+      <details className="mt-3">
+      <summary className="flex min-h-11 cursor-pointer items-center text-sm font-black text-violet-800">🏅 건물·조합 도감 펼치기</summary>
       <h4 className="mt-3 text-xs font-black text-slate-700">🏅 건물 도감</h4>
       <div className="mt-1 grid grid-cols-4 gap-1.5">
         {collection.buildings.map((entry) => (
@@ -514,6 +522,7 @@ function CityCollection({ game, company }: { game: GameState; company: Company }
           </li>
         ))}
       </ul>
+      </details>
     </section>
   );
 }

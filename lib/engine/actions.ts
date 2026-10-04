@@ -114,7 +114,7 @@ export function buildBuilding(
     return { ok: false, error: "도시가 더 커지면 지을 수 있어요." };
   }
   const max = state.config.mapSize;
-  if (x < 0 || y < 0 || x >= max || y >= max) {
+  if (!Number.isInteger(x) || !Number.isInteger(y) || x < 0 || y < 0 || x >= max || y >= max) {
     return { ok: false, error: "지도 밖에는 지을 수 없어요." };
   }
   if (company.buildings.some((b) => b.x === x && b.y === y)) {
@@ -136,11 +136,12 @@ export function buildBuilding(
   };
   company.buildings.push(building);
   const raisedTarget = followCampusGrowth(state, company, limitBefore);
-  const comboMessage = placement.combos.length > 0
+  const comboMessage = building.turnsLeft === 0 && placement.combos.length > 0
     ? ` · ${placement.combos.map((combo) => `${combo.emoji} ${combo.name}`).join(", ")} 완성!`
     : "";
   const planMessage = raisedTarget ? ` · 생산 계획도 ${raisedTarget.toLocaleString()}개로 늘렸어요` : "";
-  return { ok: true, message: `${BUILDINGS[type].name} 완성!${comboMessage}${planMessage}` };
+  const statusMessage = building.turnsLeft > 0 ? `공사 시작! ${building.turnsLeft}턴 뒤 완성돼요` : "완성!";
+  return { ok: true, message: `${BUILDINGS[type].name} ${statusMessage}${comboMessage}${planMessage}` };
 }
 
 /** Demolish/sell a building, refunding part of its construction cost. */

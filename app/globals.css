@@ -26,14 +26,22 @@ button, a, summary, [role="button"] {
 /* Map + control panel side by side on landscape tablets and up. The panel
    stays under the sticky HUD and scrolls on its own. */
 .workspace-map-h { height: 320px; }
-/* Touch: with the fixed camera a vertical swipe over the map scrolls the page;
-   in "돌려 보기" every finger gesture rotates/zooms the map instead.
-   (!important beats the inline style three.js OrbitControls writes.) */
-.workspace-map-h canvas { touch-action: pan-y !important; }
-.workspace-map-h.free-camera canvas { touch-action: none !important; }
+.company-workspace button { overflow-wrap: anywhere; }
+.company-workspace { overflow-wrap: anywhere; }
+:where(button, a, select, input):focus-visible { outline: 3px solid #6366f1; outline-offset: 3px; }
+@media (max-width: 639px) {
+  .workspace-map-h { height: clamp(280px, 85vw, 390px); }
+  .flat-map-h { height: clamp(360px, 110vw, 460px); }
+  .company-workspace .workspace-tasks { gap: 0.375rem; }
+  [role="dialog"] { max-height: 90dvh; padding: 1rem; overflow-wrap: anywhere; }
+  input, select { font-size: 16px; }
+}
+/* Gestures belong to the map only; the toolbar and surrounding page still scroll. */
+.map-gesture-surface, .map-gesture-surface canvas { touch-action: none !important; }
+.map-gesture-surface { user-select: none; -webkit-user-select: none; overscroll-behavior: contain; }
 @media (min-width: 768px) { .workspace-map-h { height: 440px; } }
 @media (min-width: 1024px) {
-  .workspace-map-h { height: clamp(360px, calc(100dvh - var(--hud-h, 8rem) - 6.75rem), 760px); }
+  .workspace-map-h { height: clamp(360px, calc(100dvh - var(--hud-h, 8rem) - 13rem), 760px); }
   /* Placing a building: the help bar sits above the map, so the map gives
      up the same height and the whole board stays on screen. */
   .map-placing .workspace-map-h { height: clamp(300px, calc(100dvh - var(--hud-h, 8rem) - 15.5rem), 640px); }

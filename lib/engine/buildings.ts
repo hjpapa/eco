@@ -214,7 +214,7 @@ export const BUILDINGS: Record<BuildingType, BuildingDef> = {
   },
   ferris: {
     type: "ferris",
-    name: "대관람차",
+    name: "테마파크",
     emoji: "🎡",
     cost: 260_000,
     buildTurns: 2,
