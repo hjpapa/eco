@@ -405,6 +405,8 @@ export interface GameState {
   questStats?: QuestStats;
   /** Village record: the best star rating reached (its prizes are paid once). */
   village?: { bestStars: number };
+  /** Named neighbours living in the village (see residents.ts). */
+  residents?: ResidentState[];
 
   createdAt: number;
   updatedAt: number;
@@ -447,6 +449,22 @@ export interface Quest {
   comboId?: string;
   level?: number;
   cityScore?: number;
+  /** A village neighbour's wish (a build request in their own words). */
+  residentId?: string;
+}
+
+/** A named village neighbour (definitions live in lib/data/residents.ts). */
+export interface ResidentState {
+  id: string;
+  /** 0..5; five hearts = best friend. */
+  hearts: number;
+  movedIn: number;
+  /** Favourite buildings counted last turn, to notice a new one. */
+  favoriteCount: number;
+  /** Turn the neighbour started worrying about moving away. */
+  worriedTurn?: number;
+  /** Best-friend gift already given. */
+  gift?: boolean;
 }
 
 export interface PendingDilemma {

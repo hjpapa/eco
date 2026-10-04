@@ -23,6 +23,8 @@ import {
 } from "@/lib/engine";
 import type { FestivalResult } from "@/lib/engine/seasons";
 import type { VillageChange } from "@/lib/engine/village";
+import { BEST_FRIEND_GIFT, type ResidentUpdate } from "@/lib/engine/residents";
+import { PERSONALITIES, RESIDENT_MAP } from "@/lib/data/residents";
 import { Stars } from "@/components/VillagePanel";
 import type { GameState, NewsItem } from "@/lib/engine";
 import type { TurnSummary } from "@/lib/engine/tick";
@@ -661,7 +663,7 @@ function ResultsPopup({
 
           <QuestNews summary={summary} />
 
-          {summary.village && <VillageNews change={summary.village} />}
+          {summary.village && <VillageNews change={summary.village} residents={summary.residents ?? null} />}
 
           <section className="mt-4 rounded-2xl bg-slate-900 p-3 text-white" aria-labelledby="mission-result-title">
             <div className="flex items-center justify-between gap-2">
@@ -726,8 +728,21 @@ function ResultsPopup({
 }
 
 /** 🏘️ The village after the turn: residents, happiness and any new star. */
-function VillageNews({ change }: { change: VillageChange }) {
+function VillageNews({ change, residents }: { change: VillageChange; residents: ResidentUpdate | null }) {
   const delta = change.population - change.populationBefore;
+  const who = (id: string) => RESIDENT_MAP[id];
+  const subject = (id: string) => `${who(id)?.emoji ?? ""} ${withJosa(who(id)?.name ?? "이웃", "이", "가")}`;
+  const lines: { key: string; text: string; tone: string }[] = [];
+  for (const id of residents?.movedIn ?? []) {
+    const def = who(id);
+    if (def) lines.push({ key: `in-${id}`, text: `🚚 ${subject(id)} 이사 왔어요! ${PERSONALITIES[def.personality].emoji} ${PERSONALITIES[def.personality].label}, 좋아하는 곳: ${PERSONALITIES[def.personality].likes}`, tone: "bg-emerald-100 text-emerald-900" });
+  }
+  for (const id of residents?.hearts ?? []) lines.push({ key: `h-${id}`, text: `💗 ${subject(id)} 좋아하는 건물이 생겨서 하트가 늘었어요`, tone: "bg-rose-100 text-rose-900" });
+  for (const id of residents?.gifts ?? []) lines.push({ key: `g-${id}`, text: `🎁 단짝 ${subject(id)} 고맙다며 선물을 줬어요! +${formatMoney(BEST_FRIEND_GIFT.cash)}원`, tone: "bg-amber-100 text-amber-900" });
+  for (const id of residents?.worried ?? []) lines.push({ key: `w-${id}`, text: `😢 ${subject(id)} 이사를 고민해요. 마을 행복을 올리거나 집을 더 지어 주세요!`, tone: "bg-sky-100 text-sky-900" });
+  for (const id of residents?.relieved ?? []) lines.push({ key: `r-${id}`, text: `😌 ${subject(id)} 마음을 바꿨어요. 계속 살래요!`, tone: "bg-emerald-100 text-emerald-900" });
+  for (const id of residents?.left ?? []) lines.push({ key: `l-${id}`, text: `👋 ${subject(id)} 이사 갔어요… 마을을 더 살기 좋게 만들면 새 이웃이 와요.`, tone: "bg-slate-200 text-slate-800" });
+  if (residents?.wish?.residentId) lines.push({ key: "wish", text: `💌 ${who(residents.wish.residentId)?.emoji ?? ""} ${who(residents.wish.residentId)?.name ?? "이웃"}의 소원이 의뢰판에 도착했어요`, tone: "bg-amber-50 text-amber-900" });
   return (
     <section className="mt-4 rounded-2xl bg-lime-50 p-3 ring-1 ring-lime-200" aria-labelledby="village-news-title">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -748,6 +763,13 @@ function VillageNews({ change }: { change: VillageChange }) {
           ⭐ 마을 별 {goal.stars}개 달성! 축하금 +{formatMoney(goal.reward.cash)}원 · 평판 +{goal.reward.reputation}
         </div>
       ))}
+      {lines.length > 0 && (
+        <ul className="mt-2 space-y-1.5">
+          {lines.map((line) => (
+            <li key={line.key} className={`rounded-xl px-3 py-2 text-sm font-bold ${line.tone}`}>{line.text}</li>
+          ))}
+        </ul>
+      )}
     </section>
   );
 }

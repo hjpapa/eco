@@ -30,6 +30,7 @@ import { updateDilemma } from "./dilemmas";
 import { checkAchievements } from "./achievements";
 import { startSeason, type FestivalResult } from "./seasons";
 import { ensureVillage, settleVillage, villageStats, type VillageChange } from "./village";
+import { updateResidents, type ResidentUpdate } from "./residents";
 import { decayRelations } from "./relations";
 import { recordNetWorth } from "./ranking";
 import { topUpTalentPool } from "./characters";
@@ -59,6 +60,8 @@ export interface TurnSummary {
   season?: FestivalResult | null;
   /** Village population, happiness and any new stars. */
   village?: VillageChange | null;
+  /** Neighbours moving in or away, hearts, gifts and a new wish. */
+  residents?: ResidentUpdate | null;
 }
 
 let monetaryCounter = 0;
@@ -214,6 +217,8 @@ export function advanceTurn(state: GameState): TurnSummary {
 
   // 9) Request board, choice cards and achievements for the new turn.
   const questUpdate = updateQuests(state);
+  // Village neighbours move in or away, and may post a wish on the board.
+  const residents = updateResidents(state);
   const newDilemma = updateDilemma(state) !== null;
   const achievements = checkAchievements(state).map(({ id, emoji, title }) => ({ id, emoji, title }));
 
@@ -230,6 +235,7 @@ export function advanceTurn(state: GameState): TurnSummary {
     achievements,
     season,
     village,
+    residents,
   };
 }
 

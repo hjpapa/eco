@@ -142,3 +142,20 @@ export const SEASON_ART_TODO = {
   autumnBanner: "/assets/seasons/autumn_harvest.png",
   winterBanner: "/assets/seasons/winter_snow.png",
 } as const;
+
+// TODO(asset): portraits for the named village neighbours (lib/data/residents.ts).
+// The game shows their emoji until these exist; nothing references them yet.
+export const RESIDENT_ART_TODO: Record<string, string> = {
+  toto: "/assets/residents/toto.png",
+  mongsil: "/assets/residents/mongsil.png",
+  basak: "/assets/residents/basak.png",
+  kungkung: "/assets/residents/kungkung.png",
+  kongi: "/assets/residents/kongi.png",
+  ruru: "/assets/residents/ruru.png",
+  penggu: "/assets/residents/penggu.png",
+  buong: "/assets/residents/buong.png",
+  dalbong: "/assets/residents/dalbong.png",
+  coco: "/assets/residents/coco.png",
+  jjakjjak: "/assets/residents/jjakjjak.png",
+  pinky: "/assets/residents/pinky.png",
+};

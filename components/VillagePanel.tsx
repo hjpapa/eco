@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   BUILDINGS,
   BUILDING_LIST,
@@ -7,12 +8,18 @@ import {
   isBuildingTypeUnlocked,
   nextStarGoal,
   villageStats,
+  livingResidents,
+  residentLine,
+  residentSlots,
+  MAX_HEARTS,
+  PEOPLE_PER_RESIDENT,
   type BuildingType,
   type Company,
   type DemandLevel,
   type GameState,
 } from "@/lib/engine";
 import { formatMoney } from "@/lib/format";
+import { PERSONALITIES } from "@/lib/data/residents";
 import { Term } from "./Term";
 
 // 🏘️ 마을: a SimCity-style glance at the village. How many people live
@@ -97,6 +104,8 @@ export function VillagePanel({
           </p>
         )}
       </section>
+
+      <Neighbours game={game} population={stats.population} />
 
       {next && (
         <section className="rounded-2xl bg-amber-50 p-3 ring-1 ring-amber-200" aria-labelledby="next-star-title">
@@ -190,5 +199,83 @@ export function VillagePanel({
         </p>
       </section>
     </div>
+  );
+}
+
+export function Hearts({ count }: { count: number }) {
+  return (
+    <span className="text-sm leading-none" aria-label={`하트 ${count}개`}>
+      <span className="text-rose-500">{"♥".repeat(count)}</span>
+      <span className="text-slate-300">{"♥".repeat(Math.max(0, MAX_HEARTS - count))}</span>
+    </span>
+  );
+}
+
+/** 🏡 이웃 주민: named neighbours, their hearts, worries and wishes. Tap to chat. */
+function Neighbours({ game, population }: { game: GameState; population: number }) {
+  const living = livingResidents(game);
+  const slots = residentSlots(population);
+  const [talk, setTalk] = useState<{ id: string; nudge: number } | null>(null);
+  const wishes = new Set((game.quests ?? []).filter((q) => q.residentId && q.status !== "done").map((q) => q.residentId));
+  const nextAt = (living.length + 1) * PEOPLE_PER_RESIDENT;
+  const speaker = talk ? living.find((r) => r.id === talk.id) : null;
+
+  return (
+    <section className="rounded-2xl bg-white p-3 ring-1 ring-slate-200" aria-labelledby="neighbours-title">
+      <h3 id="neighbours-title" className="flex items-center justify-between gap-2 text-base font-black text-slate-800">
+        <span>🏡 이웃 주민</span>
+        <span className="text-sm font-bold text-slate-500">{living.length}명</span>
+      </h3>
+      {living.length === 0 ? (
+        <p className="mt-1.5 text-sm leading-relaxed text-slate-600">
+          주민이 {PEOPLE_PER_RESIDENT}명 모일 때마다 이름 있는 이웃이 한 명씩 이사 와요. 마을이 행복해야(😊 50점 이상) 와요!
+        </p>
+      ) : (
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          {living.map((r) => {
+            const personality = PERSONALITIES[r.def.personality];
+            const active = talk?.id === r.id;
+            return (
+              <button
+                key={r.id}
+                type="button"
+                aria-pressed={active}
+                onClick={() => setTalk((t) => ({ id: r.id, nudge: t?.id === r.id ? t.nudge + 1 : 0 }))}
+                className={`resident-card relative flex flex-col items-center rounded-2xl p-2 text-center ring-1 transition ${
+                  r.worriedTurn != null ? "bg-sky-50 ring-sky-300" : active ? "bg-rose-50 ring-rose-300" : "bg-slate-50 ring-slate-200"
+                }`}
+              >
+                {wishes.has(r.id) && (
+                  <span className="absolute right-1.5 top-1.5 rounded-full bg-amber-100 px-1.5 text-xs font-black text-amber-800">💌 소원</span>
+                )}
+                <span className="resident-face text-4xl leading-none" aria-hidden>{r.def.emoji}</span>
+                <b className="mt-1 text-sm text-slate-900">{r.def.name}</b>
+                <span className="text-xs font-bold text-slate-500">{personality.emoji} {personality.label}</span>
+                <Hearts count={r.hearts} />
+                {r.worriedTurn != null && <span className="mt-1 text-xs font-black text-sky-700">😢 이사 고민 중</span>}
+              </button>
+            );
+          })}
+        </div>
+      )}
+      {speaker && (
+        <div className="neighbour-talk mt-2 rounded-2xl bg-rose-50 p-3 text-sm text-slate-800 ring-1 ring-rose-200" role="status">
+          <b>{speaker.def.emoji} {speaker.def.name}</b>: &ldquo;{residentLine(game, speaker.id, talk?.nudge ?? 0)}&rdquo;
+          <div className="mt-1 text-xs font-bold text-slate-500">
+            💗 좋아하는 곳: {speaker.def.favorites.map((type) => `${BUILDINGS[type].emoji} ${BUILDINGS[type].name}`).join(" · ")} — 새로 지으면 하트가 늘어요
+          </div>
+        </div>
+      )}
+      {living.length > 0 && living.length < slots && (
+        <p className="mt-2 text-sm font-bold text-emerald-800">
+          🏠 빈자리가 있어요! 마을 행복이 50점 이상이면 다음 턴에 새 이웃이 와요.
+        </p>
+      )}
+      {living.length > 0 && living.length >= slots && living.length < 12 && (
+        <p className="mt-2 text-sm text-slate-600">
+          👥 주민이 <b>{nextAt}명</b>이 되면 새 이웃이 이사 올 수 있어요 (지금 {population}명).
+        </p>
+      )}
+    </section>
   );
 }

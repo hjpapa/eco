@@ -21,6 +21,7 @@ import { getIndustryProducts } from "../data/products";
 import { createRng, nextFloat, type RngState } from "./rng";
 import type { ActionResult } from "./actions";
 import { withJosa } from "../format";
+import { grantWish } from "./residents";
 
 // 📜 의뢰 게시판 — goals with rewards for the student's company.
 //  • Orders: a client wants N units within a few turns. Units come from stock
@@ -358,7 +359,8 @@ export function updateQuests(state: GameState): QuestUpdate {
 
   const rng = questRng(state, 0x51ed27);
   const hasOrder = state.quests.some((q) => q.kind === "order");
-  const hasCity = state.quests.some((q) => q.kind !== "order");
+  // Neighbours' wishes have their own slot (see residents.ts).
+  const hasCity = state.quests.some((q) => q.kind !== "order" && !q.residentId);
   if (!hasOrder && (state.turn <= 1 || nextFloat(rng) < 0.7)) {
     const order = makeOrder(state, company, rng);
     state.quests.push(order);
@@ -406,7 +408,13 @@ export function claimQuest(state: GameState, questId: string): ActionResult {
   if (quest.kind === "order" && (quest.units ?? 0) >= 500) record.bigOrders += 1;
   quest.status = "done";
   state.quests = (state.quests ?? []).filter((q) => q.id !== questId);
-  return { ok: true, message: `🎁 보상 받기 완료! +${quest.reward.cash.toLocaleString()}원` };
+  const friend = grantWish(state, quest);
+  return {
+    ok: true,
+    message: friend
+      ? `💗 ${friend}의 소원을 들어줬어요! 하트 +1 · +${quest.reward.cash.toLocaleString()}원`
+      : `🎁 보상 받기 완료! +${quest.reward.cash.toLocaleString()}원`,
+  };
 }
 
 /**

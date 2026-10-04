@@ -274,6 +274,7 @@ export * from "./health";
 export { advanceTurn } from "./tick";
 export * from "./seasons";
 export * from "./village";
+export * from "./residents";
 export { rankings, netWorth, portfolioValue, playerRank } from "./ranking";
 export {
   fundamentalValue,

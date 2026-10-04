@@ -198,7 +198,7 @@ function CityCard({ game, quest, onGoBuild }: { game: GameState; quest: Quest; o
   const claim = useGameStore((s) => s.claimQuest);
   const progress = questProgress(game, quest);
   const ready = quest.status === "ready" || progress.ratio >= 1;
-  const kindLabel = quest.kind === "build" ? "🏗️ 건설 요청" : quest.kind === "combo" ? "🧩 조합 요청" : quest.kind === "upgrade" ? "⬆️ 업그레이드 요청" : "🏙️ 도시 성장 요청";
+  const kindLabel = quest.residentId ? "💌 주민 소원" : quest.kind === "build" ? "🏗️ 건설 요청" : quest.kind === "combo" ? "🧩 조합 요청" : quest.kind === "upgrade" ? "⬆️ 업그레이드 요청" : "🏙️ 도시 성장 요청";
   return (
     <CardShell tone={ready ? "emerald" : "sky"} label={`도시 요청: ${quest.title}`}>
       <div className="flex items-start gap-2">

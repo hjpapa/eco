@@ -18,6 +18,8 @@ import {
   SEASONS,
   plotHappiness,
   VILLAGE_ROLES,
+  livingResidents,
+  residentLine,
 } from "@/lib/engine";
 import type { BuildingType, Company, GameState, PlacedBuilding } from "@/lib/engine";
 import { formatMoney } from "@/lib/format";
@@ -347,8 +349,12 @@ function PersonModel({
 }
 
 function Person({
-  a, index, speaking, rumor = false, onClick, placing = false,
-}: { a: AgentPath; index: number; speaking: string | null; rumor?: boolean; onClick: () => void; placing?: boolean }) {
+  a, index, speaking, rumor = false, onClick, placing = false, badge,
+}: {
+  a: AgentPath; index: number; speaking: string | null; rumor?: boolean; onClick: () => void; placing?: boolean;
+  /** A named neighbour's face, floating over their head. */
+  badge?: string;
+}) {
   const ref = useRef<THREE.Group>(null);
   const act = a.activity ?? "walk";
   useFrame((state) => {
@@ -389,6 +395,11 @@ function Person({
       <group onClick={(e) => { if (placing || !isTap(e)) return; e.stopPropagation(); onClick(); }}>
         <PersonModel kind={kind} seed={a.seed ?? index} walking={act === "walk"} gait={a.phase * 6 + index} />
       </group>
+      {badge && !speaking && (
+        <Html position={[0, 0.62, 0]} center distanceFactor={8} zIndexRange={[20, 0]} style={{ pointerEvents: "none" }}>
+          <div className="neighbour-badge">{badge}</div>
+        </Html>
+      )}
       {speaking && (
         <Html position={[0, 0.72, 0]} center distanceFactor={8} zIndexRange={[40, 0]} style={{ pointerEvents: "none" }}>
           <div className={`speech-bubble ${rumor ? "speech-bubble--rumor" : ""}`} style={{ width: 150 }}>
@@ -819,6 +830,8 @@ function Scene({
   const [hover, setHover] = useState<string | null>(null);
   const [speaker, setSpeaker] = useState<{ i: number; text: string; rumor?: boolean } | null>(null);
   const [chatter, setChatter] = useState<{ id: string; text: string; key: number } | null>(null);
+  const neighbours = livingResidents(game);
+  const chats = useRef(0);
 
   // Auto-dismiss speech bubbles.
   useEffect(() => {
@@ -1080,17 +1093,29 @@ function Scene({
 
       {/* agents */}
       {!reducedMotion && cars.map((a, i) => <Car key={`c${i}`} a={a} placing={!!selectedType} />)}
-      {!reducedMotion && people.map((a, i) => (
-        <Person
-          key={`p${i}`}
-          a={a}
-          index={i}
-          speaking={speaker?.i === i ? speaker.text : null}
-          rumor={speaker?.i === i && !!speaker.rumor}
-          onClick={() => setSpeaker({ i, text: pickCityVoice(company, game.macro.phase, { personKind: a.kind }) })}
-          placing={!!selectedType}
-        />
-      ))}
+      {!reducedMotion && people.map((a, i) => {
+        // The first walkers are the village's named neighbours (🐰 토토…).
+        const neighbour = !readOnly ? neighbours[i] : undefined;
+        return (
+          <Person
+            key={`p${i}`}
+            a={a}
+            index={i}
+            speaking={speaker?.i === i ? speaker.text : null}
+            rumor={speaker?.i === i && !!speaker.rumor}
+            badge={neighbour?.def.emoji}
+            onClick={() => {
+              if (neighbour) {
+                chats.current += 1;
+                setSpeaker({ i, text: `${neighbour.def.emoji} ${neighbour.def.name}: ${residentLine(game, neighbour.id, chats.current)}` });
+              } else {
+                setSpeaker({ i, text: pickCityVoice(company, game.macro.phase, { personKind: a.kind }) });
+              }
+            }}
+            placing={!!selectedType}
+          />
+        );
+      })}
 
       <IndustryLandmark industryId={company.industryId} color={company.logoColor} x={-(half + 0.35)} z={half + 0.35} />
 

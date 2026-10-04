@@ -373,6 +373,7 @@ body {
 @keyframes season-bob { 0%, 100% { transform: translateY(0) rotate(0); } 50% { transform: translateY(-4px) rotate(-6deg); } }
 @media (prefers-reduced-motion: reduce) { .season-card__icon { animation: none; } }
 /* ── village ── */
+.neighbour-badge { font-size: 20px; line-height: 1; padding: 2px; border-radius: 999px; background: rgba(255,255,255,0.92); box-shadow: 0 1px 3px rgba(0,0,0,0.25); }
 .village-hero { background: linear-gradient(135deg, #f7fee7, #ecfccb); }
 .star-up { animation: season-bob 1.6s ease-in-out 2; }
 @media (prefers-reduced-motion: reduce) { .star-up { animation: none; } }
