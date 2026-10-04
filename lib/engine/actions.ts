@@ -17,6 +17,7 @@ import {
 import { planWithOrder } from "./quests";
 import { currentSeason, SEASONS } from "./seasons";
 import { withJosa } from "../format";
+import { VILLAGE_BUILDINGS } from "./levels";
 import { autoAssignRole, generateCharacter } from "./characters";
 import { adjustRivalry, getRivalry } from "./relations";
 import { shockStock } from "./market";
@@ -24,6 +25,7 @@ import { nextFloat } from "./rng";
 import {
   applyCampaignGrowthMultiplier,
   captureCampaignGrowth,
+  getFeatureUnlockTurn,
   isFeatureUnlocked,
 } from "./campaign";
 
@@ -114,6 +116,9 @@ export function buildBuilding(
   }
   if (!isBuildingTypeUnlocked(company, type)) {
     return { ok: false, error: "도시가 더 커지면 지을 수 있어요." };
+  }
+  if (VILLAGE_BUILDINGS.includes(type) && !isFeatureUnlocked(state, "village")) {
+    return { ok: false, error: `🏘️ 마을은 ${getFeatureUnlockTurn(state.gameLength, "village")}턴에 열려요.` };
   }
   const only = BUILDINGS[type].season;
   if (only && currentSeason(state.macro) !== only) {

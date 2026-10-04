@@ -14,6 +14,9 @@ import {
   currentSeason,
   moveCost,
   SEASONS,
+  VILLAGE_BUILDINGS,
+  getFeatureUnlockTurn,
+  isFeatureUnlocked,
   type BuildingImpact,
   type BuildingType,
   type Company,
@@ -101,10 +104,12 @@ export function ConstructionPanel({
   initialFilter?: BuildingRole;
 }) {
   const season = currentSeason(game.macro);
+  const villageOpen = isFeatureUnlocked(game, "village");
   const safetyLine = cashSafetyLine(company);
   const [filter, setFilter] = useState<PaletteFilter>(initialFilter ?? "all");
   const [showLocked, setShowLocked] = useState(false);
-  const enabled = BUILDING_LIST.filter((b) => game.config.enabledBuildings.includes(b.type));
+  // Homes and decorations wait for the 🏘️ village lesson in guided games.
+  const enabled = BUILDING_LIST.filter((b) => game.config.enabledBuildings.includes(b.type) && (villageOpen || !VILLAGE_BUILDINGS.includes(b.type)));
   // Open buildings first, then the ones a bigger city will unlock.
   const types = enabled
     .filter((b) => (filter === "all" || buildingRole(b.type) === filter) && (showLocked || isBuildingTypeUnlocked(company, b.type)))
@@ -149,7 +154,7 @@ export function ConstructionPanel({
           <span className="text-xs font-bold text-slate-500">고른 뒤 지도의 빈 땅을 눌러요</span>
         </h3>
         <div className="mb-2 flex flex-wrap gap-1" role="group" aria-label="건물 종류 고르기">
-          {FILTERS.map((f) => (
+          {FILTERS.filter((f) => villageOpen || (f !== "home" && f !== "decor")).map((f) => (
             <button
               key={f}
               type="button"
@@ -249,6 +254,11 @@ export function ConstructionPanel({
         <button type="button" className="btn-ghost mt-3 w-full" aria-expanded={showLocked} onClick={() => setShowLocked((v) => !v)}>
           {showLocked ? "지금 지을 수 있는 건물만 보기" : "🔒 앞으로 열릴 건물도 보기"}
         </button>
+        {!villageOpen && (
+          <p className="mt-2 rounded-xl bg-lime-50 px-3 py-2 text-sm font-bold text-lime-900 ring-1 ring-lime-200">
+            🏘️ {getFeatureUnlockTurn(game.gameLength, "village")}턴에 마을이 열려요! 주택을 지으면 이웃이 이사 오고, 꾸미기 소품도 놓을 수 있어요.
+          </p>
+        )}
         <p className="mt-2 text-sm leading-relaxed text-slate-500">
           🔓 도시가 커지거나 마을 별이 오르면 새 건물이 열려요. 같은 건물을 또 지으면 값이 조금씩 올라요.
         </p>

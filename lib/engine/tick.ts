@@ -203,7 +203,7 @@ export function advanceTurn(state: GameState): TurnSummary {
   // A new turn is a new season, with its festival.
   const season = state.status === "playing" ? startSeason(state) : null;
   // New village stars pay their one-off prize.
-  const village = settleVillage(state, villageBefore.population, villageBefore.stars);
+  const village = settleVillage(state, villageBefore.population, villageBefore.stars, isFeatureUnlocked);
 
   // The simulation may prepare news in the background, but guided players do
   // not receive news cut-ins or campus visitors until those lessons unlock.

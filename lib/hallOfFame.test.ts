@@ -25,6 +25,14 @@ describe("모험 기록", () => {
     expect(saveHall(null, g)).toBe(false);
     expect(saveHall({ getItem: () => null, setItem: () => { throw Error("full"); } }, g)).toBe(false);
   });
+  it("마을 별점과 주민·이웃 수도 함께 기록한다", () => {
+    const storage = memory(); const g = game(); g.status = "ended";
+    saveHall(storage, g);
+    const [record] = readHall(storage);
+    expect(record.stars).toBeGreaterThanOrEqual(1);
+    expect(record.residents).toBeGreaterThanOrEqual(0);
+    expect(record.neighbours).toBe(0);
+  });
   it("최근 30번만 보관한다", () => {
     const storage = memory(); const g = game(); g.status = "ended";
     for (let i = 0; i < 35; i++) { g.createdAt = i; g.updatedAt = i; saveHall(storage, g); }

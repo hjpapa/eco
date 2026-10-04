@@ -1,4 +1,4 @@
-import type { BuildingType, GameState, PlacedBuilding } from "./types";
+import type { BuildingType, CampaignFeature, GameLength, GameState, PlacedBuilding, RevealMode } from "./types";
 
 // A light SimCity layer over the company campus. Homes bring residents,
 // workplaces bring jobs, shops serve residents, and parks or noisy factories
@@ -274,9 +274,15 @@ export function ensureVillage(state: GameState): NonNullable<GameState["village"
  * After a turn: pay the one-off prize for every star reached for the first
  * time. Returns the change for the results screen.
  */
-export function settleVillage(state: GameState, populationBefore: number, starsBefore: number): VillageChange | null {
+export function settleVillage(
+  state: GameState,
+  populationBefore: number,
+  starsBefore: number,
+  /** Guided games open the village after a few turns (see campaign.ts). */
+  unlocked: (game: { gameLength: GameLength; revealMode: RevealMode; turn: number }, feature: CampaignFeature) => boolean = () => true,
+): VillageChange | null {
   const player = state.companies.find((c) => c.id === state.playerCompanyId);
-  if (!player) return null;
+  if (!player || !unlocked(state, "village")) return null;
   const record = ensureVillage(state);
   const stats = villageStats(player.buildings);
   const starRewards = STAR_GOALS.filter((goal) => goal.stars > record.bestStars && goal.stars <= stats.stars);

@@ -16,6 +16,8 @@ export type GameEndReason = "completed" | "insolvent";
 /** Coarse feature groups used by navigation and the guided reveal schedule. */
 export type CampaignFeature =
   | "company"
+  /** 🏘️ 마을: homes, neighbours, decorations and the village tab. */
+  | "village"
   | "research"
   | "investment"
   | "talentNewsRanking"

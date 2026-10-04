@@ -23,7 +23,7 @@ let seq = 0;
 const at = (type: BuildingType, x: number, y: number, level = 1): PlacedBuilding => ({ id: `r${seq++}`, type, level, x, y, turnsLeft: 0 });
 
 const newGame = (seed = 5) =>
-  createGame({ level: "elementary", gameLength: 50, seed, playerCompanyName: "이웃회사", industryId: "food", countryId: "kr" });
+  createGame({ level: "elementary", gameLength: 50, seed, playerCompanyName: "이웃회사", industryId: "food", countryId: "kr", revealMode: "all" });
 const player = (game: GameState) => game.companies.find((c) => c.id === game.playerCompanyId)!;
 
 /** Free plots on the player's map, in reading order. */

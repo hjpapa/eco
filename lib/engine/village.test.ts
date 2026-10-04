@@ -141,6 +141,26 @@ describe("마을 별점", () => {
   });
 });
 
+describe("마을 엔딩", () => {
+  it("마을 별 4개와 이웃 6명이면 '이웃이 행복한 마을' 엔딩", async () => {
+    const { getEndingId } = await import("../endings");
+    const game = newGame(77);
+    const company = player(game);
+    company.buildings = [];
+    const types: BuildingType[] = ["factory", "office", "store", "cafeteria", "park", "gym", "clinic", "daycare", "warehouse"];
+    types.forEach((t, i) => company.buildings.push(at(t, i % 8, 0)));
+    // A balanced village: homes away from the factory row, parks next door.
+    for (let i = 0; i < 8; i += 1) company.buildings.push(at("house", i, 2));
+    company.buildings.push(at("park", 1, 3), at("fountain", 4, 3), at("park", 6, 3));
+    expect(villageStats(company.buildings).stars).toBeGreaterThanOrEqual(4);
+    game.residents = ["toto", "mongsil", "basak", "kungkung", "kongi", "ruru"].map((id) => ({ id, hearts: 1, movedIn: 0, favoriteCount: 0 }));
+    game.status = "ended";
+    game.endReason = "completed";
+    const ending = getEndingId(game);
+    expect(["champion", "village"]).toContain(ending);
+  });
+});
+
 describe("마을과 경제", () => {
   it("주민은 동네 손님이 되어 손님 수를 늘린다(최대 +20%)", () => {
     expect(villageCustomerBoost([at("factory", 0, 0)])).toBe(1);

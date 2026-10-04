@@ -17,6 +17,7 @@ import {
   productionCapacity,
   rankings,
   LAYER_LABELS,
+  CAMPAIGN_FEATURES,
   SEASONS,
   festivalRewardText,
   seasonOutlook,
@@ -27,7 +28,7 @@ import { BEST_FRIEND_GIFT, type ResidentUpdate } from "@/lib/engine/residents";
 import type { StickerDef } from "@/lib/engine/collection";
 import { PERSONALITIES, RESIDENT_MAP } from "@/lib/data/residents";
 import { Stars } from "@/components/VillagePanel";
-import type { GameState, NewsItem } from "@/lib/engine";
+import type { CampaignFeature, GameState, NewsItem } from "@/lib/engine";
 import type { TurnSummary } from "@/lib/engine/tick";
 import { formatMoney, withJosa } from "@/lib/format";
 import { initAudio, isMuted, setMuted, startBgm, stopBgm } from "@/lib/audio";
@@ -606,6 +607,7 @@ function ResultsPopup({
         </section>
 
         <div className="p-5">
+          <FeatureUnlockNews game={game} />
           {summary.season && <SeasonCard result={summary.season} industryId={player.industryId} />}
 
           <section aria-labelledby="turn-flow-title" className={summary.season ? "mt-4" : undefined}>
@@ -732,6 +734,40 @@ function ResultsPopup({
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+/** What each guided feature opens, in a child's words. */
+const FEATURE_NEWS: Partial<Record<CampaignFeature, { emoji: string; title: string; text: string }>> = {
+  village: { emoji: "🏘️", title: "마을이 열렸어요!", text: "🏡 주택을 지으면 주민과 이름 있는 이웃이 이사 와요. 🌼 꾸미기 소품으로 마을을 예쁘게 꾸미고, 😊 행복 지도도 볼 수 있어요." },
+  research: { emoji: "🔬", title: "연구가 열렸어요!", text: "연구로 품질을 높이면 더 좋은 물건을 더 비싸게 팔 수 있어요." },
+  investment: { emoji: "📈", title: "투자가 열렸어요!", text: "남는 돈을 주식·예금·금에 나눠 넣어 돈을 불려 봐요." },
+  talentNewsRanking: { emoji: "🧑‍💼", title: "인재와 뉴스가 열렸어요!", text: "멋진 인재를 뽑아 회사를 키우고, 경제 뉴스를 읽어 봐요." },
+  visitsPartnershipsAdvanced: { emoji: "🌏", title: "다른 회사 구경과 돈 관리가 열렸어요!", text: "다른 회사 도시를 구경하고, 빌린 돈과 이자도 직접 관리해요." },
+};
+
+/** 🎉 Features that opened with this turn (guided reveal), one card each. */
+function FeatureUnlockNews({ game }: { game: GameState }) {
+  const opened = CAMPAIGN_FEATURES.filter(
+    (feature) => feature !== "company" && game.revealMode === "guided" && getFeatureUnlockTurn(game.gameLength, feature) === game.turn,
+  );
+  if (!opened.length) return null;
+  return (
+    <div className="mb-4 space-y-2">
+      {opened.map((feature) => {
+        const news = FEATURE_NEWS[feature];
+        if (!news) return null;
+        return (
+          <section key={feature} className="feature-unlock flex gap-3 rounded-2xl bg-violet-50 p-3 ring-2 ring-violet-200" role="status">
+            <span className="text-4xl" aria-hidden>{news.emoji}</span>
+            <div>
+              <div className="text-base font-black text-violet-950">🎉 {news.title}</div>
+              <p className="mt-0.5 text-sm leading-relaxed text-slate-700">{news.text}</p>
+            </div>
+          </section>
+        );
+      })}
     </div>
   );
 }

@@ -287,7 +287,7 @@ export {
   TREASURY_RATIO,
   type StockMetrics,
 } from "./market";
-export { LEVEL_CONFIGS, getLevelConfig } from "./levels";
+export { LEVEL_CONFIGS, getLevelConfig, VILLAGE_BUILDINGS } from "./levels";
 export { PHASE_LABELS, PHASE_EMOJI } from "./economy";
 export { LAYER_LABELS } from "./events";
 export { generateFunEvent, latestFunEvent } from "./funEvents";

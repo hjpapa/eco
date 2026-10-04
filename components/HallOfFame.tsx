@@ -28,6 +28,13 @@ export function HallOfFame() {
             <p className="font-black text-amber-800">{ENDINGS[r.ending].emoji} {ENDINGS[r.ending].title}</p>
             <p className="mt-1 break-words font-bold">{r.name}</p>
             <p className="mt-2 text-sm">{r.rank}위 · 총재산 {formatMoney(r.wealth)}원</p>
+            {r.stars != null && (
+              <p className="mt-1 text-sm">
+                <span className="text-amber-500">{"★".repeat(r.stars)}</span>
+                <span className="text-slate-300">{"★".repeat(Math.max(0, 5 - r.stars))}</span>
+                {" "}· 👥 주민 {r.residents ?? 0}명 · 🐾 이웃 {r.neighbours ?? 0}명
+              </p>
+            )}
             <p className="mt-1 text-xs text-slate-500">{r.turns}/{r.length}턴 · {{ elementary: "초등", middle: "중등", university: "심화" }[r.level] ?? r.level} · {new Date(r.date).toLocaleDateString("ko-KR")}</p>
           </li>)}
         </ol>}

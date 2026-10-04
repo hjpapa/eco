@@ -4,6 +4,7 @@ import { BUILDINGS, isBuildingTypeUnlocked } from "./buildings";
 import { villageStats } from "./village";
 import { createRng, nextFloat, type RngState } from "./rng";
 import { withJosa } from "../format";
+import { isFeatureUnlocked } from "./campaign";
 
 // Named residents (Animal Crossing style) living in the student's village.
 //  • One named neighbour for every 6 residents; a happy village (50+) lets one
@@ -122,7 +123,7 @@ function postWish(state: GameState, player: Company): Quest | null {
 export function updateResidents(state: GameState): ResidentUpdate {
   const result: ResidentUpdate = { movedIn: [], worried: [], relieved: [], left: [], hearts: [], gifts: [], wish: null };
   const player = playerOf(state);
-  if (!player || state.status === "ended") return result;
+  if (!player || state.status === "ended" || !isFeatureUnlocked(state, "village")) return result;
   const residents = (state.residents ??= []);
   const stats = villageStats(player.buildings);
   const slots = residentSlots(stats.population);

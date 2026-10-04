@@ -64,6 +64,7 @@ describe("campaign defaults and feature reveals", () => {
   it("uses the exact fixed unlock schedule at each boundary", () => {
     const expected: Record<CampaignFeature, Record<GameLength, number>> = {
       company: { 20: 0, 50: 0, 100: 0 },
+      village: { 20: 1, 50: 2, 100: 3 },
       research: { 20: 2, 50: 5, 100: 10 },
       investment: { 20: 4, 50: 10, 100: 20 },
       talentNewsRanking: { 20: 7, 50: 18, 100: 35 },

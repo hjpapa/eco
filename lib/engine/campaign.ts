@@ -18,6 +18,7 @@ export const GAME_LENGTHS = [20, 50, 100] as const satisfies readonly GameLength
 
 export const CAMPAIGN_FEATURES = [
   "company",
+  "village",
   "research",
   "investment",
   "talentNewsRanking",
@@ -27,6 +28,8 @@ export const CAMPAIGN_FEATURES = [
 /** Fixed reveal schedule from the elementary guided-mode design. */
 export const FEATURE_UNLOCK_TURNS: Record<CampaignFeature, Record<GameLength, number>> = {
   company: { 20: 0, 50: 0, 100: 0 },
+  // The village opens right after the first turns of building and selling.
+  village: { 20: 1, 50: 2, 100: 3 },
   research: { 20: 2, 50: 5, 100: 10 },
   investment: { 20: 4, 50: 10, 100: 20 },
   talentNewsRanking: { 20: 7, 50: 18, 100: 35 },

@@ -98,6 +98,7 @@ export function CompanyWorkspace({
   const build = useGameStore((s) => s.build);
   const move = useGameStore((s) => s.move);
   const researchUnlocked = isFeatureUnlocked(game, "research");
+  const villageUnlocked = isFeatureUnlocked(game, "village");
   const advanced =
     game.config.showAdvancedMetrics &&
     isFeatureUnlocked(game, "visitsPartnershipsAdvanced");
@@ -185,9 +186,9 @@ export function CompanyWorkspace({
   }, []);
 
   const locked = (id: CompanyTask) =>
-    (id === "research" && !researchUnlocked) || (id === "finance" && !advanced);
+    (id === "research" && !researchUnlocked) || (id === "finance" && !advanced) || (id === "village" && !villageUnlocked);
   const lockTurn = (id: CompanyTask) =>
-    getFeatureUnlockTurn(game.gameLength, id === "research" ? "research" : "visitsPartnershipsAdvanced");
+    getFeatureUnlockTurn(game.gameLength, id === "research" ? "research" : id === "village" ? "village" : "visitsPartnershipsAdvanced");
   const choose = (id: CompanyTask, buildingId: string | null = null) => {
     setTask(id);
     setSelectedId(buildingId);
@@ -403,8 +404,8 @@ export function CompanyWorkspace({
                   >
                     <span aria-hidden>{city.stage.emoji}</span>
                     {city.stage.label}
-                    <span className="text-amber-500" aria-hidden>★{village.stars}</span>
-                    <span className="font-bold text-violet-700" aria-hidden>👥{village.population}</span>
+                    {villageUnlocked && <span className="text-amber-500" aria-hidden>★{village.stars}</span>}
+                    {villageUnlocked && <span className="font-bold text-violet-700" aria-hidden>👥{village.population}</span>}
                   </button>
                   <button
                     type="button"
@@ -494,7 +495,7 @@ export function CompanyWorkspace({
                     />
                   </MapBoundary>
                 )}
-                {!pending && !movingBuilding && (
+                {!pending && !movingBuilding && villageUnlocked && (
                   <button
                     type="button"
                     onClick={() => setHappyMap((v) => !v)}

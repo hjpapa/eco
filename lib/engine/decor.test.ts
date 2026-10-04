@@ -17,7 +17,7 @@ import { plotHappiness, villageStats } from "./village";
 import { startSeason } from "./seasons";
 
 const newGame = (seed = 9) =>
-  createGame({ level: "elementary", gameLength: 50, seed, playerCompanyName: "꾸미기회사", industryId: "food", countryId: "kr" });
+  createGame({ level: "elementary", gameLength: 50, seed, playerCompanyName: "꾸미기회사", industryId: "food", countryId: "kr", revealMode: "all" });
 const player = (game: GameState) => game.companies.find((c) => c.id === game.playerCompanyId)!;
 
 function freePlots(game: GameState, count: number) {
@@ -101,6 +101,19 @@ describe("꾸미기 소품", () => {
         if (q.buildingType && !q.residentId) expect(BUILDINGS[q.buildingType as BuildingType].decor).toBeFalsy();
       }
     }
+  });
+});
+
+describe("마을 열리는 때", () => {
+  it("차례로 열기 게임에서는 마을(주택·소품)이 정해진 턴에 열린다", () => {
+    const game = createGame({ level: "elementary", gameLength: 50, seed: 3, playerCompanyName: "차례회사", industryId: "food", countryId: "kr", revealMode: "guided" });
+    const company = player(game);
+    const [spot] = freePlots(game, 1);
+    const early = buildBuilding(game, company, "house", spot.x, spot.y);
+    expect(early.ok).toBe(false);
+    expect(early.ok ? "" : early.error).toContain("2턴");
+    game.turn = 2;
+    expect(buildBuilding(game, company, "house", spot.x, spot.y).ok).toBe(true);
   });
 });
 
