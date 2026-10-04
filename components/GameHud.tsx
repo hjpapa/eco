@@ -46,8 +46,8 @@ export function GameHud({
               <div className="truncate text-base font-black text-slate-900">{player.name}</div>
               <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500">
                 <span className="whitespace-nowrap" title="1턴 = 3개월">{game.turn}/{game.maxTurns}턴</span>
-                <span className={`season-chip season-chip--${season.id} whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-black`} title="1턴 = 한 계절(3개월), 4턴 = 1년">
-                  <span aria-hidden>{season.emoji}</span> {season.name} · {yearOf(game.turn)}년차
+                <span className={`season-chip season-chip--${season.id} inline-flex whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-black md:hidden lg:inline-flex`} title="1턴 = 한 계절(3개월), 4턴 = 1년">
+                  <span aria-hidden>{season.emoji}</span> {season.name}<span className="hidden sm:inline">&nbsp;· {yearOf(game.turn)}년차</span>
                 </span>
                 <span className="hidden whitespace-nowrap text-slate-400 xl:inline">· 1턴 = 3개월</span>
               </div>
@@ -65,6 +65,14 @@ export function GameHud({
           <HudStat label="📈 지난 턴 이익" value={`${player.lastProfit > 0 ? "+" : ""}${formatMoney(player.lastProfit)}원`} tone="wealth" />
         </div>
 
+        {/* Tablet portrait: the name column is narrow, so the season sits here as an icon. */}
+        <div
+          className={`season-chip season-chip--${season.id} hidden min-h-11 min-w-11 shrink-0 items-center justify-center rounded-xl text-lg md:flex lg:hidden`}
+          title={`${season.name} · ${yearOf(game.turn)}년차 (1턴 = 한 계절)`}
+          aria-label={`지금은 ${season.name}, ${yearOf(game.turn)}년차`}
+        >
+          <span aria-hidden>{season.emoji}</span>
+        </div>
         <div
           className={`economy-chip economy-chip--${weather.scene} flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-1.5 rounded-xl px-2 py-2 md:px-2.5`}
           title={`${weather.name}: ${weather.headline}`}
