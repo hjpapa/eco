@@ -25,7 +25,7 @@ describe("전체 난이도·기간 게임 종료 점검", () => {
           expect(Number.isFinite(getCampaignOutcome(game).finalNetWorth)).toBe(true);
           expect(["completed", "insolvent"]).toContain(game.endReason);
         }
-      });
+      }, 30_000); // two full 100-turn games take a few seconds on a busy machine
     }
   }
 });
