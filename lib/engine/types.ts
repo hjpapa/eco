@@ -33,6 +33,9 @@ export type EconomyPhase =
   | "deflation"
   | "stagflation";
 
+/** One turn is one season (3 months); four turns make a year. */
+export type Season = "spring" | "summer" | "autumn" | "winter";
+
 export interface MacroState {
   phase: EconomyPhase;
   gdpGrowth: number; // %
@@ -40,6 +43,8 @@ export interface MacroState {
   interestRate: number; // central-bank policy rate, %
   sentiment: number; // market mood, -1..1
   phaseTurnsLeft: number; // turns until the current phase may shift
+  /** Season of the turn being played. Missing on older saves (= from the turn). */
+  season?: Season;
 }
 
 // ---------------------------------------------------------------------------

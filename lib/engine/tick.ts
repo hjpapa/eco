@@ -28,6 +28,7 @@ import {
 } from "./quests";
 import { updateDilemma } from "./dilemmas";
 import { checkAchievements } from "./achievements";
+import { startSeason, type FestivalResult } from "./seasons";
 import { decayRelations } from "./relations";
 import { recordNetWorth } from "./ranking";
 import { topUpTalentPool } from "./characters";
@@ -53,6 +54,8 @@ export interface TurnSummary {
   newDilemma?: boolean;
   /** Achievements earned during this turn. */
   achievements?: { id: string; emoji: string; title: string }[];
+  /** The new season that starts with the next turn, and its festival. */
+  season?: FestivalResult | null;
 }
 
 let monetaryCounter = 0;
@@ -179,6 +182,9 @@ export function advanceTurn(state: GameState): TurnSummary {
   }
   state.updatedAt = Date.now();
 
+  // A new turn is a new season, with its festival.
+  const season = state.status === "playing" ? startSeason(state) : null;
+
   // The simulation may prepare news in the background, but guided players do
   // not receive news cut-ins or campus visitors until those lessons unlock.
   const newsUnlocked = isFeatureUnlocked(state, "talentNewsRanking");
@@ -208,6 +214,7 @@ export function advanceTurn(state: GameState): TurnSummary {
     questUpdate,
     newDilemma,
     achievements,
+    season,
   };
 }
 

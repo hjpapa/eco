@@ -8,6 +8,9 @@ import {
   planWithOrder,
   productionCapacity,
   roleBonuses,
+  currentSeason,
+  seasonOutlook,
+  SEASONS,
   type Company,
   type GameState,
 } from "@/lib/engine";
@@ -178,6 +181,8 @@ function ProductionControls({ game, company }: { game: GameState; company: Compa
   const target = company.decisions.productionTarget;
   const suggestion = planWithOrder(game, company);
   const set = (value: number) => setDecisions({ productionTarget: Math.max(0, Math.min(capacity, Math.round(value))) });
+  const season = SEASONS[currentSeason(game.macro)];
+  const outlook = seasonOutlook(company.industryId, season.id);
 
   return (
     <div className="space-y-3">
@@ -186,6 +191,14 @@ function ProductionControls({ game, company }: { game: GameState; company: Compa
         <StatTile emoji="🛍️" label={<Term term="수요">사려는 손님</Term>} value={`약 ${formatNum(demand)}명`} />
         <StatTile emoji="📦" label={<Term term="재고">창고 재고</Term>} value={`${formatNum(company.inventory)}개`} />
       </div>
+
+      <p className={`season-chip season-chip--${season.id} rounded-xl px-3 py-2 text-sm leading-snug`}>
+        <b>
+          {season.emoji} 지금은 {season.name}
+          {outlook.notable && ` · 손님 ${outlook.percent > 0 ? "+" : ""}${outlook.percent}%`}
+        </b>{" "}
+        {outlook.reason} <span className="whitespace-nowrap">(<Term term="계절 수요">계절 수요</Term>)</span>
+      </p>
 
       <OrderPlanner game={game} company={company} />
 

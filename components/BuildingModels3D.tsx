@@ -5,6 +5,7 @@ import { useFrame } from "@react-three/fiber";
 import { RoundedBox } from "@react-three/drei";
 import * as THREE from "three";
 import type { BuildingType, PlacedBuilding } from "@/lib/engine";
+import { useSeasonTheme } from "./seasonTheme";
 
 // Low-poly campus buildings styled after the building illustrations in
 // public/assets/buildings: a paved plinth, light walls with one accent colour,
@@ -264,34 +265,37 @@ function RooftopUnit({ position }: { position: V3 }) {
   );
 }
 
-export function RoundTree({ position, scale = 1, color = "#5cb85c" }: { position: V3; scale?: number; color?: string }) {
+export function RoundTree({ position, scale = 1, color }: { position: V3; scale?: number; color?: string }) {
+  const theme = useSeasonTheme();
   return (
     <group position={position} scale={scale}>
       <Cyl r={0.018} h={0.12} position={[0, 0.06, 0]} color="#8d5a2b" segments={6} />
-      <Ball r={0.085} position={[0, 0.17, 0]} color={color} />
-      <Ball r={0.06} position={[0.04, 0.22, 0.02]} color="#7ed37a" />
+      <Ball r={0.085} position={[0, 0.17, 0]} color={color ?? theme.canopy} />
+      <Ball r={0.06} position={[0.04, 0.22, 0.02]} color={color ? "#7ed37a" : theme.canopyHi} />
     </group>
   );
 }
 
 export function PineTree({ position, scale = 1 }: { position: V3; scale?: number }) {
+  const theme = useSeasonTheme();
   return (
     <group position={position} scale={scale}>
       <Cyl r={0.016} h={0.08} position={[0, 0.04, 0]} color="#8d5a2b" segments={6} />
       <mesh position={[0, 0.14, 0]} castShadow>
         <coneGeometry args={[0.08, 0.16, 8]} />
-        <meshStandardMaterial color="#2f9e57" roughness={0.9} />
+        <meshStandardMaterial color={theme.pineLow} roughness={0.9} />
       </mesh>
       <mesh position={[0, 0.23, 0]} castShadow>
         <coneGeometry args={[0.058, 0.12, 8]} />
-        <meshStandardMaterial color="#3fb168" roughness={0.9} />
+        <meshStandardMaterial color={theme.pineHigh} roughness={0.9} />
       </mesh>
     </group>
   );
 }
 
-function Bush({ position, scale = 1, color = "#4fae4f" }: { position: V3; scale?: number; color?: string }) {
-  return <Ball r={0.05} position={position} color={color} scale={[scale * 1.2, scale * 0.8, scale]} />;
+function Bush({ position, scale = 1, color }: { position: V3; scale?: number; color?: string }) {
+  const theme = useSeasonTheme();
+  return <Ball r={0.05} position={position} color={color ?? theme.bush} scale={[scale * 1.2, scale * 0.8, scale]} />;
 }
 
 function Hedge({ position, length, along = "x" }: { position: V3; length: number; along?: "x" | "z" }) {

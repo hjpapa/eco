@@ -17,7 +17,11 @@ import {
   productionCapacity,
   rankings,
   LAYER_LABELS,
+  SEASONS,
+  festivalRewardText,
+  seasonOutlook,
 } from "@/lib/engine";
+import type { FestivalResult } from "@/lib/engine/seasons";
 import type { GameState, NewsItem } from "@/lib/engine";
 import type { TurnSummary } from "@/lib/engine/tick";
 import { formatMoney, withJosa } from "@/lib/format";
@@ -597,7 +601,9 @@ function ResultsPopup({
         </section>
 
         <div className="p-5">
-          <section aria-labelledby="turn-flow-title">
+          {summary.season && <SeasonCard result={summary.season} industryId={player.industryId} />}
+
+          <section aria-labelledby="turn-flow-title" className={summary.season ? "mt-4" : undefined}>
             <h3 id="turn-flow-title" className="text-base font-black text-slate-800">물건과 돈은 이렇게 움직였어요</h3>
             <div className="mt-2 grid grid-cols-4 gap-1.5 text-center">
               <ResultStep emoji="🏭" label="만든 개수" value={`${r.unitsProduced.toLocaleString()}개`} />
@@ -712,6 +718,39 @@ function ResultsPopup({
         </div>
       </div>
     </div>
+  );
+}
+
+/** 🌸 The next season arrives: its festival and what it means for customers. */
+function SeasonCard({ result, industryId }: { result: FestivalResult; industryId: string }) {
+  const season = SEASONS[result.season];
+  const { festival } = result;
+  const outlook = seasonOutlook(industryId, result.season);
+  return (
+    <section className={`season-card season-card--${season.id} rounded-2xl p-3 ring-1`} aria-labelledby="season-card-title">
+      <div className="flex items-center gap-3">
+        <span className="season-card__icon text-4xl" aria-hidden>{season.emoji}</span>
+        <div className="min-w-0">
+          <div className="text-xs font-bold opacity-75">{result.year}년차 · 다음 턴은 {season.name}</div>
+          <h3 id="season-card-title" className="text-lg font-black">{season.name}이 왔어요!</h3>
+        </div>
+      </div>
+      <div className="mt-2 rounded-xl bg-white/85 p-2.5 text-slate-800">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <span className="font-black">{festival.emoji} {result.joined ? `${withJosa(festival.name, "이", "가")} 열렸어요!` : festival.name}</span>
+          {result.joined && (
+            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-black text-emerald-800">{festivalRewardText(festival)}</span>
+          )}
+        </div>
+        <p className="mt-0.5 text-sm leading-relaxed text-slate-600">
+          {result.joined ? festival.story : `이번엔 우리 도시가 함께하지 못했어요. ${festival.missing}`}
+        </p>
+      </div>
+      <p className="mt-2 text-sm leading-relaxed">
+        <b>📘 경제 한마디</b> · {outlook.reason}
+        {outlook.notable && <> 이번 계절 손님 <b>{outlook.percent > 0 ? "+" : ""}{outlook.percent}%</b>.</>} {outlook.tip}
+      </p>
+    </section>
   );
 }
 

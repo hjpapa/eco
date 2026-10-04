@@ -357,6 +357,23 @@ body {
 .economy-chip--clear { background: #eff6ff; }
 .economy-chip--rain,
 .economy-chip--fog { background: #f1f5f9; }
+
+/* ── seasons: 1 turn = 1 season ── */
+.season-chip { background: #f1f5f9; color: #334155; }
+.season-chip--spring { background: #fce7f3; color: #9d174d; }
+.season-chip--summer { background: #e0f2fe; color: #075985; }
+.season-chip--autumn { background: #ffedd5; color: #9a3412; }
+.season-chip--winter { background: #e0e7ff; color: #3730a3; }
+.season-card { color: #0f172a; }
+.season-card--spring { background: linear-gradient(135deg, #fdf2f8, #fce7f3); --tw-ring-color: #fbcfe8; }
+.season-card--summer { background: linear-gradient(135deg, #f0f9ff, #e0f2fe); --tw-ring-color: #bae6fd; }
+.season-card--autumn { background: linear-gradient(135deg, #fff7ed, #ffedd5); --tw-ring-color: #fed7aa; }
+.season-card--winter { background: linear-gradient(135deg, #f8fafc, #e0e7ff); --tw-ring-color: #c7d2fe; }
+.season-card__icon { animation: season-bob 2.4s ease-in-out infinite; display: inline-block; }
+@keyframes season-bob { 0%, 100% { transform: translateY(0) rotate(0); } 50% { transform: translateY(-4px) rotate(-6deg); } }
+@media (prefers-reduced-motion: reduce) { .season-card__icon { animation: none; } }
+.festival-flag { font-size: 22px; filter: drop-shadow(0 2px 2px rgba(0,0,0,0.3)); animation: season-bob 2s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .festival-flag { animation: none; } }
 .economy-chip--snow { background: #ecfeff; }
 .next-turn-button { box-shadow: 0 6px 18px rgba(79, 70, 229, 0.25); }
 

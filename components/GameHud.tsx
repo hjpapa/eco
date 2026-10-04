@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { RefObject } from "react";
-import type { Company, GameState } from "@/lib/engine";
+import { SEASONS, currentSeason, yearOf, type Company, type GameState } from "@/lib/engine";
 import { formatMoney } from "@/lib/format";
 import { getEconomyWeather } from "@/lib/ui/gameExperience";
 import { MASCOT_IMG } from "@/lib/assetMap";
@@ -29,6 +29,7 @@ export function GameHud({
   onNext: () => void;
 }) {
   const weather = getEconomyWeather(game.macro.phase);
+  const season = SEASONS[currentSeason(game.macro)];
   const campaignProgress = Math.min(100, Math.max(0, (game.turn / Math.max(1, game.maxTurns)) * 100));
 
   return (
@@ -45,6 +46,9 @@ export function GameHud({
               <div className="truncate text-base font-black text-slate-900">{player.name}</div>
               <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500">
                 <span className="whitespace-nowrap" title="1턴 = 3개월">{game.turn}/{game.maxTurns}턴</span>
+                <span className={`season-chip season-chip--${season.id} whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-black`} title="1턴 = 한 계절(3개월), 4턴 = 1년">
+                  <span aria-hidden>{season.emoji}</span> {season.name} · {yearOf(game.turn)}년차
+                </span>
                 <span className="hidden whitespace-nowrap text-slate-400 xl:inline">· 1턴 = 3개월</span>
               </div>
             </div>

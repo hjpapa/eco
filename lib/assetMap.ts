@@ -132,3 +132,13 @@ export const BANNER_IMGS = {
   neutral:  "/assets/banners/banner_neutral.png",
   report:   "/assets/banners/banner_report.png",
 } as const;
+
+// TODO(asset): seasonal art for the village upgrade. Until these files exist
+// the game uses emoji and primitive 3D colours (components/seasonTheme.ts), so
+// nothing here is referenced yet. Fill the paths when the images are drawn.
+export const SEASON_ART_TODO = {
+  springBanner: "/assets/seasons/spring_blossom.png",
+  summerBanner: "/assets/seasons/summer_splash.png",
+  autumnBanner: "/assets/seasons/autumn_harvest.png",
+  winterBanner: "/assets/seasons/winter_snow.png",
+} as const;

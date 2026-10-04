@@ -20,6 +20,7 @@ import { defaultDecisions, productionCapacity } from "./company";
 import { shuffle } from "./rng";
 import { netWorth, playerRank, recordNetWorth } from "./ranking";
 import { updateQuests } from "./quests";
+import { seasonOf } from "./seasons";
 import { getIndustryProducts } from "../data/products";
 import {
   DEFAULT_GAME_LENGTH,
@@ -244,7 +245,7 @@ export function createGame(opts: NewGameOptions): GameState {
     initialPlayerRank: 0,
     initialPlayerNetWorth: 0,
     status: "playing",
-    macro: createMacro(getCountry(opts.countryId), rng),
+    macro: { ...createMacro(getCountry(opts.countryId), rng), season: seasonOf(0) },
     companies,
     playerCompanyId: player.id,
     stocks: { ...createStocks(companies), ...createExternalStocks(companies, rng) },
@@ -269,6 +270,7 @@ export * from "./types";
 export * from "./campaign";
 export * from "./health";
 export { advanceTurn } from "./tick";
+export * from "./seasons";
 export { rankings, netWorth, portfolioValue, playerRank } from "./ranking";
 export {
   fundamentalValue,

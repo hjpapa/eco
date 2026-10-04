@@ -14,6 +14,8 @@ import {
   findBestBuildingCell,
   getActiveBuildingCombos,
   latestFunEvent,
+  currentSeason,
+  SEASONS,
 } from "@/lib/engine";
 import type { BuildingType, Company, GameState, PlacedBuilding } from "@/lib/engine";
 import { formatMoney } from "@/lib/format";
@@ -24,6 +26,7 @@ import { BuildingInteriorModal } from "./BuildingInteriorModal";
 import { Building3D, buildingTop } from "./BuildingModels3D";
 import { MapViewport } from "./MapViewport";
 import { BUILDING_IMG } from "@/lib/assetMap";
+import { SEASON_THEMES, SeasonThemeContext, type SeasonTheme } from "./seasonTheme";
 
 const PHASE_BG: Record<string, string> = {
   boom: "#bfe9ff", normal: "#d6efff", recession: "#cdd6e0",
@@ -801,7 +804,9 @@ function Scene({
 }) {
   const n = game.config.mapSize;
   const half = (n * TILE) / 2;
-  const grass = workspace ? "#a9d98a" : PHASE_GRASS[game.macro.phase] ?? PHASE_GRASS.normal;
+  const theme = SEASON_THEMES[currentSeason(game.macro)];
+  const festival = SEASONS[theme.season].festival;
+  const grass = workspace ? theme.grass : PHASE_GRASS[game.macro.phase] ?? PHASE_GRASS.normal;
   // Deterministic per-company seed so each campus's skyline & crowd look distinct.
   const companySeed = [...company.id].reduce((a, c) => a + c.charCodeAt(0), 0);
   const [hover, setHover] = useState<string | null>(null);
@@ -901,8 +906,8 @@ function Scene({
   });
 
   return (
-    <>
-      <ambientLight intensity={0.75} />
+    <SeasonThemeContext.Provider value={theme}>
+      <ambientLight intensity={theme.season === "winter" ? 0.82 : 0.75} />
       <hemisphereLight args={["#ffffff", "#cbd5e1", 0.5]} />
       <directionalLight
         position={[half + 3, half + 6, half + 4]}
@@ -989,6 +994,17 @@ function Scene({
                       </div>
                     </Html>
                   )}
+                  {workspace && b.turnsLeft <= 0 && festival.needs.includes(b.type) && (
+                    <Html
+                      position={[0.3, buildingTop(b.type, b.level) * 0.6 + 0.08, 0.3]}
+                      center
+                      distanceFactor={8}
+                      zIndexRange={[12, 0]}
+                      style={{ pointerEvents: "none" }}
+                    >
+                      <div className="festival-flag" title={`${festival.name}에 참여하는 건물`}>{festival.emoji}</div>
+                    </Html>
+                  )}
                   {chatter?.id === b.id && (
                     <Html
                       key={chatter.key}
@@ -1068,7 +1084,70 @@ function Scene({
         autoRotateSpeed={0.6}
         target={[0, 0.3, 0]}
       />}
-    </>
+
+      {!reducedMotion && theme.particles && <SeasonParticles particles={theme.particles} half={half} />}
+    </SeasonThemeContext.Provider>
+  );
+}
+
+/**
+ * Petals, leaves or snow drifting over the campus. One instanced mesh, and it
+ * never takes part in raycasting, so taps always reach the plots below.
+ */
+function SeasonParticles({ particles, half }: { particles: NonNullable<SeasonTheme["particles"]>; half: number }) {
+  const ref = useRef<THREE.InstancedMesh>(null);
+  const { kind, colors, count } = particles;
+  const flakes = useMemo(() => {
+    // A small deterministic scatter (UI only; never touches the game RNG).
+    let seed = count * 97 + kind.length * 13;
+    const rand = () => {
+      seed = (seed * 16807) % 2147483647;
+      return seed / 2147483647;
+    };
+    const spread = half + 0.6;
+    return Array.from({ length: count }, () => ({
+      x: (rand() * 2 - 1) * spread,
+      z: (rand() * 2 - 1) * spread,
+      y: rand() * 3.2,
+      speed: kind === "snow" ? 0.25 + rand() * 0.25 : 0.35 + rand() * 0.3,
+      sway: 0.6 + rand() * 0.9,
+      phase: rand() * Math.PI * 2,
+      spin: (rand() * 2 - 1) * 2.4,
+    }));
+  }, [count, kind, half]);
+  const dummy = useMemo(() => new THREE.Object3D(), []);
+
+  useEffect(() => {
+    const mesh = ref.current;
+    if (!mesh) return;
+    const color = new THREE.Color();
+    for (let i = 0; i < flakes.length; i += 1) mesh.setColorAt(i, color.set(colors[i % colors.length]));
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+  }, [flakes, colors]);
+
+  useFrame(({ clock }, delta) => {
+    const mesh = ref.current;
+    if (!mesh) return;
+    const t = clock.elapsedTime;
+    const step = Math.min(delta, 0.1);
+    for (let i = 0; i < flakes.length; i += 1) {
+      const f = flakes[i];
+      f.y -= f.speed * step;
+      if (f.y < 0.02) f.y = 3.2;
+      dummy.position.set(f.x + Math.sin(t * f.sway + f.phase) * 0.25, f.y, f.z + Math.cos(t * f.sway * 0.8 + f.phase) * 0.18);
+      if (kind === "snow") dummy.rotation.set(0, 0, 0);
+      else dummy.rotation.set(t * f.spin + f.phase, t * f.spin * 0.6, f.phase);
+      dummy.updateMatrix();
+      mesh.setMatrixAt(i, dummy.matrix);
+    }
+    mesh.instanceMatrix.needsUpdate = true;
+  });
+
+  return (
+    <instancedMesh ref={ref} args={[undefined, undefined, flakes.length]} raycast={() => null} frustumCulled={false}>
+      {kind === "snow" ? <sphereGeometry args={[0.05, 6, 5]} /> : <planeGeometry args={kind === "leaf" ? [0.14, 0.1] : [0.12, 0.085]} />}
+      <meshStandardMaterial side={THREE.DoubleSide} roughness={0.8} />
+    </instancedMesh>
   );
 }
 
@@ -1259,7 +1338,7 @@ export function CompanyMap3D({
         style={{
           aspectRatio: overview ? "16 / 10" : "16 / 9",
           maxHeight: onWorkspaceCell ? undefined : overview ? 320 : 560,
-          background: PHASE_BG[game.macro.phase] ?? PHASE_BG.normal,
+          background: onWorkspaceCell ? SEASON_THEMES[currentSeason(game.macro)].sky : PHASE_BG[game.macro.phase] ?? PHASE_BG.normal,
         }}
       >
         <div
@@ -1290,7 +1369,7 @@ export function CompanyMap3D({
           dpr={[1, 1.8]}
           camera={{ position: onWorkspaceCell ? [n * 0.8, n * 0.74, n * 0.84] : [n * 1.15, n * 0.95, n * 1.2], fov: 40 }}
         >
-          <color attach="background" args={[onWorkspaceCell ? "#e4f4ed" : PHASE_BG[game.macro.phase] ?? PHASE_BG.normal]} />
+          <color attach="background" args={[onWorkspaceCell ? SEASON_THEMES[currentSeason(game.macro)].sky : PHASE_BG[game.macro.phase] ?? PHASE_BG.normal]} />
           <Scene
             game={game}
             company={company}

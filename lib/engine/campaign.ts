@@ -1,6 +1,7 @@
 import { netWorth, playerRank } from "./ranking";
 import { getLevelConfig } from "./levels";
 import { mergeAssetCatalogMetadata } from "./assets";
+import { seasonOf } from "./seasons";
 import type {
   CampaignFeature,
   Company,
@@ -259,6 +260,8 @@ export function migrateGameState(value: unknown): GameState | null {
     initialPlayerRank: raw.initialPlayerRank ?? safePlayerRank(raw),
     initialPlayerNetWorth: raw.initialPlayerNetWorth ?? initialNetWorth(raw),
     endReason: raw.endReason ?? (raw.status === "ended" ? "completed" : undefined),
+    // Seasons arrived later: an older save picks up the season of its turn.
+    macro: raw.macro && !raw.macro.season ? { ...raw.macro, season: seasonOf(raw.turn) } : raw.macro,
   };
 
   if (migrated.turn >= migrated.maxTurns) {

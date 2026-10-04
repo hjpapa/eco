@@ -14,6 +14,7 @@ import {
   getFeatureUnlockTurn,
   openQuests,
   questProgress,
+  currentSeason,
   type GameState,
   type Company,
   type BuildingType,
@@ -30,6 +31,7 @@ import { WORK_LESSONS } from "@/lib/learning/catalog";
 import { useGameStore } from "@/store/gameStore";
 import { MapViewport } from "./MapViewport";
 import { CompanyCity } from "./CompanyCity";
+import { SEASON_THEMES } from "./seasonTheme";
 import { CompanyPanel } from "./CompanyPanel";
 import { BuildingIcon, ConstructionPanel } from "./ConstructionPanel";
 import { AchievementShelf, QuestBoard } from "./QuestBoard";
@@ -240,7 +242,7 @@ export function CompanyWorkspace({
   }
 
   const flatMap = (
-    <MapViewport className="workspace-map-h flat-map-h" style={{ background: "#e4f4ed" }}>
+    <MapViewport className="workspace-map-h flat-map-h" style={{ background: SEASON_THEMES[currentSeason(game.macro)].sky }}>
       <div
         aria-label="2D 회사 지도"
         className="grid h-full gap-1 p-2"

@@ -6,6 +6,9 @@ import {
   portfolioValue,
   productionCapacity,
   rankings,
+  seasonOf,
+  seasonOutlook,
+  SEASONS,
   totalUpkeep,
   type EconomyPhase,
   type GameState,
@@ -464,6 +467,18 @@ export function getTurnHighlights(
   } else if (snapshot.phase !== game.macro.phase) {
     const weather = getEconomyWeather(game.macro.phase);
     highlights.push({ emoji: weather.emoji, title: `경제 날씨가 '${weather.name}'으로 바뀌었어요`, detail: weather.advice, tone: "info" });
+  } else {
+    // The season of the turn that just ended (계절 수요).
+    const past = seasonOutlook(player.industryId, seasonOf(game.turn - 1));
+    if (Math.abs(past.percent) >= 10) {
+      const season = SEASONS[past.season];
+      highlights.push({
+        emoji: season.emoji,
+        title: `${season.name}이라 손님이 ${Math.abs(past.percent)}% ${past.percent > 0 ? "많았어요" : "적었어요"}`,
+        detail: `${past.reason} 계절에 따라 사려는 사람 수가 바뀌는 걸 '계절 수요'라고 해요.`,
+        tone: "info",
+      });
+    }
   }
 
   const newBuildings = player.buildings.length - (snapshot.buildingCount ?? player.buildings.length);
