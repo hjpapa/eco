@@ -132,9 +132,9 @@ function OurStock({ game, showExpert }: { game: GameState; showExpert: boolean }
       <Sparkline data={stock.history.slice(-24)} width={280} height={36} />
       {showExpert && (
         <details className="group mt-3 rounded-xl bg-slate-50 p-3">
-          <summary className="cursor-pointer list-none text-xs font-bold text-slate-600">
+          <summary className="flex min-h-11 cursor-pointer list-none items-center text-sm font-bold text-slate-600">
             전문가 회사 정보 보기 (PER·PBR·ROE)
-            <span className="float-right transition group-open:rotate-180">⌄</span>
+            <span className="ml-auto transition group-open:rotate-180">⌄</span>
           </summary>
           <div className="mt-3 grid grid-cols-2 gap-2 text-center text-xs">
             <div className="rounded-lg bg-white p-2">

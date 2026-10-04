@@ -288,9 +288,9 @@ export default function PlayPage() {
         {tab !== "home" && tab !== "company" && <aside className="side-sticky space-y-4">
           <EconomyIndicators game={game} />
           <details className="card group p-4">
-            <summary className="cursor-pointer list-none text-sm font-bold text-slate-700">
+            <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between text-sm font-bold text-slate-700">
               📋 회사 요약 더보기
-              <span className="float-right text-slate-400 transition group-open:rotate-180">⌄</span>
+              <span className="text-slate-400 transition group-open:rotate-180">⌄</span>
             </summary>
             <div className="mt-4 space-y-4">
               <Secretary game={game} />
@@ -475,10 +475,10 @@ function LearningChoice({ onChoose }: { onChoose: (choice: "practice" | "play") 
           실제 게임과 저장에 영향을 주지 않는 연습장에서 가격과 생산을 2분 동안 익힐 수 있어요.
         </p>
         <div className="mt-5 grid gap-2 sm:grid-cols-2">
-          <button autoFocus className="btn-primary" onClick={() => onChoose("practice")}>
+          <button autoFocus className="btn-primary min-h-12 text-base" onClick={() => onChoose("practice")}>
             📘 2분 기초 연습
           </button>
-          <button className="btn-ghost" onClick={() => onChoose("play")}>
+          <button className="btn-ghost min-h-12 text-base" onClick={() => onChoose("play")}>
             바로 시작 ▶
           </button>
         </div>
@@ -666,9 +666,9 @@ function ResultsPopup({
           </section>
 
           <details className="group mt-4 rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200">
-            <summary className="cursor-pointer list-none text-xs font-black text-slate-700">
+            <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between text-sm font-black text-slate-700">
               📊 숫자로 자세히 보기
-              <span className="float-right text-slate-400 transition group-open:rotate-180">⌄</span>
+              <span className="text-slate-400 transition group-open:rotate-180">⌄</span>
             </summary>
             <div className="mt-2 divide-y divide-slate-200">
               {rows.map((row) => (

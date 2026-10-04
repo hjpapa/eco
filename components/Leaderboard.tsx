@@ -64,10 +64,10 @@ export function Leaderboard({
               <div className="text-sm font-bold text-slate-800">{formatMoney(e.netWorth)}</div>
               {onVisit && !e.isPlayer && canVisit ? (
                 <button
-                  className="text-xs text-brand-600 hover:underline"
+                  className="btn-ghost mt-1 !min-h-11 !px-3 text-sm !text-brand-700"
                   onClick={() => onVisit(e.companyId)}
                 >
-                  방문 →
+                  구경 가기 →
                 </button>
               ) : null}
             </div>

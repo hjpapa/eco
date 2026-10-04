@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { Canvas, useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { Html, OrbitControls, RoundedBox } from "@react-three/drei";
 import * as THREE from "three";
 import { useGameStore } from "@/store/gameStore";
@@ -34,6 +34,10 @@ const PHASE_GRASS: Record<string, string> = {
 };
 
 const TILE = 1; // world units per grid cell
+
+/** A finger wobbles a few pixels on a tablet; anything farther is a drag. */
+const TAP_SLOP = 10;
+const isTap = (e: ThreeEvent<MouseEvent>) => e.delta <= TAP_SLOP;
 
 type BuildingCombo = (typeof BUILDING_COMBOS)[number];
 
@@ -151,7 +155,7 @@ function VehicleModel({ type, color }: { type: VehicleType; color: string }) {
   }
 }
 
-function Car({ a }: { a: AgentPath }) {
+function Car({ a, placing = false }: { a: AgentPath; placing?: boolean }) {
   const ref = useRef<THREE.Group>(null);
   const [showInfo, setShowInfo] = useState(false);
   useFrame((state) => {
@@ -167,7 +171,7 @@ function Car({ a }: { a: AgentPath }) {
   });
   return (
     <group ref={ref}>
-      <group onClick={(e) => { e.stopPropagation(); setShowInfo((v) => !v); }}>
+      <group onClick={(e) => { if (placing || !isTap(e)) return; e.stopPropagation(); setShowInfo((v) => !v); }}>
         {/* Pre-rotate -90° around Y so the vehicle's long X-axis aligns with
             the group's forward Z-axis (which Math.atan2(dx,dz) already targets). */}
         <group rotation={[0, -Math.PI / 2, 0]}>
@@ -336,8 +340,8 @@ function PersonModel({
 }
 
 function Person({
-  a, index, speaking, rumor = false, onClick,
-}: { a: AgentPath; index: number; speaking: string | null; rumor?: boolean; onClick: () => void }) {
+  a, index, speaking, rumor = false, onClick, placing = false,
+}: { a: AgentPath; index: number; speaking: string | null; rumor?: boolean; onClick: () => void; placing?: boolean }) {
   const ref = useRef<THREE.Group>(null);
   const act = a.activity ?? "walk";
   useFrame((state) => {
@@ -375,7 +379,7 @@ function Person({
   const kind = a.kind ?? "man";
   return (
     <group ref={ref}>
-      <group onClick={(e) => { e.stopPropagation(); onClick(); }}>
+      <group onClick={(e) => { if (placing || !isTap(e)) return; e.stopPropagation(); onClick(); }}>
         <PersonModel kind={kind} seed={a.seed ?? index} walking={act === "walk"} gait={a.phase * 6 + index} />
       </group>
       {speaking && (
@@ -416,11 +420,13 @@ const VISITOR_KIND_SEED: Record<string, number> = {
 };
 
 function VisitorAgent({
-  visitor, half, company,
+  visitor, half, company, placing = false,
 }: {
   visitor: NonNullable<Company["visitor"]>;
   half: number;
   company: Company;
+  /** While a building is being placed, taps go through to the plots. */
+  placing?: boolean;
 }) {
   const ref = useRef<THREE.Group>(null);
   const [voiceIdx, setVoiceIdx] = useState(0);
@@ -488,7 +494,7 @@ function VisitorAgent({
       {/* Slightly larger than regular employees so they stand out. */}
       <group
         scale={1.4}
-        onClick={(e) => { e.stopPropagation(); setVoiceIdx((i) => (i + 1) % voices.length); }}
+        onClick={(e) => { if (placing || !isTap(e)) return; e.stopPropagation(); setVoiceIdx((i) => (i + 1) % voices.length); }}
       >
         <PersonModel kind="man" seed={kindSeed} walking={true} gait={2.1} />
         {/* Glowing star crown to mark VIP status */}
@@ -499,7 +505,7 @@ function VisitorAgent({
       </group>
 
       {/* Name badge (always visible) */}
-      <Html position={[0, 0.78, 0]} center distanceFactor={8} zIndexRange={[50, 0]}>
+      <Html position={[0, 0.78, 0]} center distanceFactor={8} zIndexRange={[50, 0]} style={{ pointerEvents: placing ? "none" : "auto" }}>
         <div
           style={{
             background: kindColor, color: "white", borderRadius: 999,
@@ -515,7 +521,7 @@ function VisitorAgent({
 
       {/* Auto-cycling speech bubble — offset to the right so it doesn't
           cover the visitor model on screen. */}
-      <Html position={[1.6, 0.6, 0]} center distanceFactor={8} zIndexRange={[51, 0]}>
+      <Html position={[1.6, 0.6, 0]} center distanceFactor={8} zIndexRange={[51, 0]} style={{ pointerEvents: placing ? "none" : "auto" }}>
         <div
           style={{
             background: "white", border: `2px solid ${kindColor}`,
@@ -557,11 +563,12 @@ function Tile({
       position={[x, 0.012, z]}
       rotation={[-Math.PI / 2, 0, 0]}
       receiveShadow
-      onClick={(e) => { e.stopPropagation(); onClick(); }}
+      onClick={(e) => { e.stopPropagation(); if (isTap(e)) onClick(); }}
       onPointerOver={(e) => { e.stopPropagation(); onHover(true); }}
       onPointerOut={() => onHover(false)}
     >
-      <planeGeometry args={[TILE * 0.96, TILE * 0.96]} />
+      {/* Full-size plane: no gaps between plots for a finger to miss. */}
+      <planeGeometry args={[TILE, TILE]} />
       <meshStandardMaterial color={style.color} transparent opacity={style.opacity} />
     </mesh>
   );
@@ -954,7 +961,7 @@ function Scene({
                 <group
                   position={[x, 0, z]}
                   scale={[1, 0.96 + ((b.x * 7 + b.y * 13 + companySeed) % 5) * 0.02, 1]}
-                  onClick={(e) => { e.stopPropagation(); onCell(gx, gy); if (b.turnsLeft <= 0) sayFromBuilding(b); }}
+                  onClick={(e) => { e.stopPropagation(); if (!isTap(e)) return; onCell(gx, gy); if (b.turnsLeft <= 0) sayFromBuilding(b); }}
                 >
                   <PopIn bornAt={reducedMotion ? undefined : born.get(`${b.id}:${b.level}`)}>
                     <Building3D
@@ -995,7 +1002,7 @@ function Scene({
                       </div>
                     </Html>
                   )}
-                  {buildingLabels[b.id] && <Html position={[0, 1.6 + Object.keys(buildingLabels).indexOf(b.id) * 1.8, 0]} center zIndexRange={[15, 0]} calculatePosition={(object, camera, size) => {
+                  {buildingLabels[b.id] && <Html position={[0, 1.6 + Object.keys(buildingLabels).indexOf(b.id) * 1.8, 0]} center zIndexRange={[15, 0]} style={{ pointerEvents: "none" }} calculatePosition={(object, camera, size) => {
                     const point = new THREE.Vector3().setFromMatrixPosition(object.matrixWorld).project(camera);
                     const lane = 2 - Object.keys(buildingLabels).indexOf(b.id);
                     return [Math.max(60, Math.min(size.width - 60, (point.x + 1) * size.width / 2)), Math.max(18 + lane * 32, Math.min(size.height - 18, (1 - point.y) * size.height / 2))];
@@ -1017,8 +1024,18 @@ function Scene({
         );
       })()}
 
+      {/* pin over the plot the player tapped (tap it again to build) */}
+      {!readOnly && selectedType && confirmCell && (() => {
+        const { x, z } = tileWorld(confirmCell.x, confirmCell.y);
+        return (
+          <Html position={[x, 0.45, z]} center zIndexRange={[31, 0]} style={{ pointerEvents: "none" }}>
+            <div className="plot-pin">📍</div>
+          </Html>
+        );
+      })()}
+
       {/* agents */}
-      {!reducedMotion && cars.map((a, i) => <Car key={`c${i}`} a={a} />)}
+      {!reducedMotion && cars.map((a, i) => <Car key={`c${i}`} a={a} placing={!!selectedType} />)}
       {!reducedMotion && people.map((a, i) => (
         <Person
           key={`p${i}`}
@@ -1027,17 +1044,18 @@ function Scene({
           speaking={speaker?.i === i ? speaker.text : null}
           rumor={speaker?.i === i && !!speaker.rumor}
           onClick={() => setSpeaker({ i, text: pickCityVoice(company, game.macro.phase, { personKind: a.kind }) })}
+          placing={!!selectedType}
         />
       ))}
 
       <IndustryLandmark industryId={company.industryId} color={company.logoColor} x={-(half + 0.35)} z={half + 0.35} />
 
       {!reducedMotion && company.visitor && (
-        <VisitorAgent visitor={company.visitor} half={half} company={company} />
+        <VisitorAgent visitor={company.visitor} half={half} company={company} placing={!!selectedType} />
       )}
 
-      {workspace && <FitBoard />}
-      <OrbitControls
+      {workspace && <FitBoard n={n} free={cameraEnabled} />}
+      {(!workspace || cameraEnabled) && <OrbitControls
         enabled={cameraEnabled}
         enablePan
         minDistance={Math.max(2.2, n * 0.35)}
@@ -1047,26 +1065,78 @@ function Scene({
         autoRotate={overview && !reducedMotion && !workspace}
         autoRotateSpeed={0.6}
         target={[0, 0.3, 0]}
-      />
+      />}
     </>
   );
 }
 
 /**
- * The workspace camera was framed for a wide 16:9 box. On tablets the map
- * box is closer to square, so widen the view (zoom out) until the whole
- * board fits again instead of cutting off the corner plots.
+ * Frame the whole board as large as the map box allows. Squarer boxes (a
+ * tablet's side-by-side layout) look down more steeply, which makes every
+ * plot taller on screen and easier to hit with a finger. With the fixed
+ * camera the board is also centred, so no empty sky is wasted.
  */
-function FitBoard({ wide = 1.6 }: { wide?: number }) {
+function FitBoard({ n, free }: { n: number; free: boolean }) {
   const camera = useThree((state) => state.camera);
   const width = useThree((state) => state.size.width);
   const height = useThree((state) => state.size.height);
   useEffect(() => {
-    if (!(camera instanceof THREE.PerspectiveCamera)) return;
-    const aspect = width / Math.max(1, height);
-    camera.zoom = Math.min(1, Math.max(0.62, aspect / wide));
+    if (!(camera instanceof THREE.PerspectiveCamera) || width < 2 || height < 2) return;
+    const aspect = width / height;
+    const elevation = THREE.MathUtils.degToRad(aspect < 1.25 ? 46 : aspect < 1.6 ? 40 : 34);
+    const azimuth = Math.atan2(0.8, 0.84); // the familiar corner view
+    const distance = n * TILE * 1.38;
+    const target = new THREE.Vector3(0, 0.3, 0);
+    const place = () => {
+      camera.position.set(
+        target.x + distance * Math.cos(elevation) * Math.sin(azimuth),
+        target.y + distance * Math.sin(elevation),
+        target.z + distance * Math.cos(elevation) * Math.cos(azimuth),
+      );
+      camera.lookAt(target);
+      camera.updateMatrixWorld();
+      camera.updateProjectionMatrix();
+    };
+    // The plot up to the outer edge of the ring road, plus roof height at the
+    // far corner where buildings stick up.
+    const edge = (n * TILE) / 2 + 0.45;
+    const points = [
+      new THREE.Vector3(-edge, 0, -edge),
+      new THREE.Vector3(-edge, 0, edge),
+      new THREE.Vector3(edge, 0, -edge),
+      new THREE.Vector3(edge, 0, edge),
+      new THREE.Vector3(-edge, 1.2, -edge),
+    ];
+    const extent = () => {
+      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+      for (const point of points) {
+        const p = point.clone().project(camera);
+        minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
+        minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y);
+      }
+      return { minX, maxX, minY, maxY };
+    };
+    camera.zoom = 1;
+    place();
+    if (!free) {
+      // Pan until the board's on-screen box is centred (perspective needs a
+      // couple of passes), so no empty sky is wasted.
+      const halfH = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * distance;
+      for (let pass = 0; pass < 3; pass += 1) {
+        const box = extent();
+        const up = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 1);
+        const right = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0);
+        target
+          .addScaledVector(up, ((box.minY + box.maxY) / 2) * halfH)
+          .addScaledVector(right, ((box.minX + box.maxX) / 2) * halfH * aspect);
+        place();
+      }
+    }
+    const box = extent();
+    const span = Math.max(-box.minX, box.maxX, -box.minY, box.maxY);
+    camera.zoom = THREE.MathUtils.clamp(0.97 / span, 0.5, 1.8);
     camera.updateProjectionMatrix();
-  }, [camera, width, height, wide]);
+  }, [camera, width, height, n, free]);
   return null;
 }
 
@@ -1180,7 +1250,7 @@ export function CompanyMap3D({
   return (
     <div className="space-y-3">
       <div
-        className={`relative w-full overflow-hidden rounded-2xl ${onWorkspaceCell ? "workspace-map-h isolate" : overview ? "" : "h-[290px] sm:h-auto"}`}
+        className={`relative w-full overflow-hidden rounded-2xl ${onWorkspaceCell ? `workspace-map-h isolate ${cameraEnabled ? "free-camera" : ""}` : overview ? "" : "h-[290px] sm:h-auto"}`}
         style={{
           aspectRatio: overview ? "16 / 10" : "16 / 9",
           maxHeight: onWorkspaceCell ? undefined : overview ? 320 : 560,
@@ -1306,7 +1376,7 @@ export function CompanyMap3D({
             </div>
           )}
           <details className="mt-3 rounded-xl bg-slate-50 p-3 text-xs text-slate-600">
-            <summary className="cursor-pointer font-bold text-slate-700">🧩 만들 수 있는 건물 조합 보기</summary>
+            <summary className="flex min-h-11 cursor-pointer items-center font-bold text-slate-700">🧩 만들 수 있는 건물 조합 보기</summary>
             <div className="mt-2 grid gap-1.5 sm:grid-cols-2">
               {BUILDING_COMBOS.filter((combo) => combo.pair.every((type) => game.config.enabledBuildings.includes(type))).map((combo) => (
                 <div key={combo.id} className="rounded-lg bg-white px-2.5 py-2 ring-1 ring-slate-200">

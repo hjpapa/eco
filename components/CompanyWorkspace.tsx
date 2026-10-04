@@ -18,7 +18,7 @@ import {
   type Company,
   type BuildingType,
 } from "@/lib/engine";
-import { formatMoney, formatNum } from "@/lib/format";
+import { formatMoney, formatNum, withJosa } from "@/lib/format";
 import {
   COMPANY_TASKS,
   taskForBuilding,
@@ -185,13 +185,18 @@ export function CompanyWorkspace({
     ? estimateBuildingImpact(game, company, pending, previewCell)
     : null;
 
-  /** Build right away, unless it would drain the emergency fund: then ask once. */
-  const tryBuild = (x: number, y: number) => {
+  /**
+   * Tapping a plot first marks it (📍) and shows what it would do; tapping the
+   * same plot again (or "여기에 짓기") builds. A slip of the finger on a small
+   * 3D plot never spends money. Buttons build directly, unless the build would
+   * drain the emergency fund: then they ask once too.
+   */
+  const tryBuild = (x: number, y: number, direct = false) => {
     if (!pending) return;
     const impact = estimateBuildingImpact(game, company, pending, { x, y });
     if (!impact) return;
-    const confirmed = confirmCell?.x === x && confirmCell?.y === y;
-    if (impact.belowSafetyLine && !confirmed) {
+    const picked = confirmCell?.x === x && confirmCell?.y === y;
+    if (!picked && !(direct && !impact.belowSafetyLine)) {
       setConfirmCell({ x, y });
       return;
     }
@@ -319,7 +324,7 @@ export function CompanyWorkspace({
       ) : (
         <>
           <div className="grid items-start gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(380px,420px)] xl:grid-cols-[minmax(0,1fr)_460px]">
-            <section ref={mapSection} className="min-w-0 scroll-mt-36 space-y-2.5 rounded-3xl border border-emerald-200 bg-white/90 p-2.5 shadow-sm">
+            <section ref={mapSection} className={`min-w-0 scroll-mt-36 space-y-2.5 rounded-3xl border border-emerald-200 bg-white/90 p-2.5 shadow-sm ${pending ? "map-placing" : ""}`}>
               <div className="flex flex-wrap items-center justify-between gap-2 px-1">
                 <div className="flex min-w-0 items-center gap-1.5">
                   <button
@@ -373,6 +378,22 @@ export function CompanyWorkspace({
                   )}
                 </div>
               </div>
+              {/* While placing, the help sits above the map (the map shrinks to make
+                  room on tablets) so it never hides a plot. */}
+              {pending && (
+                <PlacementBar
+                  pending={pending}
+                  previewProfit={preview?.profitDelta ?? null}
+                  previewPayback={preview?.paybackTurns ?? null}
+                  comboCount={preview?.combos.length ?? 0}
+                  confirm={confirmCell && preview ? { cashAfter: preview.cashAfter, safetyLine: preview.safetyLine, below: preview.belowSafetyLine, x: confirmCell.x, y: confirmCell.y } : null}
+                  canRecommend={!!recommendation}
+                  onRecommend={() => recommendation && tryBuild(recommendation.x, recommendation.y, true)}
+                  onConfirm={() => confirmCell && tryBuild(confirmCell.x, confirmCell.y, true)}
+                  onRepick={() => setConfirmCell(null)}
+                  onCancel={() => setPending(null)}
+                />
+              )}
               <div className="relative">
                 {flat ? (
                   flatMap
@@ -394,23 +415,13 @@ export function CompanyWorkspace({
                     />
                   </MapBoundary>
                 )}
-                {/* Placement help floats over the empty sky so it never falls below the fold. */}
-                <div className="pointer-events-none absolute inset-x-2 top-2 z-10 flex justify-center">
-                  <div className="w-full max-w-xl">
-                  <PlacementBar
-                    pending={pending}
-                    previewProfit={preview?.profitDelta ?? null}
-                    previewPayback={preview?.paybackTurns ?? null}
-                    comboCount={preview?.combos.length ?? 0}
-                    confirm={confirmCell && preview ? { cashAfter: preview.cashAfter, safetyLine: preview.safetyLine } : null}
-                    canRecommend={!!recommendation}
-                    onRecommend={() => recommendation && tryBuild(recommendation.x, recommendation.y)}
-                    onConfirm={() => confirmCell && tryBuild(confirmCell.x, confirmCell.y)}
-                    onCancel={() => setPending(null)}
-                    idleText={task === "construction" ? "👉 지을 건물을 고르거나, 지도의 건물을 눌러 키워 보세요." : "👉 지도의 건물을 누르면 그 건물이 하는 일이 열려요."}
-                  />
+                {!pending && (
+                  <div role="status" className="pointer-events-none absolute left-2 top-2 z-10 max-w-[55%]">
+                    <span className="inline-block rounded-2xl bg-white/85 px-3 py-1 text-sm font-bold text-emerald-800 shadow-sm backdrop-blur">
+                      {task === "construction" ? "👉 지을 건물을 고르거나, 건물을 눌러 키워요" : "👉 건물을 누르면 그 건물이 하는 일이 열려요"}
+                    </span>
                   </div>
-                </div>
+                )}
                 {celebration && (
                   <div
                     key={celebration.key}
@@ -503,8 +514,9 @@ export function CompanyWorkspace({
                     selected={selected}
                     onCloseSelected={() => setSelectedId(null)}
                     preview={preview}
-                    needsConfirm={!!confirmCell}
-                    onBuildPreview={() => preview && tryBuild(preview.x, preview.y)}
+                    needsConfirm={!!confirmCell && !!preview?.belowSafetyLine}
+                    picked={!!confirmCell}
+                    onBuildPreview={() => preview && tryBuild(preview.x, preview.y, true)}
                   />
                 ) : (
                   <>
@@ -526,7 +538,7 @@ export function CompanyWorkspace({
                 )}
                 {!locked(task) && (
                   <details className="group rounded-xl bg-amber-50 p-3 text-sm text-amber-950">
-                    <summary className="flex min-h-9 cursor-pointer list-none items-center justify-between font-black">
+                    <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between font-black">
                       📘 경제 한마디: {lesson.term}
                       <span className="text-amber-500 transition group-open:rotate-180">⌄</span>
                     </summary>
@@ -571,53 +583,58 @@ function PlacementBar({
   canRecommend,
   onRecommend,
   onConfirm,
+  onRepick,
   onCancel,
-  idleText,
 }: {
   pending: BuildingType | null;
   previewProfit: number | null;
   previewPayback: number | null;
   comboCount: number;
-  confirm: { cashAfter: number; safetyLine: number } | null;
+  confirm: { cashAfter: number; safetyLine: number; below: boolean; x: number; y: number } | null;
   canRecommend: boolean;
   onRecommend: () => void;
   onConfirm: () => void;
+  onRepick: () => void;
   onCancel: () => void;
-  idleText: string;
 }) {
-  if (!pending) {
-    return (
-      <div role="status" className="flex justify-center">
-        <span className="rounded-full bg-white/85 px-3 py-1 text-sm font-bold text-emerald-800 shadow-sm backdrop-blur">{idleText}</span>
-      </div>
-    );
-  }
+  if (!pending) return null;
   const def = BUILDINGS[pending];
   if (confirm) {
+    const tone = confirm.below ? "bg-amber-100/95 text-amber-950 ring-amber-300" : "bg-emerald-50/95 text-emerald-950 ring-emerald-300";
     return (
-      <div role="status" className="pointer-events-auto rounded-2xl bg-amber-100/95 p-3 text-base text-amber-950 shadow-lg ring-2 ring-amber-300 backdrop-blur">
-        <p className="font-black">⚠️ 지으면 남는 돈 {formatMoney(confirm.cashAfter)}원</p>
-        <p className="text-sm">
-          비상금 {formatMoney(confirm.safetyLine)}원보다 적어져요. 갑자기 손해가 나면 회사가 위험할 수 있어요.
+      <div role="status" className={`rounded-2xl p-2.5 text-base ring-2 ${tone}`}>
+        <p className="font-black">
+          📍 {confirm.x + 1}열 {confirm.y + 1}줄에 {def.emoji} {withJosa(def.name, "을", "를")} 지을까요?
         </p>
-        <div className="mt-2 grid grid-cols-2 gap-2">
-          <button type="button" className="btn-bull !bg-amber-500" onClick={onConfirm}>
-            그래도 짓기
+        <p className="text-sm">
+          {previewProfit != null && `이익 ${previewProfit >= 0 ? "+" : "−"}${formatMoney(Math.abs(Math.round(previewProfit)))}원/턴 · `}
+          지으면 남는 돈 {formatMoney(confirm.cashAfter)}원
+          {comboCount > 0 && ` · ✨ 조합 ${comboCount}개`}
+        </p>
+        {confirm.below && (
+          <p className="text-sm font-bold">⚠️ 비상금 {formatMoney(confirm.safetyLine)}원보다 적어져요. 갑자기 손해가 나면 위험해요.</p>
+        )}
+        <div className="mt-1.5 grid grid-cols-[1fr_auto_auto] gap-2">
+          <button type="button" className={confirm.below ? "btn-bull !bg-amber-500 text-base" : "btn-primary text-base"} onClick={onConfirm}>
+            {confirm.below ? "⚠️ 그래도 짓기" : "✅ 여기에 짓기"}
           </button>
-          <button type="button" className="btn-ghost" onClick={onCancel}>
-            그만두기
+          <button type="button" className="btn-ghost text-base" onClick={onRepick}>
+            다른 칸
+          </button>
+          <button type="button" className="btn-ghost min-w-11 text-base" onClick={onCancel} aria-label="건설 취소">
+            ✕
           </button>
         </div>
       </div>
     );
   }
   return (
-    <div role="status" className="pointer-events-auto rounded-2xl bg-emerald-50/95 p-2.5 text-base text-emerald-950 shadow-lg ring-2 ring-emerald-300 backdrop-blur">
+    <div role="status" className="rounded-2xl bg-emerald-50 p-2.5 text-base text-emerald-950 ring-2 ring-emerald-300">
       <p className="font-black">
-        📍 {def.emoji} {def.name}: 지도에서 빈 땅을 눌러요
+        📍 {def.emoji} {def.name}: 지을 빈 땅을 눌러 골라요
       </p>
       <p className="text-sm text-emerald-900">
-        ⭐ 초록 칸 = 추천 · ✨ 금색 칸 = 조합 보너스
+        ⭐ 초록 칸 = 추천 · ✨ 금색 칸 = 조합 보너스 · 한 번 누르면 미리 보고, 한 번 더 누르면 지어요
         {previewProfit != null &&
           ` · 이익 ${previewProfit >= 0 ? "+" : "−"}${formatMoney(Math.abs(Math.round(previewProfit)))}원/턴`}
         {previewPayback != null && ` · 본전까지 약 ${previewPayback}턴`}

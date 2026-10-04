@@ -39,7 +39,7 @@ import {
   proposeDeal,
 } from "@/lib/engine/actions";
 import type { TurnSummary } from "@/lib/engine/tick";
-import { playSfx } from "@/lib/audio";
+import { haptic, playSfx } from "@/lib/audio";
 import { formatMoney } from "@/lib/format";
 import { markLearningIntroSeen } from "@/lib/learning";
 import {
@@ -199,6 +199,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const res = buildBuilding(game, p, type, cell.x, cell.y);
     if (!res.ok) return showToast(set, res.error ?? "건설 실패", "bad");
     playSfx("build");
+    haptic(20);
     const toast = afterAction(game, { text: res.message ?? "건설 완료!", tone: "good" });
     persist(game);
     set({ game: { ...game }, toast });
@@ -210,6 +211,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const res = upgradeBuilding(game, player(game), buildingId);
     if (!res.ok) return showToast(set, res.error ?? "업그레이드 실패", "bad");
     playSfx("build");
+    haptic(20);
     const toast = afterAction(game, { text: res.message ?? "업그레이드 완료!", tone: "good" });
     persist(game);
     set({ game: { ...game }, toast });

@@ -286,9 +286,9 @@ export function TalentMarket({ game, company }: { game: GameState; company: Comp
       {/* ── Competitor scout ── */}
       {rivals.length > 0 && (
         <details className="card group p-4">
-          <summary className="cursor-pointer list-none text-base font-bold text-slate-800">
+          <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between text-base font-bold text-slate-800">
             🤝 라이벌 회사 인재 데려오기(스카우트)
-            <span className="float-right text-slate-400 transition group-open:rotate-180">⌄</span>
+            <span className="text-slate-400 transition group-open:rotate-180">⌄</span>
           </summary>
           <div className="mt-3">
           {/* Company tabs */}
@@ -297,7 +297,7 @@ export function TalentMarket({ game, company }: { game: GameState; company: Comp
               <button
                 key={r.id}
                 onClick={() => setRivalTab(r.id)}
-                className={`pill transition ${
+                className={`pill min-h-11 px-3.5 text-sm transition ${
                   (rivalTab ?? rivals[0]?.id) === r.id
                     ? "bg-brand-600 text-white"
                     : "bg-slate-100 text-slate-600 hover:bg-slate-200"
@@ -491,7 +491,7 @@ function TalentCard({
       </div>
       {detailed && (
         <details className="group mt-2">
-          <summary className="flex min-h-9 cursor-pointer list-none items-center text-sm font-bold text-slate-500">
+          <summary className="flex min-h-11 cursor-pointer list-none items-center text-sm font-bold text-slate-500">
             능력 점수 보기 <span className="ml-1 inline-block transition group-open:rotate-180">⌄</span>
           </summary>
           <div className="mt-2 flex flex-wrap gap-1">

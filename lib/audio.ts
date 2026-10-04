@@ -95,6 +95,15 @@ function tone(freq: number, durMs: number, type: OscillatorType, gain: number, d
   osc.stop(start + durMs / 1000 + 0.02);
 }
 
+/** A short buzz on phones/tablets that support it (Android). Silent elsewhere. */
+export function haptic(ms = 15): void {
+  try {
+    if (!muted && typeof navigator !== "undefined" && typeof navigator.vibrate === "function") navigator.vibrate(ms);
+  } catch {
+    // Some browsers block vibration without a user gesture; ignore.
+  }
+}
+
 export function playSfx(name: Sfx): void {
   if (muted) return;
   switch (name) {

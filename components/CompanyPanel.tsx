@@ -480,7 +480,7 @@ function Stepper({
           type="button"
           disabled={disabled || value <= min}
           onClick={() => onChange(Math.max(min, value - step))}
-          className="btn-ghost !min-h-12 shrink-0 !px-2.5 text-base font-black"
+          className="btn-ghost !min-h-12 min-w-12 shrink-0 !px-2.5 text-lg font-black"
           aria-label={`${label} ${step} 줄이기`}
         >
           −{steps.length > 1 ? step : ""}
@@ -495,7 +495,7 @@ function Stepper({
           type="button"
           disabled={disabled || value >= max}
           onClick={() => onChange(Math.min(max, value + step))}
-          className="btn-ghost !min-h-12 shrink-0 !px-2.5 text-base font-black"
+          className="btn-ghost !min-h-12 min-w-12 shrink-0 !px-2.5 text-lg font-black"
           aria-label={`${label} ${step} 늘리기`}
         >
           +{steps.length > 1 ? step : ""}

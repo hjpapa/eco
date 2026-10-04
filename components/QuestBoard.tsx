@@ -309,7 +309,7 @@ export function AchievementShelf({ game }: { game: GameState }) {
   const earned = new Map((game.achievements ?? []).map((a) => [a.id, a.turn]));
   return (
     <details className="card group p-4" id="achievement-shelf">
-      <summary className="flex cursor-pointer list-none items-center gap-2 font-black text-slate-800">
+      <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 font-black text-slate-800">
         🏅 업적 {earned.size} / {ACHIEVEMENTS.length}
         <span className="text-xs font-bold text-slate-500">모아서 최고의 사장님이 되어 봐요</span>
         <span className="ml-auto text-slate-400 transition group-open:rotate-180">⌄</span>

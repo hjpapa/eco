@@ -74,6 +74,7 @@ export function ConstructionPanel({
   onCloseSelected,
   preview,
   needsConfirm,
+  picked = false,
   onBuildPreview,
 }: {
   game: GameState;
@@ -84,6 +85,8 @@ export function ConstructionPanel({
   onCloseSelected: () => void;
   preview: BuildingImpact | null;
   needsConfirm: boolean;
+  /** The player tapped a plot (instead of using the recommendation). */
+  picked?: boolean;
   onBuildPreview: () => void;
 }) {
   const safetyLine = cashSafetyLine(company);
@@ -113,6 +116,7 @@ export function ConstructionPanel({
           game={game}
           impact={preview}
           needsConfirm={needsConfirm}
+          picked={picked}
           onBuild={onBuildPreview}
           onCancel={() => onPick(null)}
         />
@@ -138,7 +142,7 @@ export function ConstructionPanel({
               type="button"
               aria-pressed={filter === f}
               onClick={() => setFilter(f)}
-              className={`!min-h-10 rounded-full px-3 py-1 text-sm font-bold ${filter === f ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-600"}`}
+              className={`!min-h-11 rounded-full px-3.5 py-1 text-sm font-bold ${filter === f ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-600"}`}
             >
               {f === "all" ? "전체" : `${BUILDING_ROLE_LABELS[f].emoji} ${BUILDING_ROLE_LABELS[f].label.replace(" 건물", "")}`}
             </button>
@@ -227,12 +231,14 @@ function BuildPreviewCard({
   game,
   impact,
   needsConfirm,
+  picked,
   onBuild,
   onCancel,
 }: {
   game: GameState;
   impact: BuildingImpact;
   needsConfirm: boolean;
+  picked: boolean;
   onBuild: () => void;
   onCancel: () => void;
 }) {
@@ -261,7 +267,7 @@ function BuildPreviewCard({
             🔍 {def.name} 미리보기
           </h3>
           <p className="text-sm text-slate-600">
-            ⭐ 추천 칸({impact.x + 1}열 {impact.y + 1}줄)에 지으면
+            {picked ? "📍 고른 칸" : "⭐ 추천 칸"}({impact.x + 1}열 {impact.y + 1}줄)에 지으면
           </p>
         </div>
       </div>
@@ -320,7 +326,7 @@ function BuildPreviewCard({
 
       <div className="mt-2 grid grid-cols-[1fr_auto] gap-2">
         <button type="button" className={needsConfirm ? "btn-bull !bg-amber-500" : "btn-primary"} onClick={onBuild}>
-          {needsConfirm ? "⚠️ 그래도 여기에 짓기" : `⭐ 추천 칸에 짓기 (${won(impact.cost)})`}
+          {needsConfirm ? "⚠️ 그래도 여기에 짓기" : picked ? `✅ 여기에 짓기 (${won(impact.cost)})` : `⭐ 추천 칸에 짓기 (${won(impact.cost)})`}
         </button>
         <button type="button" className="btn-ghost" onClick={onCancel}>
           취소
@@ -379,7 +385,7 @@ function SelectedBuildingCard({
             {building_ ? `공사 ${building.turnsLeft}턴 남음` : "열심히 일하는 중"}
           </p>
         </div>
-        <button type="button" className="btn-ghost !min-h-9 !px-2 !py-1 text-xs" onClick={onClose} aria-label="선택 닫기">
+        <button type="button" className="btn-ghost !min-h-11 min-w-11 !px-2 text-base" onClick={onClose} aria-label="선택 닫기">
           ✕
         </button>
       </div>

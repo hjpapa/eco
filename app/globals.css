@@ -26,9 +26,17 @@ button, a, summary, [role="button"] {
 /* Map + control panel side by side on landscape tablets and up. The panel
    stays under the sticky HUD and scrolls on its own. */
 .workspace-map-h { height: 320px; }
+/* Touch: with the fixed camera a vertical swipe over the map scrolls the page;
+   in "돌려 보기" every finger gesture rotates/zooms the map instead.
+   (!important beats the inline style three.js OrbitControls writes.) */
+.workspace-map-h canvas { touch-action: pan-y !important; }
+.workspace-map-h.free-camera canvas { touch-action: none !important; }
 @media (min-width: 768px) { .workspace-map-h { height: 440px; } }
 @media (min-width: 1024px) {
   .workspace-map-h { height: clamp(360px, calc(100dvh - var(--hud-h, 8rem) - 6.75rem), 760px); }
+  /* Placing a building: the help bar sits above the map, so the map gives
+     up the same height and the whole board stays on screen. */
+  .map-placing .workspace-map-h { height: clamp(300px, calc(100dvh - var(--hud-h, 8rem) - 15.5rem), 640px); }
   .workspace-panel {
     position: sticky;
     top: calc(var(--hud-h, 8rem) + 0.5rem);
@@ -52,6 +60,13 @@ button, a, summary, [role="button"] {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.18); }
 }
+@keyframes plot-pin-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+.plot-pin { font-size: 30px; filter: drop-shadow(0 2px 3px rgba(0,0,0,0.35)); animation: plot-pin-bob 0.9s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .plot-pin { animation: none; } }
+
 .quest-stack .quest-card { min-width: 0; max-width: none; }
 .quest-badge { animation: quest-badge-bounce 1.4s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .quest-badge { animation: none; } }
@@ -434,7 +449,7 @@ body {
     @apply rounded-2xl bg-white shadow-sm ring-1 ring-slate-200;
   }
   .btn {
-    @apply inline-flex items-center justify-center gap-1 rounded-xl px-4 py-2 text-sm font-semibold transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex min-h-11 items-center justify-center gap-1 rounded-xl px-4 py-2 text-sm font-semibold transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-50;
   }
   .btn-primary {
     @apply btn bg-brand-600 text-white hover:bg-brand-700;

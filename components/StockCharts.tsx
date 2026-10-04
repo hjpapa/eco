@@ -302,7 +302,7 @@ function MoverList({
           key={item.id}
           type="button"
           onClick={() => onPick(item.id)}
-          className="flex w-full items-center justify-between gap-2 rounded-md px-1.5 py-1 text-left hover:bg-white/5"
+          className="flex min-h-11 w-full items-center justify-between gap-2 rounded-md px-2 py-1 text-left text-sm hover:bg-white/5"
         >
           <span className="truncate text-slate-200">{item.name}</span>
           <span className={`shrink-0 font-mono font-bold ${item.change >= 0 ? "text-emerald-400" : "text-red-400"}`}>

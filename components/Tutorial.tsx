@@ -189,21 +189,21 @@ export function Tutorial({ onClose }: { onClose: () => void }) {
             </div>
 
             <h3 className="text-sm font-bold text-slate-800 leading-snug">{current.title}</h3>
-            <p className="mt-2 text-xs leading-relaxed text-slate-600">{current.body}</p>
+            <p className="mt-2 text-sm leading-relaxed text-slate-600">{current.body}</p>
 
             {/* Navigation */}
             <div className="mt-4 flex items-center gap-2">
               {step > 0 && (
                 <button
                   onClick={goPrev}
-                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-500 hover:bg-slate-50"
+                  className="min-h-11 rounded-lg border border-slate-200 px-4 text-sm text-slate-600 hover:bg-slate-50"
                 >
                   ◀ 이전
                 </button>
               )}
               <button
                 onClick={goNext}
-                className="ml-auto rounded-lg bg-brand-600 px-4 py-1.5 text-xs font-bold text-white hover:bg-brand-700 active:scale-95 transition-transform"
+                className="ml-auto min-h-11 rounded-lg bg-brand-600 px-5 text-sm font-bold text-white hover:bg-brand-700 active:scale-95 transition-transform"
               >
                 {isLast ? "시작하기 🚀" : "다음 ▶"}
               </button>

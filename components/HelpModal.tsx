@@ -53,7 +53,7 @@ export function HelpModal({
             type="button"
             aria-label="도움말 닫기"
             onClick={onClose}
-            className="ml-auto rounded-lg bg-white/20 px-2.5 py-1 text-sm font-bold hover:bg-white/30"
+            className="ml-auto min-h-11 rounded-lg bg-white/20 px-3 text-sm font-bold hover:bg-white/30"
           >
             닫기 ✕
           </button>
@@ -69,7 +69,7 @@ export function HelpModal({
             <button
               key={id}
               onClick={() => setTab(id)}
-              className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition ${
+              className={`min-h-11 flex-1 rounded-lg px-3 text-sm font-bold transition ${
                 tab === id ? "bg-brand-600 text-white" : "text-slate-600 hover:bg-slate-100"
               }`}
             >
@@ -139,7 +139,7 @@ function GlossaryView() {
         value={q}
         onChange={(e) => setQ(e.target.value)}
         placeholder="용어 검색…"
-        className="mb-3 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 outline-none focus:border-brand-500"
+        className="mb-3 min-h-11 w-full rounded-lg border border-slate-300 px-3 text-base text-slate-800 outline-none focus:border-brand-500"
       />
       <div className="space-y-4">
         {LEARNING_CATALOG.glossary.map((g) => {

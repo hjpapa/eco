@@ -167,7 +167,7 @@ export default function LearnPage() {
                     ...current,
                     [selectedCourse.id]: event.target.checked,
                   }))}
-                  className="h-5 w-5 accent-brand-600"
+                  className="h-6 w-6 accent-brand-600"
                 />
                 내용을 확인했고, 게임에서 직접 시도해 볼게요.
               </label>

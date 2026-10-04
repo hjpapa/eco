@@ -92,7 +92,7 @@ export const BUILDINGS: Record<BuildingType, BuildingDef> = {
   },
   park: {
     type: "park",
-    name: "공원·녹지",
+    name: "공원",
     emoji: "🌳",
     cost: 40_000,
     buildTurns: 1,

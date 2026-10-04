@@ -468,7 +468,7 @@ function FilterChip({ active, onClick, children }: { active: boolean; onClick: (
       type="button"
       aria-pressed={active}
       onClick={onClick}
-      className={`pill min-h-10 px-3 text-sm ${active ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
+      className={`pill min-h-11 px-3.5 text-sm ${active ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
     >
       {children}
     </button>
