@@ -243,6 +243,20 @@ export const BUILDINGS: Record<BuildingType, BuildingDef> = {
     effects: { hiringCap: 1 },
     description: "주민이 사는 집이에요. 주민은 우리 물건을 사는 동네 손님이 돼요. 공원 가까이, 공장에서 멀리 지으면 더 행복해요.",
   },
+
+  // ===== Decorations (꾸미기): cheap, no upkeep, cheer up nearby homes =====
+  flowerbed: { type: "flowerbed", name: "꽃밭", emoji: "🌷", cost: 15_000, buildTurns: 0, upkeep: 0, maxLevel: 1, effects: {}, decor: true, description: "알록달록 꽃밭이에요. 옆집 주민들이 기분 좋아져요." },
+  bench: { type: "bench", name: "벤치", emoji: "🪑", cost: 10_000, buildTurns: 0, upkeep: 0, maxLevel: 1, effects: {}, decor: true, description: "산책하다 쉬어 가는 벤치예요." },
+  streetlamp: { type: "streetlamp", name: "가로등", emoji: "💡", cost: 12_000, buildTurns: 0, upkeep: 0, maxLevel: 1, effects: {}, decor: true, description: "밤길을 환하게 밝혀 줘요." },
+  bigtree: { type: "bigtree", name: "큰 나무", emoji: "🌲", cost: 20_000, buildTurns: 0, upkeep: 0, maxLevel: 1, effects: {}, decor: true, description: "그늘이 시원한 큰 나무예요." },
+  noticeboard: { type: "noticeboard", name: "마을 게시판", emoji: "📌", cost: 15_000, buildTurns: 0, upkeep: 0, maxLevel: 1, effects: {}, decor: true, description: "마을 소식을 붙이는 게시판이에요." },
+  pond: { type: "pond", name: "연못", emoji: "🐟", cost: 30_000, buildTurns: 0, upkeep: 0, maxLevel: 1, effects: {}, decor: true, unlockStars: 2, description: "물고기가 사는 작은 연못이에요." },
+  carousel: { type: "carousel", name: "회전목마", emoji: "🎠", cost: 40_000, buildTurns: 0, upkeep: 0, maxLevel: 1, effects: {}, decor: true, unlockStars: 2, description: "빙글빙글 돌아가는 작은 회전목마예요." },
+  balloon: { type: "balloon", name: "풍선 아치", emoji: "🎈", cost: 20_000, buildTurns: 0, upkeep: 0, maxLevel: 1, effects: {}, decor: true, unlockStars: 3, description: "축제 분위기를 내는 풍선 아치예요." },
+  cherrytree: { type: "cherrytree", name: "벚꽃나무", emoji: "🌸", cost: 25_000, buildTurns: 0, upkeep: 0, maxLevel: 1, effects: {}, decor: true, season: "spring", description: "봄에만 살 수 있는 벚꽃나무예요." },
+  parasol: { type: "parasol", name: "파라솔", emoji: "⛱️", cost: 15_000, buildTurns: 0, upkeep: 0, maxLevel: 1, effects: {}, decor: true, season: "summer", description: "여름에만 살 수 있는 시원한 파라솔이에요." },
+  pumpkin: { type: "pumpkin", name: "호박 장식", emoji: "🎃", cost: 15_000, buildTurns: 0, upkeep: 0, maxLevel: 1, effects: {}, decor: true, season: "autumn", description: "가을에만 살 수 있는 커다란 호박 장식이에요." },
+  snowman: { type: "snowman", name: "눈사람", emoji: "⛄", cost: 10_000, buildTurns: 0, upkeep: 0, maxLevel: 1, effects: {}, decor: true, season: "winter", description: "겨울에만 만들 수 있는 눈사람이에요." },
 };
 
 export const BUILDING_LIST: BuildingDef[] = Object.values(BUILDINGS);
@@ -387,10 +401,10 @@ export const CITY_STAGES: readonly CityStage[] = [
   { id: "dragon-city", emoji: "🐉", label: "드래곤 시티", min: 40 },
 ];
 
-/** City score: every operational building level is a point, every combination two more. */
+/** City score: every operational building level is a point, every combination two more. Decorations don't count. */
 export function cityScore(buildings: PlacedBuilding[]): number {
   const levels = buildings
-    .filter((building) => building.turnsLeft <= 0)
+    .filter((building) => building.turnsLeft <= 0 && !BUILDINGS[building.type]?.decor)
     .reduce((sum, building) => sum + building.level, 0);
   return levels + getActiveBuildingCombos(buildings).length * 2;
 }
@@ -420,6 +434,8 @@ export function executiveSlots(company: Pick<Company, "buildings">, adjacencyBon
 
 /** Repeating one building is allowed, but a varied campus is the better buy. */
 export function buildingConstructionCost(company: Company, type: BuildingType): number {
+  // Decorations keep one friendly price, however many a child places.
+  if (BUILDINGS[type].decor) return BUILDINGS[type].cost;
   const sameTypeCount = company.buildings.filter((building) => building.type === type).length;
   return Math.round(buildingCostFor(type, 1) * (1 + sameTypeCount * 0.12));
 }

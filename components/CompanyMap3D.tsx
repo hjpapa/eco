@@ -1276,7 +1276,7 @@ function FitBoard({ n, free }: { n: number; free: boolean }) {
 /* ── main component ──────────────────────────────────────────────────────── */
 export function CompanyMap3D({
   game, company, readOnly = false, overview = false,
-  onWorkspaceCell, pendingType = null, inspectedId = null, confirmCell = null, cameraEnabled = true, reducedMotion = false, buildingLabels = {}, workReport, happyMap = false,
+  onWorkspaceCell, pendingType = null, inspectedId = null, confirmCell = null, cameraEnabled = true, reducedMotion = false, buildingLabels = {}, workReport, happyMap = false, recommend = true,
 }: {
   game: GameState; company: Company; readOnly?: boolean; overview?: boolean;
   onWorkspaceCell?: (x: number, y: number) => void;
@@ -1288,6 +1288,8 @@ export function CompanyMap3D({
   buildingLabels?: Record<string, string>;
   workReport?: { key: number; labels: Record<string, string> };
   happyMap?: boolean;
+  /** Show the ⭐ recommended plot while placing (off while moving). */
+  recommend?: boolean;
 }) {
   const [viewKey, setViewKey] = useState(0);
   const build = useGameStore((s) => s.build);
@@ -1430,7 +1432,7 @@ export function CompanyMap3D({
             overview={overview}
             selectedType={onWorkspaceCell ? pendingType : selectedType}
             selectedBuildingId={onWorkspaceCell ? inspectedId : selectedBuildingId}
-            recommendedCell={onWorkspaceCell && pendingType ? findBestBuildingCell(company, pendingType, n) : recommended}
+            recommendedCell={onWorkspaceCell && pendingType ? (recommend ? findBestBuildingCell(company, pendingType, n) : null) : recommended}
             confirmCell={onWorkspaceCell ? confirmCell : null}
             workspace={!!onWorkspaceCell}
             cameraEnabled={cameraEnabled}

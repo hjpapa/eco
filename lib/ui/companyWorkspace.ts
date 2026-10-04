@@ -1,4 +1,4 @@
-import type { BuildingType } from "@/lib/engine";
+import { BUILDINGS, type BuildingType } from "@/lib/engine";
 
 export type CompanyTask =
   | "quests"
@@ -10,6 +10,7 @@ export type CompanyTask =
   | "finance"
   | "construction";
 export function taskForBuilding(type: BuildingType): CompanyTask {
+  if (type === "house" || type === "dorm" || BUILDINGS[type].decor) return "village";
   if (type === "factory" || type === "warehouse") return "production";
   if (type === "store") return "sales";
   if (type === "rnd" || type === "lab") return "research";

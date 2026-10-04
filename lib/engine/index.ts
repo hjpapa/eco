@@ -22,6 +22,7 @@ import { netWorth, playerRank, recordNetWorth } from "./ranking";
 import { updateQuests } from "./quests";
 import { seasonOf } from "./seasons";
 import { villageStars } from "./village";
+import { ownedStickerKeys } from "./collection";
 import { getIndustryProducts } from "../data/products";
 import {
   DEFAULT_GAME_LENGTH,
@@ -259,6 +260,7 @@ export function createGame(opts: NewGameOptions): GameState {
   };
 
   state.village = { bestStars: villageStars(player.buildings) };
+  state.stickers = ownedStickerKeys(state);
   recordNetWorth(state);
   state.initialPlayerRank = playerRank(state);
   state.initialPlayerNetWorth = netWorth(player, state);
@@ -275,6 +277,7 @@ export { advanceTurn } from "./tick";
 export * from "./seasons";
 export * from "./village";
 export * from "./residents";
+export * from "./collection";
 export { rankings, netWorth, portfolioValue, playerRank } from "./ranking";
 export {
   fundamentalValue,

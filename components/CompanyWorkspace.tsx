@@ -18,6 +18,7 @@ import {
   plotHappiness,
   villageStats,
   VILLAGE_ROLES,
+  moveCost,
   type GameState,
   type Company,
   type BuildingType,
@@ -86,11 +87,16 @@ export function CompanyWorkspace({
   const [reduced, setReduced] = useState(false);
   const [report, setReport] = useState(false);
   const [happyMap, setHappyMap] = useState(false);
+  /** A building being moved to another plot (🚚 옮기기). */
+  const [moving, setMoving] = useState<string | null>(null);
+  /** Opens the build palette on a category, e.g. 🌼 꾸미기 from the village. */
+  const [paletteFilter, setPaletteFilter] = useState<{ filter: "decor" | "home"; key: number } | null>(null);
   const [celebration, setCelebration] = useState<Celebration | null>(null);
   const actionLock = useRef(0);
   const panel = useRef<HTMLElement>(null);
   const mapSection = useRef<HTMLElement>(null);
   const build = useGameStore((s) => s.build);
+  const move = useGameStore((s) => s.move);
   const researchUnlocked = isFeatureUnlocked(game, "research");
   const advanced =
     game.config.showAdvancedMetrics &&
@@ -100,9 +106,11 @@ export function CompanyWorkspace({
   const city = getCityProgress(company);
   const village = villageStats(company.buildings);
 
+  const movingBuilding = moving ? company.buildings.find((b) => b.id === moving) : undefined;
   const setPending = (type: BuildingType | null) => {
     setPendingState(type);
     setConfirmCell(null);
+    setMoving(null);
     if (!type) return;
     setSelectedId(null);
     // On tablets the cards sit below the map: bring the map back into view.
@@ -185,6 +193,7 @@ export function CompanyWorkspace({
     setSelectedId(buildingId);
     setPendingState(null);
     setConfirmCell(null);
+    setMoving(null);
     window.requestAnimationFrame(() => {
       panel.current?.focus({ preventScroll: true });
       if (window.innerWidth < 1024)
@@ -226,8 +235,42 @@ export function CompanyWorkspace({
     });
   };
 
+  /** 🚚 Start moving a building: the map shows empty plots to pick from. */
+  const startMove = (buildingId: string) => {
+    setPendingState(null);
+    setConfirmCell(null);
+    setMoving(buildingId);
+    setSelectedId(buildingId);
+    if (window.innerWidth < 1024) {
+      window.requestAnimationFrame(() =>
+        mapSection.current?.scrollIntoView({ block: "start", behavior: "smooth" }),
+      );
+    }
+  };
+  const cancelMove = () => {
+    setMoving(null);
+    setConfirmCell(null);
+  };
+  /** Same two-tap safety as building: mark the plot, then tap again to move. */
+  const tryMove = (x: number, y: number, direct = false) => {
+    if (!movingBuilding) return;
+    const picked = confirmCell?.x === x && confirmCell?.y === y;
+    if (!picked && !direct) {
+      setConfirmCell({ x, y });
+      return;
+    }
+    once(() => {
+      move(movingBuilding.id, x, y);
+      cancelMove();
+    });
+  };
+
   const onCell = (x: number, y: number) => {
     const b = company.buildings.find((b) => b.x === x && b.y === y);
+    if (movingBuilding) {
+      if (!b) tryMove(x, y);
+      return;
+    }
     if (b) {
       if (pending) return; // keep placing; tapping a building does nothing
       if (task === "construction") {
@@ -288,7 +331,7 @@ export function CompanyWorkspace({
                 ? "border-emerald-500 bg-emerald-300 ring-2 ring-emerald-500"
                 : placement?.combos.length
                   ? "border-amber-300 bg-amber-100"
-                  : pending
+                  : pending || movingBuilding
                     ? "border-emerald-300 bg-emerald-50"
                     : "border-emerald-200 bg-emerald-50/70";
           return (
@@ -329,6 +372,7 @@ export function CompanyWorkspace({
   return (
     <div className="company-workspace flex flex-col gap-4" onKeyDown={(event) => {
       if (event.key === "Escape" && pending) { setPending(null); event.stopPropagation(); }
+      if (event.key === "Escape" && moving) { cancelMove(); event.stopPropagation(); }
     }}>
       <h1 className="sr-only">우리 회사 도시 만들기 — 건물을 지어 도시를 키우고, 만들기·팔기 계획을 세워요.</h1>
       {report ? (
@@ -348,7 +392,7 @@ export function CompanyWorkspace({
       ) : (
         <>
           <div className="grid items-start gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(380px,420px)] xl:grid-cols-[minmax(0,1fr)_460px]">
-            <section ref={mapSection} className={`min-w-0 scroll-mt-36 space-y-2.5 rounded-3xl border border-emerald-200 bg-white/90 p-2.5 shadow-sm ${pending ? "map-placing" : ""}`}>
+            <section ref={mapSection} className={`min-w-0 scroll-mt-36 space-y-2.5 rounded-3xl border border-emerald-200 bg-white/90 p-2.5 shadow-sm ${pending || movingBuilding ? "map-placing" : ""}`}>
               <div className="flex flex-wrap items-center justify-between gap-2 px-1">
                 <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                   <button
@@ -402,6 +446,16 @@ export function CompanyWorkspace({
               </div>
               {/* While placing, the help sits above the map (the map shrinks to make
                   room on tablets) so it never hides a plot. */}
+              {movingBuilding && (
+                <MoveBar
+                  type={movingBuilding.type}
+                  fee={moveCost(movingBuilding.type)}
+                  confirm={confirmCell}
+                  onConfirm={() => confirmCell && tryMove(confirmCell.x, confirmCell.y, true)}
+                  onRepick={() => setConfirmCell(null)}
+                  onCancel={cancelMove}
+                />
+              )}
               {pending && (
                 <PlacementBar
                   pending={pending}
@@ -428,7 +482,8 @@ export function CompanyWorkspace({
                       game={game}
                       company={company}
                       onWorkspaceCell={onCell}
-                      pendingType={pending}
+                      pendingType={pending ?? movingBuilding?.type ?? null}
+                      recommend={!movingBuilding}
                       inspectedId={selectedId}
                       confirmCell={confirmCell}
                       cameraEnabled={camera}
@@ -439,7 +494,7 @@ export function CompanyWorkspace({
                     />
                   </MapBoundary>
                 )}
-                {!pending && (
+                {!pending && !movingBuilding && (
                   <button
                     type="button"
                     onClick={() => setHappyMap((v) => !v)}
@@ -450,12 +505,12 @@ export function CompanyWorkspace({
                     😊 행복 지도{happyMap ? " ✓" : ""}
                   </button>
                 )}
-                {!pending && happyMap && (
+                {!pending && !movingBuilding && happyMap && (
                   <div className="pointer-events-none absolute left-2 top-2 z-10 rounded-xl bg-white/90 px-2.5 py-1.5 text-xs font-bold text-slate-700 shadow backdrop-blur">
                     <span className="text-emerald-600">■</span> 살기 좋은 땅 · <span className="text-rose-500">■</span> 시끄러운 땅
                   </div>
                 )}
-                {!pending && (
+                {!pending && !movingBuilding && (
                   <div role="status" className="mt-2 text-sm">
                     <span className="inline-block rounded-2xl bg-white/85 px-3 py-1 text-sm font-bold text-emerald-800 shadow-sm backdrop-blur">
                       {task === "construction" ? "👉 지을 건물을 고르거나, 건물을 눌러 키워요" : "👉 건물을 누르면 그 건물이 하는 일이 열려요"}
@@ -555,6 +610,10 @@ export function CompanyWorkspace({
                       choose("construction");
                       setPending(type);
                     }}
+                    onDecorate={() => {
+                      choose("construction");
+                      setPaletteFilter({ filter: "decor", key: Date.now() });
+                    }}
                   />
                 ) : task === "construction" ? (
                   <ConstructionPanel
@@ -568,6 +627,9 @@ export function CompanyWorkspace({
                     needsConfirm={!!confirmCell && !!preview?.belowSafetyLine}
                     picked={!!confirmCell}
                     onBuildPreview={() => preview && tryBuild(preview.x, preview.y, true)}
+                    onMove={startMove}
+                    key={paletteFilter?.key ?? 0}
+                    initialFilter={paletteFilter?.filter}
                   />
                 ) : (
                   <>
@@ -621,6 +683,56 @@ export function CompanyWorkspace({
           )}
         </>
       )}
+    </div>
+  );
+}
+
+/** 🚚 Moving a building: pick an empty plot, then confirm. */
+function MoveBar({
+  type,
+  fee,
+  confirm,
+  onConfirm,
+  onRepick,
+  onCancel,
+}: {
+  type: BuildingType;
+  fee: number;
+  confirm: { x: number; y: number } | null;
+  onConfirm: () => void;
+  onRepick: () => void;
+  onCancel: () => void;
+}) {
+  const def = BUILDINGS[type];
+  const feeText = fee > 0 ? `이사 비용 ${formatMoney(fee)}원` : "옮기기 무료";
+  if (confirm) {
+    return (
+      <div role="status" className="rounded-2xl bg-sky-50 p-2.5 text-base text-sky-950 ring-2 ring-sky-300">
+        <p className="font-black">
+          📍 {confirm.x + 1}열 {confirm.y + 1}줄로 {def.emoji} {withJosa(def.name, "을", "를")} 옮길까요?
+        </p>
+        <p className="text-sm">{feeText} · 옮기면 옆 건물 조합과 이웃 행복이 달라질 수 있어요</p>
+        <div className="mt-1.5 grid grid-cols-[1fr_auto_auto] gap-2">
+          <button type="button" className="btn-primary text-base" onClick={onConfirm}>
+            ✅ 여기로 옮기기
+          </button>
+          <button type="button" className="btn-ghost text-base" onClick={onRepick}>
+            다른 칸
+          </button>
+          <button type="button" className="btn-ghost min-w-11 text-base" onClick={onCancel} aria-label="옮기기 취소">
+            ✕
+          </button>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div role="status" className="rounded-2xl bg-sky-50 p-2.5 text-base text-sky-950 ring-2 ring-sky-300">
+      <p className="font-black">🚚 {def.emoji} {def.name}: 옮길 빈 땅을 눌러요</p>
+      <p className="text-sm">{feeText} · 한 번 누르면 고르고, 한 번 더 누르면 옮겨요</p>
+      <button type="button" className="btn-ghost mt-1.5 w-full text-base" onClick={onCancel}>
+        옮기기 취소
+      </button>
     </div>
   );
 }

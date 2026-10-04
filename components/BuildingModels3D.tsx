@@ -376,6 +376,18 @@ const HEIGHT: Record<BuildingType, (level: number) => number> = {
   clocktower: (l) => 0.7 + l * 0.25,
   ferris: (l) => 0.5 + l * 0.1,
   house: () => 0.36,
+  flowerbed: () => 0.1,
+  bench: () => 0.14,
+  streetlamp: () => 0.52,
+  bigtree: () => 0.52,
+  noticeboard: () => 0.32,
+  pond: () => 0.06,
+  carousel: () => 0.36,
+  balloon: () => 0.42,
+  cherrytree: () => 0.5,
+  parasol: () => 0.36,
+  pumpkin: () => 0.22,
+  snowman: () => 0.4,
 };
 
 /** Approximate highest point of a model, so stars and bubbles float above it. */
@@ -1186,6 +1198,206 @@ function House({ level, glow }: ModelProps) {
   );
 }
 
+/* ── decorations (꾸미기) ───────────────────────────────────────────────── */
+
+/** A soft grass pad under every decoration, glowing when selected. */
+function DecorPad({ glow }: { glow: boolean }) {
+  const theme = useSeasonTheme();
+  return (
+    <group>
+      <Cyl r={0.42} h={0.02} position={[0, 0.01, 0]} color={glow ? "#c7d2fe" : theme.pad} segments={24} />
+      {glow && <Cyl r={0.44} h={0.012} position={[0, 0.02, 0]} color={SELECT_GLOW} emissive={SELECT_GLOW} emissiveIntensity={0.6} segments={24} transparent opacity={0.5} />}
+    </group>
+  );
+}
+
+const FLOWER_COLORS = ["#f472b6", "#facc15", "#ef4444", "#a78bfa", "#fb923c", "#f9a8d4"];
+
+function Flowerbed({ glow }: ModelProps) {
+  return (
+    <group>
+      <DecorPad glow={glow} />
+      <Block size={[0.62, 0.06, 0.42]} position={[0, 0.05, 0]} color="#a16207" />
+      <Block size={[0.56, 0.02, 0.36]} position={[0, 0.08, 0]} color="#6b4f2a" />
+      {Array.from({ length: 12 }).map((_, i) => (
+        <group key={i} position={[-0.22 + (i % 4) * 0.147, 0.1, -0.12 + Math.floor(i / 4) * 0.12]}>
+          <Cyl r={0.006} h={0.05} position={[0, 0.02, 0]} color="#3f9142" segments={5} />
+          <Ball r={0.028} position={[0, 0.05, 0]} color={FLOWER_COLORS[i % FLOWER_COLORS.length]} />
+        </group>
+      ))}
+    </group>
+  );
+}
+
+function BenchDecor({ glow }: ModelProps) {
+  return (
+    <group>
+      <DecorPad glow={glow} />
+      <group scale={2.4}>
+        <Bench position={[0, 0, 0]} />
+      </group>
+      <Bush position={[0.3, 0.04, -0.08]} scale={1.2} />
+      <Bush position={[-0.3, 0.04, -0.08]} scale={1.1} />
+    </group>
+  );
+}
+
+function Streetlamp({ glow }: ModelProps) {
+  return (
+    <group>
+      <DecorPad glow={glow} />
+      <Cyl r={0.05} h={0.04} position={[0, 0.04, 0]} color="#334155" segments={10} />
+      <Cyl r={0.018} h={0.46} position={[0, 0.27, 0]} color="#334155" segments={8} />
+      <Block size={[0.14, 0.02, 0.02]} position={[0.05, 0.5, 0]} color="#334155" />
+      <Ball r={0.055} position={[0.11, 0.47, 0]} color="#fff7cc" emissive="#fde68a" emissiveIntensity={1.4} />
+      <PlantPot position={[-0.2, 0.02, 0.18]} />
+    </group>
+  );
+}
+
+function BigTree({ glow }: ModelProps) {
+  return (
+    <group>
+      <DecorPad glow={glow} />
+      <RoundTree position={[0, 0.02, 0]} scale={2.3} />
+      <Bush position={[0.26, 0.04, 0.2]} />
+    </group>
+  );
+}
+
+function Noticeboard({ glow }: ModelProps) {
+  const notes = ["#fde68a", "#bfdbfe", "#fbcfe8", "#bbf7d0"];
+  return (
+    <group>
+      <DecorPad glow={glow} />
+      <Block size={[0.03, 0.3, 0.03]} position={[-0.16, 0.15, 0]} color="#7c4a1e" />
+      <Block size={[0.03, 0.3, 0.03]} position={[0.16, 0.15, 0]} color="#7c4a1e" />
+      <Block size={[0.4, 0.22, 0.03]} position={[0, 0.22, 0.01]} color="#c08a4f" cast />
+      <Block size={[0.44, 0.03, 0.06]} position={[0, 0.345, 0.01]} color="#9a5b26" />
+      {notes.map((c, i) => (
+        <Block key={c} size={[0.07, 0.08, 0.005]} position={[-0.13 + i * 0.087, 0.22 + (i % 2) * 0.03, 0.028]} color={c} rotation={[0, 0, (i - 1.5) * 0.08]} />
+      ))}
+    </group>
+  );
+}
+
+function Pond({ glow }: ModelProps) {
+  return (
+    <group>
+      <DecorPad glow={glow} />
+      <Cyl r={0.34} h={0.03} position={[0, 0.03, 0]} color="#93a3b8" segments={24} />
+      <Cyl r={0.3} h={0.034} position={[0, 0.034, 0]} color="#60a5fa" segments={24} roughness={0.2} />
+      {[[0.12, 0.08], [-0.14, -0.06], [0.02, -0.16]].map(([x, z]) => (
+        <Cyl key={`${x}${z}`} r={0.045} h={0.006} position={[x, 0.054, z]} color="#4ade80" segments={10} />
+      ))}
+      <Ball r={0.02} position={[-0.04, 0.055, 0.1]} color="#fb923c" scale={[1.6, 0.6, 0.8]} />
+      {Array.from({ length: 8 }).map((_, i) => {
+        const a = (i / 8) * Math.PI * 2;
+        return <Ball key={i} r={0.035} position={[Math.cos(a) * 0.34, 0.045, Math.sin(a) * 0.34]} color="#cbd5e1" />;
+      })}
+    </group>
+  );
+}
+
+function Carousel({ glow }: ModelProps) {
+  const spin = useRef<THREE.Group>(null);
+  useFrame((_, delta) => {
+    if (spin.current) spin.current.rotation.y += delta * 0.6;
+  });
+  const horses = ["#fca5a5", "#93c5fd", "#fde68a", "#c4b5fd"];
+  return (
+    <group>
+      <DecorPad glow={glow} />
+      <Cyl r={0.32} h={0.05} position={[0, 0.045, 0]} color="#fef3c7" segments={20} />
+      <group ref={spin}>
+        <Cyl r={0.02} h={0.3} position={[0, 0.2, 0]} color="#facc15" segments={8} />
+        {horses.map((c, i) => {
+          const a = (i / horses.length) * Math.PI * 2;
+          return (
+            <group key={c} position={[Math.cos(a) * 0.2, 0, Math.sin(a) * 0.2]}>
+              <Cyl r={0.006} h={0.26} position={[0, 0.2, 0]} color="#e5e7eb" segments={5} />
+              <Block size={[0.09, 0.05, 0.03]} position={[0, 0.15, 0]} color={c} cast />
+              <Block size={[0.03, 0.05, 0.025]} position={[0.045, 0.18, 0]} color={c} />
+            </group>
+          );
+        })}
+        <Cyl r={0.34} rTop={0.02} h={0.14} position={[0, 0.39, 0]} color="#ef4444" segments={10} cast />
+        <Ball r={0.03} position={[0, 0.47, 0]} color="#facc15" />
+      </group>
+    </group>
+  );
+}
+
+function BalloonArch({ glow }: ModelProps) {
+  const colors = ["#ef4444", "#f97316", "#facc15", "#22c55e", "#3b82f6", "#8b5cf6"];
+  return (
+    <group>
+      <DecorPad glow={glow} />
+      {Array.from({ length: 11 }).map((_, i) => {
+        const a = (i / 10) * Math.PI;
+        return <Ball key={i} r={0.05} position={[Math.cos(a) * 0.3, 0.06 + Math.sin(a) * 0.34, 0]} color={colors[i % colors.length]} />;
+      })}
+    </group>
+  );
+}
+
+function CherryTree({ glow }: ModelProps) {
+  return (
+    <group>
+      <DecorPad glow={glow} />
+      <RoundTree position={[0, 0.02, 0]} scale={2.2} color="#f9a8d4" />
+      {[[0.22, 0.18], [-0.2, 0.22], [0.25, -0.15], [-0.15, -0.24], [0.05, 0.3]].map(([x, z]) => (
+        <Cyl key={`${x}${z}`} r={0.025} h={0.004} position={[x, 0.024, z]} color="#fbcfe8" segments={6} />
+      ))}
+    </group>
+  );
+}
+
+function Parasol({ glow }: ModelProps) {
+  return (
+    <group>
+      <DecorPad glow={glow} />
+      <Cyl r={0.012} h={0.32} position={[0, 0.17, 0]} color="#e5e7eb" segments={6} />
+      <Cyl r={0.3} rTop={0.01} h={0.1} position={[0, 0.34, 0]} color="#f43f5e" segments={8} cast />
+      <Cyl r={0.29} rTop={0.012} h={0.1} position={[0, 0.342, 0]} color="#ffffff" segments={8} rotation={[0, Math.PI / 8, 0]} />
+      <Block size={[0.1, 0.02, 0.2]} position={[0.18, 0.05, 0.12]} color="#38bdf8" rotation={[0, 0.4, 0]} />
+      <Block size={[0.1, 0.02, 0.2]} position={[-0.18, 0.05, 0.12]} color="#facc15" rotation={[0, -0.4, 0]} />
+    </group>
+  );
+}
+
+function Pumpkin({ glow }: ModelProps) {
+  return (
+    <group>
+      <DecorPad glow={glow} />
+      <Ball r={0.17} position={[0, 0.14, 0]} color="#f97316" scale={[1.2, 0.85, 1.2]} />
+      <Cyl r={0.02} h={0.06} position={[0, 0.29, 0]} color="#3f6212" segments={6} />
+      <Ball r={0.08} position={[0.25, 0.07, 0.15]} color="#fb923c" scale={[1.2, 0.85, 1.2]} />
+      <Ball r={0.065} position={[-0.24, 0.06, 0.18]} color="#fdba74" scale={[1.2, 0.85, 1.2]} />
+      <Bush position={[-0.26, 0.04, -0.2]} color="#a16207" />
+    </group>
+  );
+}
+
+function Snowman({ glow }: ModelProps) {
+  return (
+    <group>
+      <DecorPad glow={glow} />
+      <Ball r={0.14} position={[0, 0.14, 0]} color="#f8fafc" />
+      <Ball r={0.1} position={[0, 0.32, 0]} color="#ffffff" />
+      <mesh position={[0, 0.32, 0.12]} rotation={[Math.PI / 2, 0, 0]}>
+        <coneGeometry args={[0.018, 0.08, 8]} />
+        <meshStandardMaterial color="#f97316" />
+      </mesh>
+      <Cyl r={0.075} h={0.08} position={[0, 0.44, 0]} color="#1f2937" segments={12} />
+      <Cyl r={0.1} h={0.012} position={[0, 0.4, 0]} color="#1f2937" segments={12} />
+      <Cyl r={0.105} h={0.03} position={[0, 0.235, 0]} color="#ef4444" segments={14} />
+      <Ball r={0.012} position={[-0.035, 0.35, 0.088]} color="#111827" />
+      <Ball r={0.012} position={[0.035, 0.35, 0.088]} color="#111827" />
+    </group>
+  );
+}
+
 const MODELS: Record<BuildingType, (props: ModelProps) => React.ReactElement> = {
   factory: Factory,
   warehouse: Warehouse,
@@ -1206,6 +1418,18 @@ const MODELS: Record<BuildingType, (props: ModelProps) => React.ReactElement> = 
   clocktower: ClockTower,
   ferris: ThemePark,
   house: House,
+  flowerbed: Flowerbed,
+  bench: BenchDecor,
+  streetlamp: Streetlamp,
+  bigtree: BigTree,
+  noticeboard: Noticeboard,
+  pond: Pond,
+  carousel: Carousel,
+  balloon: BalloonArch,
+  cherrytree: CherryTree,
+  parasol: Parasol,
+  pumpkin: Pumpkin,
+  snowman: Snowman,
 };
 
 export function Building3D({

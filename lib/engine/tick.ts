@@ -31,6 +31,7 @@ import { checkAchievements } from "./achievements";
 import { startSeason, type FestivalResult } from "./seasons";
 import { ensureVillage, settleVillage, villageStats, type VillageChange } from "./village";
 import { updateResidents, type ResidentUpdate } from "./residents";
+import { syncStickers, type StickerDef } from "./collection";
 import { decayRelations } from "./relations";
 import { recordNetWorth } from "./ranking";
 import { topUpTalentPool } from "./characters";
@@ -62,6 +63,8 @@ export interface TurnSummary {
   village?: VillageChange | null;
   /** Neighbours moving in or away, hearts, gifts and a new wish. */
   residents?: ResidentUpdate | null;
+  /** New stickers for the 📖 도감. */
+  stickers?: StickerDef[];
 }
 
 let monetaryCounter = 0;
@@ -219,6 +222,8 @@ export function advanceTurn(state: GameState): TurnSummary {
   const questUpdate = updateQuests(state);
   // Village neighbours move in or away, and may post a wish on the board.
   const residents = updateResidents(state);
+  // New stickers: first buildings, new neighbours, festivals joined.
+  const stickers = syncStickers(state, season?.joined ? [`festival:${season.festival.id}`] : []);
   const newDilemma = updateDilemma(state) !== null;
   const achievements = checkAchievements(state).map(({ id, emoji, title }) => ({ id, emoji, title }));
 
@@ -236,6 +241,7 @@ export function advanceTurn(state: GameState): TurnSummary {
     season,
     village,
     residents,
+    stickers,
   };
 }
 

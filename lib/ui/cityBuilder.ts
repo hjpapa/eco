@@ -16,13 +16,14 @@ import {
 // Presentation helpers for the construction screen. They only read game
 // state, so they never change saves or the simulation.
 
-export type BuildingRole = "money" | "smart" | "happy" | "home" | "landmark";
+export type BuildingRole = "money" | "smart" | "happy" | "home" | "decor" | "landmark";
 
 export const BUILDING_ROLE_LABELS: Record<BuildingRole, { emoji: string; label: string; hint: string }> = {
   money: { emoji: "💰", label: "돈 버는 건물", hint: "생산·손님을 늘려 매출을 키워요" },
   smart: { emoji: "💡", label: "똑똑한 건물", hint: "품질·효율을 높여 회사를 튼튼하게" },
   happy: { emoji: "😊", label: "행복한 건물", hint: "직원 행복·평판을 높여요" },
   home: { emoji: "🏡", label: "마을 건물", hint: "주민이 이사 와서 살아요" },
+  decor: { emoji: "🌼", label: "꾸미기", hint: "값싸고 유지비 없는 소품" },
   landmark: { emoji: "🏛️", label: "랜드마크", hint: "도시가 커지면 열리는 명소" },
 };
 
@@ -39,6 +40,18 @@ const ROLE: Record<BuildingType, BuildingRole> = {
   cafeteria: "happy",
   dorm: "home",
   house: "home",
+  flowerbed: "decor",
+  bench: "decor",
+  streetlamp: "decor",
+  bigtree: "decor",
+  noticeboard: "decor",
+  pond: "decor",
+  carousel: "decor",
+  balloon: "decor",
+  cherrytree: "decor",
+  parasol: "decor",
+  pumpkin: "decor",
+  snowman: "decor",
   gym: "happy",
   daycare: "happy",
   clinic: "happy",
@@ -61,6 +74,18 @@ const TAGLINE: Record<BuildingType, string> = {
   cafeteria: "직원이 행복해요",
   dorm: "주민 12명이 사는 집",
   house: "주민 8명이 사는 집",
+  flowerbed: "알록달록 꽃밭",
+  bench: "쉬어 가는 벤치",
+  streetlamp: "밤길을 밝혀요",
+  bigtree: "시원한 그늘",
+  noticeboard: "마을 소식판",
+  pond: "물고기 연못",
+  carousel: "빙글빙글 놀이",
+  balloon: "축제 분위기",
+  cherrytree: "봄 한정 꽃나무",
+  parasol: "여름 한정 그늘",
+  pumpkin: "가을 한정 장식",
+  snowman: "겨울 한정 친구",
   gym: "튼튼한 직원",
   daycare: "가족 친화 회사",
   clinic: "아프면 바로 치료",

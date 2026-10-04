@@ -17,6 +17,8 @@ export interface SeasonTheme {
   pineLow: string;
   pineHigh: string;
   bush: string;
+  /** The soft pad under decorations. */
+  pad: string;
   /** Falling particles, if any. */
   particles: { kind: "petal" | "leaf" | "snow"; colors: string[]; count: number } | null;
 }
@@ -31,6 +33,7 @@ export const SEASON_THEMES: Record<Season, SeasonTheme> = {
     pineLow: "#2f9e57",
     pineHigh: "#3fb168",
     bush: "#86c96a",
+    pad: "#c6e8ad",
     particles: { kind: "petal", colors: ["#f9a8d4", "#fbcfe8", "#fce7f3"], count: 46 },
   },
   summer: {
@@ -42,6 +45,7 @@ export const SEASON_THEMES: Record<Season, SeasonTheme> = {
     pineLow: "#2f9e57",
     pineHigh: "#3fb168",
     bush: "#4fae4f",
+    pad: "#bfe3a5",
     particles: null,
   },
   autumn: {
@@ -53,6 +57,7 @@ export const SEASON_THEMES: Record<Season, SeasonTheme> = {
     pineLow: "#2f7d4f",
     pineHigh: "#3a8f5c",
     bush: "#d97706",
+    pad: "#e1d595",
     particles: { kind: "leaf", colors: ["#f97316", "#f59e0b", "#dc2626", "#facc15"], count: 34 },
   },
   winter: {
@@ -64,6 +69,7 @@ export const SEASON_THEMES: Record<Season, SeasonTheme> = {
     pineLow: "#2f7d57",
     pineHigh: "#f1f5f9",
     bush: "#dbe4ee",
+    pad: "#f8fafc",
     particles: { kind: "snow", colors: ["#ffffff", "#f1f5f9"], count: 80 },
   },
 };

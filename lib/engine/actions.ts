@@ -15,6 +15,8 @@ import {
   isBuildingTypeUnlocked,
 } from "./buildings";
 import { planWithOrder } from "./quests";
+import { currentSeason, SEASONS } from "./seasons";
+import { withJosa } from "../format";
 import { autoAssignRole, generateCharacter } from "./characters";
 import { adjustRivalry, getRivalry } from "./relations";
 import { shockStock } from "./market";
@@ -113,6 +115,10 @@ export function buildBuilding(
   if (!isBuildingTypeUnlocked(company, type)) {
     return { ok: false, error: "도시가 더 커지면 지을 수 있어요." };
   }
+  const only = BUILDINGS[type].season;
+  if (only && currentSeason(state.macro) !== only) {
+    return { ok: false, error: `${SEASONS[only].emoji} ${SEASONS[only].name}에만 만들 수 있어요.` };
+  }
   const max = state.config.mapSize;
   if (!Number.isInteger(x) || !Number.isInteger(y) || x < 0 || y < 0 || x >= max || y >= max) {
     return { ok: false, error: "지도 밖에는 지을 수 없어요." };
@@ -135,6 +141,9 @@ export function buildBuilding(
     turnsLeft: state.config.instantBuild ? 0 : BUILDINGS[type].buildTurns,
   };
   company.buildings.push(building);
+  if (BUILDINGS[type].decor && company.id === state.playerCompanyId) {
+    (state.decorLog ??= []).push({ turn: state.turn, cost });
+  }
   const raisedTarget = followCampusGrowth(state, company, limitBefore);
   const comboMessage = building.turnsLeft === 0 && placement.combos.length > 0
     ? ` · ${placement.combos.map((combo) => `${combo.emoji} ${combo.name}`).join(", ")} 완성!`
@@ -142,6 +151,38 @@ export function buildBuilding(
   const planMessage = raisedTarget ? ` · 생산 계획도 ${raisedTarget.toLocaleString()}개로 늘렸어요` : "";
   const statusMessage = building.turnsLeft > 0 ? `공사 시작! ${building.turnsLeft}턴 뒤 완성돼요` : "완성!";
   return { ok: true, message: `${BUILDINGS[type].name} ${statusMessage}${comboMessage}${planMessage}` };
+}
+
+/** Moving a decoration is free; moving a working building costs a moving van. */
+export const MOVE_FEE = 10_000;
+
+export function moveCost(type: BuildingType): number {
+  return BUILDINGS[type].decor ? 0 : MOVE_FEE;
+}
+
+/** Move a finished building or decoration to an empty plot. */
+export function moveBuilding(
+  state: GameState,
+  company: Company,
+  buildingId: string,
+  x: number,
+  y: number,
+): ActionResult {
+  const building = company.buildings.find((b) => b.id === buildingId);
+  if (!building) return { ok: false, error: "건물을 찾을 수 없어요." };
+  if (building.turnsLeft > 0) return { ok: false, error: "공사가 끝난 뒤 옮길 수 있어요." };
+  const max = state.config.mapSize;
+  if (!Number.isInteger(x) || !Number.isInteger(y) || x < 0 || y < 0 || x >= max || y >= max) {
+    return { ok: false, error: "지도 밖으로는 옮길 수 없어요." };
+  }
+  if (company.buildings.some((b) => b.x === x && b.y === y)) return { ok: false, error: "빈 땅으로만 옮길 수 있어요." };
+  const fee = moveCost(building.type);
+  if (company.cash < fee) return { ok: false, error: "돈이 부족해요." };
+  company.cash -= fee;
+  building.x = x;
+  building.y = y;
+  const def = BUILDINGS[building.type];
+  return { ok: true, message: `🚚 ${def.emoji} ${withJosa(def.name, "을", "를")} 옮겼어요!${fee ? ` (이사 비용 ${fee.toLocaleString()}원)` : ""}` };
 }
 
 /** Demolish/sell a building, refunding part of its construction cost. */

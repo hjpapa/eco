@@ -11,6 +11,9 @@ import {
   estimateUpgradeImpact,
   findBestBuildingCell,
   isBuildingTypeUnlocked,
+  currentSeason,
+  moveCost,
+  SEASONS,
   type BuildingImpact,
   type BuildingType,
   type Company,
@@ -40,11 +43,12 @@ const ROLE_STYLE: Record<BuildingRole, string> = {
   smart: "border-t-indigo-400",
   happy: "border-t-pink-400",
   home: "border-t-lime-400",
+  decor: "border-t-rose-300",
   landmark: "border-t-teal-400",
 };
 
 type PaletteFilter = "all" | BuildingRole;
-const FILTERS: PaletteFilter[] = ["all", "money", "smart", "happy", "home", "landmark"];
+const FILTERS: PaletteFilter[] = ["all", "money", "smart", "happy", "home", "decor", "landmark"];
 
 export function BuildingIcon({ type, size = "h-12 w-12" }: { type: BuildingType; size?: string }) {
   const src = BUILDING_IMG[type];
@@ -77,6 +81,8 @@ export function ConstructionPanel({
   needsConfirm,
   picked = false,
   onBuildPreview,
+  onMove,
+  initialFilter,
 }: {
   game: GameState;
   company: Company;
@@ -89,9 +95,14 @@ export function ConstructionPanel({
   /** The player tapped a plot (instead of using the recommendation). */
   picked?: boolean;
   onBuildPreview: () => void;
+  /** Start moving a building or decoration to another plot. */
+  onMove?: (buildingId: string) => void;
+  /** Open the palette on one category (e.g. 🌼 꾸미기 from the village tab). */
+  initialFilter?: BuildingRole;
 }) {
+  const season = currentSeason(game.macro);
   const safetyLine = cashSafetyLine(company);
-  const [filter, setFilter] = useState<PaletteFilter>("all");
+  const [filter, setFilter] = useState<PaletteFilter>(initialFilter ?? "all");
   const [showLocked, setShowLocked] = useState(false);
   const enabled = BUILDING_LIST.filter((b) => game.config.enabledBuildings.includes(b.type));
   // Open buildings first, then the ones a bigger city will unlock.
@@ -110,7 +121,7 @@ export function ConstructionPanel({
       </p>
 
       {selected && (
-        <SelectedBuildingCard game={game} company={company} building={selected} onClose={onCloseSelected} />
+        <SelectedBuildingCard game={game} company={company} building={selected} onClose={onCloseSelected} onMove={onMove} />
       )}
 
       {pending && preview && (
@@ -161,6 +172,7 @@ export function ConstructionPanel({
             const comboReady = (best?.combos.length ?? 0) > 0;
             const role = buildingRole(def.type);
             const active = pending === def.type;
+            const outOfSeason = !!def.season && def.season !== season;
             if (!unlocked) {
               return (
                 <div
@@ -188,7 +200,7 @@ export function ConstructionPanel({
               <button
                 key={def.type}
                 type="button"
-                disabled={shortfall > 0 || !best}
+                disabled={shortfall > 0 || !best || outOfSeason}
                 aria-pressed={active}
                 onClick={() => onPick(active ? null : def.type)}
                 className={`relative flex flex-col items-center rounded-xl border border-t-4 bg-white p-2 text-center transition disabled:cursor-not-allowed disabled:opacity-50 ${ROLE_STYLE[role]} ${
@@ -201,7 +213,12 @@ export function ConstructionPanel({
                     ✨조합
                   </span>
                 )}
-                {!owned && (
+                {def.season && (
+                  <span className={`rounded-full px-1.5 py-0.5 text-xs font-black ${outOfSeason ? "bg-slate-100 text-slate-500" : "bg-rose-100 text-rose-700"}`}>
+                    {SEASONS[def.season].emoji} {outOfSeason ? `${SEASONS[def.season].name}에만` : "지금만!"}
+                  </span>
+                )}
+                {!owned && !def.season && (
                   <span className="rounded-full bg-violet-100 px-1.5 py-0.5 text-xs font-black text-violet-700">
                     NEW
                   </span>
@@ -214,7 +231,7 @@ export function ConstructionPanel({
                   {buildingEffectChips(def.type)[0]}
                 </span>
                 <span className="mt-1 text-xs font-black text-slate-900">🪙 {won(cost)}</span>
-                <span className="text-xs text-slate-500">매 턴 유지비 {won(def.upkeep)}</span>
+                <span className="text-xs text-slate-500">{def.upkeep > 0 ? `매 턴 유지비 ${won(def.upkeep)}` : "유지비 없음 ✨"}</span>
                 {!game.config.instantBuild && def.buildTurns > 0 && (
                   <span className="text-xs text-slate-500">공사 {def.buildTurns}턴</span>
                 )}
@@ -222,6 +239,9 @@ export function ConstructionPanel({
                   <span className="mt-1 text-xs font-bold text-rose-600">🔒 {won(shortfall)} 더 필요</span>
                 )}
                 {!best && <span className="mt-1 text-xs font-bold text-rose-600">빈 땅이 없어요</span>}
+                {outOfSeason && def.season && (
+                  <span className="mt-1 text-xs font-bold text-slate-500">{SEASONS[def.season].emoji} {SEASONS[def.season].name}이 오면 살 수 있어요</span>
+                )}
               </button>
             );
           })}
@@ -364,11 +384,13 @@ function SelectedBuildingCard({
   company,
   building,
   onClose,
+  onMove,
 }: {
   game: GameState;
   company: Company;
   building: PlacedBuilding;
   onClose: () => void;
+  onMove?: (buildingId: string) => void;
 }) {
   const upgrade = useGameStore((s) => s.upgrade);
   const demolish = useGameStore((s) => s.demolish);
@@ -404,8 +426,12 @@ function SelectedBuildingCard({
             ))}
           </div>
           <p className="mt-1 text-xs text-slate-500">
-            매 턴 유지비 {won(def.upkeep * building.level)} ·{" "}
-            {building_ ? `공사 ${building.turnsLeft}턴 남음` : "열심히 일하는 중"}
+            {def.decor ? "유지비 없음 · 이웃 집을 행복하게 해요" : (
+              <>
+                매 턴 유지비 {won(def.upkeep * building.level)} ·{" "}
+                {building_ ? `공사 ${building.turnsLeft}턴 남음` : "열심히 일하는 중"}
+              </>
+            )}
           </p>
         </div>
         <button type="button" className="btn-ghost !min-h-11 min-w-11 !px-2 text-base" onClick={onClose} aria-label="선택 닫기">
@@ -432,6 +458,17 @@ function SelectedBuildingCard({
       )}
 
       <div className="mt-2 grid gap-2">
+        {onMove && (
+          <button
+            type="button"
+            className="btn-ghost"
+            disabled={building_ || company.cash < moveCost(building.type)}
+            onClick={() => onMove(building.id)}
+          >
+            🚚 다른 칸으로 옮기기 {moveCost(building.type) > 0 ? `(${won(moveCost(building.type))})` : "(무료)"}
+          </button>
+        )}
+        {!(def.decor && maxed) && (
         <button
           type="button"
           className="btn-primary"
@@ -446,6 +483,7 @@ function SelectedBuildingCard({
                 ? `🔒 ${won(shortfall)} 더 필요해요`
                 : `⬆️ 업그레이드 (${won(upgradeCost)})`}
         </button>
+        )}
         {confirmSell ? (
           <div className="rounded-xl bg-rose-50 p-2 text-sm text-rose-900 ring-1 ring-rose-200">
             정말 팔까요? 지을 때 쓴 돈의 절반인 <b>{won(refund)}</b>만 돌아와요.
@@ -470,7 +508,7 @@ function SelectedBuildingCard({
           </div>
         ) : (
           <button type="button" className="btn-ghost" onClick={() => setConfirmSell(true)}>
-            건물 팔기 (+{won(refund)} 돌려받기)
+            {def.decor ? "치우기" : "건물 팔기"} (+{won(refund)} 돌려받기)
           </button>
         )}
       </div>

@@ -42,7 +42,26 @@ export const VILLAGE_ROLES: Record<BuildingType, VillageRole> = {
   statue: { happy: 3, radius: 2 },
   clocktower: { jobs: 1, happy: 2, radius: 2 },
   ferris: { jobs: 6, shops: 20, happy: 5, radius: 3 },
+  // Decorations only cheer up the homes right next to them.
+  flowerbed: { happy: 2, radius: 1 },
+  bench: { happy: 1, radius: 1 },
+  streetlamp: { happy: 1, radius: 1 },
+  bigtree: { happy: 2, radius: 1 },
+  noticeboard: { happy: 1, radius: 1 },
+  pond: { happy: 3, radius: 1 },
+  carousel: { happy: 3, radius: 1 },
+  balloon: { happy: 2, radius: 1 },
+  cherrytree: { happy: 3, radius: 1 },
+  parasol: { happy: 2, radius: 1 },
+  pumpkin: { happy: 2, radius: 1 },
+  snowman: { happy: 2, radius: 1 },
 };
+
+/** Decorations are not "kinds of building" for the star rating. */
+const DECOR_TYPES = new Set<BuildingType>(["flowerbed", "bench", "streetlamp", "bigtree", "noticeboard", "pond", "carousel", "balloon", "cherrytree", "parasol", "pumpkin", "snowman"]);
+export function isDecorType(type: BuildingType): boolean {
+  return DECOR_TYPES.has(type);
+}
 
 export type DemandLevel = "high" | "some" | "enough";
 
@@ -110,7 +129,7 @@ export function villageStats(buildings: PlacedBuilding[]): VillageStats {
   const neighbourhood = homes.length
     ? homes.reduce((sum, h) => sum + plotHappiness(live, h.x, h.y), 0) / homes.length
     : 0;
-  const variety = new Set(live.map((b) => b.type)).size;
+  const variety = new Set(live.filter((b) => !isDecorType(b.type)).map((b) => b.type)).size;
 
   // Happiness and population depend on each other (a crowded village with no
   // jobs is gloomy, and gloomy villages fill fewer beds), so settle them in

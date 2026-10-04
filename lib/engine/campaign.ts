@@ -1,5 +1,5 @@
 import { netWorth, playerRank } from "./ranking";
-import { getLevelConfig } from "./levels";
+import { getLevelConfig, VILLAGE_BUILDINGS } from "./levels";
 import { mergeAssetCatalogMetadata } from "./assets";
 import { seasonOf } from "./seasons";
 import type {
@@ -263,9 +263,10 @@ export function migrateGameState(value: unknown): GameState | null {
     // Seasons arrived later: an older save picks up the season of its turn.
     macro: raw.macro && !raw.macro.season ? { ...raw.macro, season: seasonOf(raw.turn) } : raw.macro,
   };
-  // Homes arrived with the village: older saves can build them too.
-  if (Array.isArray(migrated.config?.enabledBuildings) && !migrated.config.enabledBuildings.includes("house")) {
-    migrated.config = { ...migrated.config, enabledBuildings: [...migrated.config.enabledBuildings, "house"] };
+  // Homes and decorations arrived with the village: older saves get them too.
+  if (Array.isArray(migrated.config?.enabledBuildings)) {
+    const missing = VILLAGE_BUILDINGS.filter((type) => !migrated.config.enabledBuildings.includes(type));
+    if (missing.length) migrated.config = { ...migrated.config, enabledBuildings: [...migrated.config.enabledBuildings, ...missing] };
   }
 
   if (migrated.turn >= migrated.maxTurns) {

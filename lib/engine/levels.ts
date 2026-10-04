@@ -14,6 +14,23 @@ const ALL_ASSETS: AssetClass[] = [
   "crypto",
 ];
 
+/** Village homes and decorations, open in every level. */
+export const VILLAGE_BUILDINGS: BuildingType[] = [
+  "house",
+  "flowerbed",
+  "bench",
+  "streetlamp",
+  "bigtree",
+  "noticeboard",
+  "pond",
+  "carousel",
+  "balloon",
+  "cherrytree",
+  "parasol",
+  "pumpkin",
+  "snowman",
+];
+
 const ALL_BUILDINGS: BuildingType[] = [
   "factory",
   "rnd",
@@ -33,7 +50,7 @@ const ALL_BUILDINGS: BuildingType[] = [
   "statue",
   "clocktower",
   "ferris",
-  "house",
+  ...VILLAGE_BUILDINGS,
 ];
 
 const ALL_LAYERS: EventLayer[] = [
@@ -79,7 +96,7 @@ export const LEVEL_CONFIGS: Record<Level, LevelConfig> = {
       "hr",
       "clocktower",
       "ferris",
-      "house",
+      ...VILLAGE_BUILDINGS,
     ],
     enabledEventLayers: ["macro", "monetary", "market", "internal", "visitor"],
     showAdvancedMetrics: true,
@@ -97,7 +114,7 @@ export const LEVEL_CONFIGS: Record<Level, LevelConfig> = {
     volatility: 1.0,
     eventIntensity: 1.0,
     enabledAssets: ["deposit", "bond", "etf", "realestate", "gold", "oil"],
-    enabledBuildings: ["factory", "rnd", "office", "warehouse", "store", "hr", "park", "cafeteria", "dorm", "gym", "daycare", "clinic", "lab", "fountain", "statue", "clocktower", "ferris", "house"],
+    enabledBuildings: ["factory", "rnd", "office", "warehouse", "store", "hr", "park", "cafeteria", "dorm", "gym", "daycare", "clinic", "lab", "fountain", "statue", "clocktower", "ferris", ...VILLAGE_BUILDINGS],
     enabledEventLayers: ["macro", "monetary", "geopolitics", "intercompany", "internal", "market", "visitor"],
     showAdvancedMetrics: true,
     characterDepth: "roles",

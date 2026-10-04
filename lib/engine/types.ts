@@ -103,7 +103,20 @@ export type BuildingType =
   | "clocktower"
   | "ferris"
   /** A home for village residents (the village layer, see village.ts). */
-  | "house";
+  | "house"
+  // Decorations (꾸미기): cheap, no upkeep, only cheer up nearby homes.
+  | "flowerbed"
+  | "bench"
+  | "streetlamp"
+  | "bigtree"
+  | "pond"
+  | "carousel"
+  | "noticeboard"
+  | "balloon"
+  | "cherrytree"
+  | "parasol"
+  | "pumpkin"
+  | "snowman";
 
 export interface CompanyCapabilities {
   productionCapacity: number;
@@ -131,6 +144,10 @@ export interface BuildingDef {
   unlockCityScore?: number;
   /** Alternatively, a village star rating that also opens it (see village.ts). */
   unlockStars?: number;
+  /** A decoration: no upkeep, no level-ups, not counted in the city score. */
+  decor?: boolean;
+  /** Only sold in this season (it stays once placed). */
+  season?: Season;
   /** Decorative city landmark rather than a working company building. */
   landmark?: boolean;
 }
@@ -407,6 +424,10 @@ export interface GameState {
   village?: { bestStars: number };
   /** Named neighbours living in the village (see residents.ts). */
   residents?: ResidentState[];
+  /** Sticker book: "resident:toto", "building:park", "festival:blossom"… */
+  stickers?: string[];
+  /** Money spent on decorations, for the 기회비용 comparison. */
+  decorLog?: { turn: number; cost: number }[];
 
   createdAt: number;
   updatedAt: number;

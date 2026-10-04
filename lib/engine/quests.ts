@@ -236,7 +236,7 @@ function makeCityRequest(state: GameState, company: Company, rng: RngState): Que
   });
 
   const missing = enabled.filter(
-    (type) => isBuildingTypeUnlocked(company, type) && !company.buildings.some((b) => b.type === type),
+    (type) => !BUILDINGS[type].decor && isBuildingTypeUnlocked(company, type) && !company.buildings.some((b) => b.type === type),
   );
   if (missing.length) {
     options.push({

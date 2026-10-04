@@ -12,6 +12,7 @@ import {
   planWithOrder,
   resolveDilemma,
   syncQuestProgress,
+  syncStickers,
   type AssetClass,
   type BuildingType,
   type CompanyDecisions,
@@ -25,6 +26,7 @@ import {
   buyAsset,
   buyStock,
   emptyCell,
+  moveBuilding,
   hireCharacter,
   fireCharacter,
   poachCharacter,
@@ -80,6 +82,8 @@ interface GameStore {
   setDecisions: (partial: Partial<CompanyDecisions>) => void;
   build: (type: BuildingType, x?: number, y?: number) => void;
   upgrade: (buildingId: string) => void;
+  /** Move a finished building or decoration to an empty plot. */
+  move: (buildingId: string, x: number, y: number) => void;
   demolish: (buildingId: string) => void;
   companyAction: (actionId: string) => void;
   proposeDeal: (targetCompanyId: string, dealId: string) => void;
@@ -117,6 +121,13 @@ function persist(game: GameState): boolean {
 function afterAction(game: GameState, toast: { text: string; tone: "good" | "bad" | "info" }) {
   syncQuestProgress(game);
   const earned = checkAchievements(game);
+  const stickers = syncStickers(game);
+  if (earned.length === 0 && stickers.length > 0) {
+    return {
+      text: `${toast.text} · ✨ 새 스티커! ${stickers.map((s) => `${s.emoji} ${s.name}`).join(", ")}`,
+      tone: toast.tone,
+    };
+  }
   if (earned.length === 0) return toast;
   playSfx("win");
   const first = earned[0];
@@ -213,6 +224,18 @@ export const useGameStore = create<GameStore>((set, get) => ({
     playSfx("build");
     haptic(20);
     const toast = afterAction(game, { text: res.message ?? "업그레이드 완료!", tone: "good" });
+    persist(game);
+    set({ game: { ...game }, toast });
+  },
+
+  move: (buildingId, x, y) => {
+    const game = get().game;
+    if (!game) return;
+    const res = moveBuilding(game, player(game), buildingId, x, y);
+    if (!res.ok) return showToast(set, res.error ?? "옮기기 실패", "bad");
+    playSfx("build");
+    haptic(15);
+    const toast = afterAction(game, { text: res.message ?? "옮겼어요!", tone: "good" });
     persist(game);
     set({ game: { ...game }, toast });
   },

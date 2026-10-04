@@ -13,6 +13,7 @@ import {
   residentSlots,
   MAX_HEARTS,
   PEOPLE_PER_RESIDENT,
+  decorOpportunity,
   type BuildingType,
   type Company,
   type DemandLevel,
@@ -20,6 +21,7 @@ import {
 } from "@/lib/engine";
 import { formatMoney } from "@/lib/format";
 import { PERSONALITIES } from "@/lib/data/residents";
+import { StickerBook, stickerProgress } from "./StickerBook";
 import { Term } from "./Term";
 
 // 🏘️ 마을: a SimCity-style glance at the village. How many people live
@@ -53,6 +55,7 @@ export function VillagePanel({
   happyMap,
   onToggleHappyMap,
   onBuild,
+  onDecorate,
 }: {
   game: GameState;
   company: Company;
@@ -60,6 +63,8 @@ export function VillagePanel({
   onToggleHappyMap: () => void;
   /** Open the build screen with this building picked. */
   onBuild: (type: BuildingType) => void;
+  /** Open the build screen on the 🌼 꾸미기 shelf. */
+  onDecorate?: () => void;
 }) {
   const stats = villageStats(company.buildings);
   const next = nextStarGoal(stats);
@@ -67,6 +72,9 @@ export function VillagePanel({
     ? BUILDING_LIST.filter((def) => def.unlockStars === next.stars && game.config.enabledBuildings.includes(def.type) && !isBuildingTypeUnlocked(company, def.type))
     : [];
   const fill = stats.housing > 0 ? Math.round((stats.population / stats.housing) * 100) : 0;
+  const [bookOpen, setBookOpen] = useState(false);
+  const book = stickerProgress(game);
+  const decor = decorOpportunity(game);
 
   return (
     <div className="space-y-3">
@@ -105,7 +113,32 @@ export function VillagePanel({
         )}
       </section>
 
+      <div className="grid grid-cols-2 gap-2">
+        <button type="button" className="btn-ghost min-h-12 text-base" onClick={() => setBookOpen(true)}>
+          📖 도감 <span className="text-sm font-bold text-slate-500">{book.owned}/{book.total}</span>
+        </button>
+        {onDecorate && (
+          <button type="button" className="btn-ghost min-h-12 text-base" onClick={onDecorate}>
+            🌼 꾸미러 가기
+          </button>
+        )}
+      </div>
+      {bookOpen && <StickerBook game={game} onClose={() => setBookOpen(false)} />}
+
       <Neighbours game={game} population={stats.population} />
+
+      {decor.spent > 0 && (
+        <section className="rounded-2xl bg-rose-50 p-3 text-sm leading-relaxed text-rose-950 ring-1 ring-rose-200" aria-labelledby="decor-cost-title">
+          <h3 id="decor-cost-title" className="text-base font-black">🌼 꾸미기 가계부</h3>
+          <p className="mt-1">
+            지금까지 꾸미기에 <b>{formatMoney(decor.spent)}원</b>을 썼어요. 그 돈을 예금에 넣었다면 지금쯤 이자로
+            약 <b>{formatMoney(decor.interest)}원</b>을 더 받았을 거예요. 대신 이웃들이 더 행복해졌죠!
+          </p>
+          <p className="mt-1 text-xs font-bold text-rose-800">
+            💡 하나를 고르면 포기한 다른 것의 값어치를 <Term term="기회비용">기회비용</Term>이라고 해요.
+          </p>
+        </section>
+      )}
 
       {next && (
         <section className="rounded-2xl bg-amber-50 p-3 ring-1 ring-amber-200" aria-labelledby="next-star-title">
