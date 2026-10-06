@@ -26,7 +26,6 @@ import {
 import { formatMoney, formatNum, withJosa } from "@/lib/format";
 import {
   COMPANY_TASKS,
-  taskForBuilding,
   taskForMission,
   type CompanyTask,
 } from "@/lib/ui/companyWorkspace";
@@ -34,6 +33,7 @@ import { buildingWorkReport, getCityProgress } from "@/lib/ui/cityBuilder";
 import { WORK_LESSONS } from "@/lib/learning/catalog";
 import { useGameStore } from "@/store/gameStore";
 import { MapViewport } from "./MapViewport";
+import { readableMapSize } from "@/lib/ui/mapGestures";
 import { CompanyCity } from "./CompanyCity";
 import { SEASON_THEMES } from "./seasonTheme";
 import { VillagePanel } from "./VillagePanel";
@@ -94,6 +94,7 @@ export function CompanyWorkspace({
   const [celebration, setCelebration] = useState<Celebration | null>(null);
   const actionLock = useRef(0);
   const panel = useRef<HTMLElement>(null);
+  const panelContent = useRef<HTMLDivElement>(null);
   const mapSection = useRef<HTMLElement>(null);
   const build = useGameStore((s) => s.build);
   const move = useGameStore((s) => s.move);
@@ -197,6 +198,7 @@ export function CompanyWorkspace({
     setMoving(null);
     window.requestAnimationFrame(() => {
       panel.current?.focus({ preventScroll: true });
+      if (panelContent.current) panelContent.current.scrollTop = 0;
       if (window.innerWidth < 1024)
         panel.current?.scrollIntoView({ block: "start", behavior: "instant" });
     });
@@ -274,12 +276,7 @@ export function CompanyWorkspace({
     }
     if (b) {
       if (pending) return; // keep placing; tapping a building does nothing
-      if (task === "construction") {
-        setSelectedId(b.id === selectedId ? null : b.id);
-        window.requestAnimationFrame(() => {
-          if (window.innerWidth < 1024) panel.current?.scrollIntoView({ block: "start", behavior: "smooth" });
-        });
-      } else choose(taskForBuilding(b.type), b.id);
+      choose("construction", b.id);
       return;
     }
     if (task === "construction" && pending) tryBuild(x, y);
@@ -303,13 +300,15 @@ export function CompanyWorkspace({
   }
 
   const flatMap = (
-    <MapViewport className="workspace-map-h flat-map-h" style={{ background: SEASON_THEMES[currentSeason(game.macro)].sky }}>
+    <MapViewport readableSize={readableMapSize(game.config.mapSize)} className="workspace-map-h flat-map-h" style={{ background: SEASON_THEMES[currentSeason(game.macro)].sky }}>
       <div
         aria-label="2D 회사 지도"
-        className="grid h-full gap-1 p-2"
+        className="grid h-full w-full shrink-0 gap-1 p-2"
         style={{
-          gridTemplateColumns: `repeat(${game.config.mapSize}, minmax(0, 1fr))`,
-          gridTemplateRows: `repeat(${game.config.mapSize}, minmax(0, 1fr))`,
+          minWidth: readableMapSize(game.config.mapSize),
+          minHeight: readableMapSize(game.config.mapSize),
+          gridTemplateColumns: `repeat(${game.config.mapSize}, minmax(80px, 1fr))`,
+          gridTemplateRows: `repeat(${game.config.mapSize}, minmax(80px, 1fr))`,
         }}
       >
         {Array.from({ length: game.config.mapSize ** 2 }, (_, i) => {
@@ -338,7 +337,7 @@ export function CompanyWorkspace({
           return (
             <button
               key={i}
-              className={`relative flex !min-h-0 min-w-0 flex-col items-center justify-center overflow-hidden rounded-lg border p-0.5 text-[10px] leading-tight ${tone}`}
+              className={`relative flex min-h-20 min-w-20 flex-col items-center justify-center overflow-hidden rounded-lg border p-0.5 text-[13px] leading-tight ${tone}`}
               onClick={() => onCell(x, y)}
               style={tint ? { backgroundImage: `linear-gradient(${tint}, ${tint})` } : undefined}
               aria-label={`${x + 1}열 ${y + 1}줄 ${b ? `${BUILDINGS[b.type].name} 레벨 ${b.level}${b.turnsLeft > 0 ? ` 공사 중 ${b.turnsLeft}턴 남음` : ""}` : placement?.combos.length ? "빈 땅, 조합 보너스 칸" : "빈 땅"}`}
@@ -347,8 +346,8 @@ export function CompanyWorkspace({
                 <>
                   {b.turnsLeft > 0 ? <span className="text-xl" aria-hidden>🏗️</span> :
                     <BuildingIcon type={b.type} size={b.level > 1 ? "h-[45%] w-9 max-w-full" : "h-[40%] w-7 max-w-full"} />}
-                  <span className="max-w-full shrink-0 truncate text-[9px] font-bold leading-[10px] text-slate-700">{BUILDINGS[b.type].name}</span>
-                  <span className={`shrink-0 text-[9px] leading-[10px] ${b.turnsLeft > 0 ? "text-amber-800" : "font-bold text-indigo-700"}`}>{b.turnsLeft > 0 ? `공사 ${b.turnsLeft}턴` : `Lv.${b.level}`}</span>
+                  <span className="max-w-full shrink-0 truncate text-[13px] font-bold leading-4 text-slate-700">{BUILDINGS[b.type].name}</span>
+                  <span className={`shrink-0 text-[13px] leading-4 ${b.turnsLeft > 0 ? "text-amber-800" : "font-bold text-indigo-700"}`}>{b.turnsLeft > 0 ? `공사 ${b.turnsLeft}턴` : `레벨 ${b.level}`}</span>
                 </>
               ) : (
                 <span className="text-lg text-emerald-700/70" aria-hidden>
@@ -507,14 +506,14 @@ export function CompanyWorkspace({
                   </button>
                 )}
                 {!pending && !movingBuilding && happyMap && (
-                  <div className="pointer-events-none absolute left-2 top-2 z-10 rounded-xl bg-white/90 px-2.5 py-1.5 text-xs font-bold text-slate-700 shadow backdrop-blur">
+                  <div className="pointer-events-none absolute left-2 top-2 z-10 rounded-xl bg-white/90 px-2.5 py-1.5 text-[13px] font-bold text-slate-700 shadow backdrop-blur">
                     <span className="text-emerald-600">■</span> 살기 좋은 땅 · <span className="text-rose-500">■</span> 시끄러운 땅
                   </div>
                 )}
                 {!pending && !movingBuilding && (
                   <div role="status" className="mt-2 text-sm">
                     <span className="inline-block rounded-2xl bg-white/85 px-3 py-1 text-sm font-bold text-emerald-800 shadow-sm backdrop-blur">
-                      {task === "construction" ? "👉 지을 건물을 고르거나, 건물을 눌러 키워요" : "👉 건물을 누르면 그 건물이 하는 일이 열려요"}
+                      {task === "construction" ? "👉 지을 건물을 고르거나, 건물을 눌러 키워요" : "👉 건물을 누르면 키우기·옮기기·팔기를 할 수 있어요"}
                     </span>
                   </div>
                 )}
@@ -532,7 +531,19 @@ export function CompanyWorkspace({
                   </div>
                 )}
               </div>
-
+              {!pending && !movingBuilding && (
+                <details className="rounded-xl bg-slate-50 p-2">
+                  <summary className="flex min-h-11 cursor-pointer items-center px-2 text-sm font-bold">🏘️ 건물 목록에서 고르기 ({company.buildings.length}개)</summary>
+                  <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                    {company.buildings.map((building) => (
+                      <button key={building.id} type="button" className="btn-ghost min-h-14 min-w-0 !justify-start text-left" onClick={() => choose("construction", building.id)}>
+                        <BuildingIcon type={building.type} size="h-8 w-8" />
+                        <span className="min-w-0 break-words text-[13px]">{BUILDINGS[building.type].name} · 레벨 {building.level}<br />{building.x + 1}열 {building.y + 1}줄{building.turnsLeft > 0 ? ` · 공사 ${building.turnsLeft}턴` : ""}</span>
+                      </button>
+                    ))}
+                  </div>
+                </details>
+              )}
             </section>
             <section
               ref={panel}
@@ -567,7 +578,7 @@ export function CompanyWorkspace({
                       </span>
                       <span className="mt-0.5">{t.label}</span>
                       {badge > 0 && (
-                        <span className="quest-badge absolute -right-1 -top-1 flex h-6 min-w-6 items-center justify-center rounded-full bg-rose-500 px-1.5 text-xs font-black text-white ring-2 ring-white">
+                        <span className="quest-badge absolute -right-1 -top-1 flex h-6 min-w-6 items-center justify-center rounded-full bg-rose-500 px-1.5 text-[13px] font-black text-white ring-2 ring-white">
                           {badge}
                         </span>
                       )}
@@ -575,7 +586,7 @@ export function CompanyWorkspace({
                   );
                 })}
               </nav>
-              <div className="space-y-3 p-3 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain">
+              <div ref={panelContent} className="space-y-3 p-3 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain">
                 <div className="flex items-center justify-between gap-2">
                   <h2 className="text-xl font-black">
                     {taskInfo?.icon} {taskInfo?.label}

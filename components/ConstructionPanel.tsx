@@ -121,13 +121,15 @@ export function ConstructionPanel({
 
   return (
     <div className="space-y-3">
+      {selected && (
+        <SelectedBuildingCard key={selected.id} game={game} company={company} building={selected} onClose={onCloseSelected} onMove={onMove} />
+      )}
+
       <p className="rounded-xl bg-sky-50 px-3 py-2 text-sm text-sky-950 ring-1 ring-sky-200">
         🛟 <Term term="비상금">비상금</Term> <b>{won(safetyLine)}</b>은 남겨 두세요. 갑자기 손해가 나도 버틸 수 있어요.
       </p>
 
-      {selected && (
-        <SelectedBuildingCard game={game} company={company} building={selected} onClose={onCloseSelected} onMove={onMove} />
-      )}
+
 
       {pending && preview && (
         <BuildPreviewCard
@@ -151,7 +153,7 @@ export function ConstructionPanel({
       <section aria-labelledby="build-palette-title">
         <h3 id="build-palette-title" className="mb-2 flex flex-wrap items-center justify-between gap-1 text-sm font-black text-slate-800">
           <span>🧱 무엇을 지을까요?</span>
-          <span className="text-xs font-bold text-slate-500">고른 뒤 지도의 빈 땅을 눌러요</span>
+          <span className="text-[13px] font-bold text-slate-500">고른 뒤 지도의 빈 땅을 눌러요</span>
         </h3>
         <div className="mb-2 flex flex-wrap gap-1" role="group" aria-label="건물 종류 고르기">
           {FILTERS.filter((f) => villageOpen || (f !== "home" && f !== "decor")).map((f) => (
@@ -189,12 +191,12 @@ export function ConstructionPanel({
                     <BuildingIcon type={def.type} />
                   </span>
                   <b className="mt-1 text-sm leading-tight text-slate-500">{def.name}</b>
-                  <span className="text-xs leading-tight text-slate-400">{buildingTagline(def.type)}</span>
-                  <span className="mt-1 rounded-md bg-white px-1.5 py-0.5 text-xs font-bold text-slate-600">
+                  <span className="text-[13px] leading-tight text-slate-400">{buildingTagline(def.type)}</span>
+                  <span className="mt-1 rounded-md bg-white px-1.5 py-0.5 text-[13px] font-bold text-slate-600">
                     🔒 {stage?.emoji} {withJosa(stage?.label ?? "더 큰 도시", "이", "가")} 되면 열려요
                   </span>
                   {def.unlockStars && (
-                    <span className="mt-1 rounded-md bg-lime-50 px-1.5 py-0.5 text-xs font-bold text-lime-800">
+                    <span className="mt-1 rounded-md bg-lime-50 px-1.5 py-0.5 text-[13px] font-bold text-lime-800">
                       또는 마을 <span className="text-amber-500">★{def.unlockStars}</span>
                     </span>
                   )}
@@ -214,38 +216,38 @@ export function ConstructionPanel({
               >
                 <div className="flex min-h-5 w-full flex-wrap justify-between gap-1">
                 {comboReady && (
-                  <span className=" rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-black text-amber-700">
+                  <span className=" rounded-full bg-amber-100 px-1.5 py-0.5 text-[13px] font-black text-amber-700">
                     ✨조합
                   </span>
                 )}
                 {def.season && (
-                  <span className={`rounded-full px-1.5 py-0.5 text-xs font-black ${outOfSeason ? "bg-slate-100 text-slate-500" : "bg-rose-100 text-rose-700"}`}>
+                  <span className={`rounded-full px-1.5 py-0.5 text-[13px] font-black ${outOfSeason ? "bg-slate-100 text-slate-500" : "bg-rose-100 text-rose-700"}`}>
                     {SEASONS[def.season].emoji} {outOfSeason ? `${SEASONS[def.season].name}에만` : "지금만!"}
                   </span>
                 )}
                 {!owned && !def.season && (
-                  <span className="rounded-full bg-violet-100 px-1.5 py-0.5 text-xs font-black text-violet-700">
+                  <span className="rounded-full bg-violet-100 px-1.5 py-0.5 text-[13px] font-black text-violet-700">
                     NEW
                   </span>
                 )}
                 </div>
                 <BuildingIcon type={def.type} />
                 <b className="mt-1 text-sm leading-tight text-slate-900">{def.name}</b>
-                <span className="text-xs leading-tight text-slate-500">{buildingTagline(def.type)}</span>
-                <span className="mt-1 rounded-md bg-slate-50 px-1.5 py-0.5 text-xs font-bold text-slate-700">
+                <span className="text-[13px] leading-tight text-slate-500">{buildingTagline(def.type)}</span>
+                <span className="mt-1 rounded-md bg-slate-50 px-1.5 py-0.5 text-[13px] font-bold text-slate-700">
                   {buildingEffectChips(def.type)[0]}
                 </span>
-                <span className="mt-1 text-xs font-black text-slate-900">🪙 {won(cost)}</span>
-                <span className="text-xs text-slate-500">{def.upkeep > 0 ? `매 턴 유지비 ${won(def.upkeep)}` : "유지비 없음 ✨"}</span>
+                <span className="mt-1 text-[13px] font-black text-slate-900">🪙 {won(cost)}</span>
+                <span className="text-[13px] text-slate-500">{def.upkeep > 0 ? `매 턴 유지비 ${won(def.upkeep)}` : "유지비 없음 ✨"}</span>
                 {!game.config.instantBuild && def.buildTurns > 0 && (
-                  <span className="text-xs text-slate-500">공사 {def.buildTurns}턴</span>
+                  <span className="text-[13px] text-slate-500">공사 {def.buildTurns}턴</span>
                 )}
                 {shortfall > 0 && (
-                  <span className="mt-1 text-xs font-bold text-rose-600">🔒 {won(shortfall)} 더 필요</span>
+                  <span className="mt-1 text-[13px] font-bold text-rose-600">🔒 {won(shortfall)} 더 필요</span>
                 )}
-                {!best && <span className="mt-1 text-xs font-bold text-rose-600">빈 땅이 없어요</span>}
+                {!best && <span className="mt-1 text-[13px] font-bold text-rose-600">빈 땅이 없어요</span>}
                 {outOfSeason && def.season && (
-                  <span className="mt-1 text-xs font-bold text-slate-500">{SEASONS[def.season].emoji} {SEASONS[def.season].name}이 오면 살 수 있어요</span>
+                  <span className="mt-1 text-[13px] font-bold text-slate-500">{SEASONS[def.season].emoji} {SEASONS[def.season].name}이 오면 살 수 있어요</span>
                 )}
               </button>
             );
@@ -321,7 +323,7 @@ function BuildPreviewCard({
           <span className="text-sm font-bold text-slate-600">매 턴 남는 돈</span>
           <span className={`text-lg font-black ${earns ? "text-emerald-700" : "text-amber-700"}`}>
             {signedWon(impact.profitDelta)}
-            <span className="text-xs font-bold">/턴</span>
+            <span className="text-[13px] font-bold">/턴</span>
           </span>
         </div>
         <p className="mt-0.5 text-sm text-slate-500">
@@ -405,6 +407,7 @@ function SelectedBuildingCard({
   const upgrade = useGameStore((s) => s.upgrade);
   const demolish = useGameStore((s) => s.demolish);
   const [confirmSell, setConfirmSell] = useState(false);
+  const [showUpgrade, setShowUpgrade] = useState(false);
   const lock = useRef(0);
   const once = (action: () => void) => {
     if (Date.now() < lock.current) return;
@@ -427,15 +430,15 @@ function SelectedBuildingCard({
           <h3 id="selected-building-title" className="font-black text-slate-900">
             {def.name} <LevelStars level={building.level} max={def.maxLevel} />
           </h3>
-          <p className="text-xs text-slate-600">{def.description}</p>
+          <p className="text-[13px] text-slate-600">{def.description}</p>
           <div className="mt-1 flex flex-wrap gap-1">
             {buildingEffectChips(building.type, building.level).map((chip) => (
-              <span key={chip} className="rounded-md bg-white px-1.5 py-0.5 text-xs font-bold text-slate-700">
+              <span key={chip} className="rounded-md bg-white px-1.5 py-0.5 text-[13px] font-bold text-slate-700">
                 {chip}
               </span>
             ))}
           </div>
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-1 text-[13px] text-slate-500">
             {def.decor ? "유지비 없음 · 이웃 집을 행복하게 해요" : (
               <>
                 매 턴 유지비 {won(def.upkeep * building.level)} ·{" "}
@@ -449,7 +452,21 @@ function SelectedBuildingCard({
         </button>
       </div>
 
-      {!maxed && impact && (
+      <div className="mt-3 grid grid-cols-3 gap-2" role="group" aria-label="선택한 건물 관리">
+        <button type="button" className="btn-primary min-h-16 flex-col !gap-1 !px-1" aria-expanded={showUpgrade} disabled={maxed || building_} onClick={() => { setShowUpgrade(!showUpgrade); setConfirmSell(false); }}>
+          <span aria-hidden>⬆️</span><span>키우기</span>
+        </button>
+        <button type="button" className="btn-ghost min-h-16 flex-col !gap-1 !px-1" disabled={!onMove || building_ || company.cash < moveCost(building.type)} onClick={() => onMove?.(building.id)}>
+          <span aria-hidden>🚚</span><span>옮기기</span>
+        </button>
+        <button type="button" className="btn-ghost min-h-16 flex-col !gap-1 !px-1 !bg-rose-100 !text-rose-900" aria-expanded={confirmSell} onClick={() => { setConfirmSell(!confirmSell); setShowUpgrade(false); }}>
+          <span aria-hidden>🪙</span><span>{def.decor ? "치우기" : "팔기"}</span>
+        </button>
+      </div>
+      <p className="mt-2 text-[13px] text-slate-600">{building_ ? "공사가 끝나면 키우거나 옮길 수 있어요." : maxed ? "최고 레벨이에요. 옮기기와 팔기는 할 수 있어요." : "할 일을 골라요. 비용을 보고 결정할 수 있어요."}</p>
+      <p className="mt-1 text-[13px] text-slate-600">옮기기 {moveCost(building.type) ? won(moveCost(building.type)) : "무료"} · 팔면 {won(refund)} 돌려받아요.{company.cash < moveCost(building.type) ? " 옮길 돈이 부족해요." : ""}</p>
+
+      {showUpgrade && !maxed && impact && (
         <div className="mt-2 rounded-xl bg-white p-2.5 text-sm ring-1 ring-black/5">
           <div className="font-black text-slate-800">⬆️ Lv.{building.level + 1}로 키우면</div>
           <p className="mt-0.5 text-slate-600">
@@ -468,22 +485,12 @@ function SelectedBuildingCard({
       )}
 
       <div className="mt-2 grid gap-2">
-        {onMove && (
-          <button
-            type="button"
-            className="btn-ghost"
-            disabled={building_ || company.cash < moveCost(building.type)}
-            onClick={() => onMove(building.id)}
-          >
-            🚚 다른 칸으로 옮기기 {moveCost(building.type) > 0 ? `(${won(moveCost(building.type))})` : "(무료)"}
-          </button>
-        )}
-        {!(def.decor && maxed) && (
+        {showUpgrade && !(def.decor && maxed) && (
         <button
           type="button"
           className="btn-primary"
           disabled={maxed || building_ || shortfall > 0}
-          onClick={() => once(() => upgrade(building.id))}
+          onClick={() => once(() => { upgrade(building.id); setShowUpgrade(false); })}
         >
           {maxed
             ? "🏆 최고 레벨이에요"
@@ -491,12 +498,12 @@ function SelectedBuildingCard({
               ? "공사가 끝나면 키울 수 있어요"
               : shortfall > 0
                 ? `🔒 ${won(shortfall)} 더 필요해요`
-                : `⬆️ 업그레이드 (${won(upgradeCost)})`}
+                : `⬆️ ${won(upgradeCost)} 내고 키우기`}
         </button>
         )}
         {confirmSell ? (
           <div className="rounded-xl bg-rose-50 p-2 text-sm text-rose-900 ring-1 ring-rose-200">
-            정말 팔까요? 지을 때 쓴 돈의 절반인 <b>{won(refund)}</b>만 돌아와요.
+            <b>{def.name}</b>{def.decor ? "을 치울까요?" : "을 팔까요?"} <b>{won(refund)}</b>을 돌려받고 이 칸은 빈 땅이 돼요.
             <div className="mt-2 grid grid-cols-2 gap-2">
               <button
                 type="button"
@@ -509,18 +516,14 @@ function SelectedBuildingCard({
                   })
                 }
               >
-                팔기
+                네, 팔게요
               </button>
               <button type="button" className="btn-ghost" onClick={() => setConfirmSell(false)}>
                 그만두기
               </button>
             </div>
           </div>
-        ) : (
-          <button type="button" className="btn-ghost" onClick={() => setConfirmSell(true)}>
-            {def.decor ? "치우기" : "건물 팔기"} (+{won(refund)} 돌려받기)
-          </button>
-        )}
+        ) : null}
       </div>
     </section>
   );
@@ -537,12 +540,12 @@ function CityCollection({ game, company }: { game: GameState; company: Company }
         <span>
           {progress.stage.emoji} 우리 도시: {progress.stage.label}
         </span>
-        <span className="text-xs font-bold text-violet-700">도시 점수 {progress.score}</span>
+        <span className="text-[13px] font-bold text-violet-700">도시 점수 {progress.score}</span>
       </h3>
       <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-white" aria-hidden>
         <div className="h-full rounded-full bg-gradient-to-r from-violet-500 to-sky-400" style={{ width: `${Math.round(progress.progress * 100)}%` }} />
       </div>
-      <p className="mt-1 text-xs text-slate-600">
+      <p className="mt-1 text-[13px] text-slate-600">
         {progress.next
           ? `${progress.next.emoji} ${progress.next.label}까지 ${progress.pointsToNext}점! 건물 레벨 1개 = 1점, 조합 1개 = 2점`
           : "최고 단계 드래곤 시티에 도착했어요! 🎉"}
@@ -550,7 +553,7 @@ function CityCollection({ game, company }: { game: GameState; company: Company }
 
       <details className="mt-3">
       <summary className="flex min-h-11 cursor-pointer items-center text-sm font-black text-violet-800">🏅 건물·조합 도감 펼치기</summary>
-      <h4 className="mt-3 text-xs font-black text-slate-700">🏅 건물 도감</h4>
+      <h4 className="mt-3 text-[13px] font-black text-slate-700">🏅 건물 도감</h4>
       <div className="mt-1 grid grid-cols-4 gap-1.5">
         {collection.buildings.map((entry) => (
           <div
@@ -559,20 +562,20 @@ function CityCollection({ game, company }: { game: GameState; company: Company }
             title={BUILDINGS[entry.type].name}
           >
             <BuildingIcon type={entry.type} size="h-8 w-8" />
-            <span className="text-xs font-bold leading-tight text-slate-700">{BUILDINGS[entry.type].name.split("·")[0]}</span>
-            <span className="text-xs text-slate-500">{entry.count ? `×${entry.count} · Lv${entry.topLevel}` : "?"}</span>
+            <span className="text-[13px] font-bold leading-tight text-slate-700">{BUILDINGS[entry.type].name.split("·")[0]}</span>
+            <span className="text-[13px] text-slate-500">{entry.count ? `×${entry.count} · Lv${entry.topLevel}` : "?"}</span>
           </div>
         ))}
       </div>
 
-      <h4 className="mt-3 text-xs font-black text-slate-700">
+      <h4 className="mt-3 text-[13px] font-black text-slate-700">
         🧩 <Term term="인접 보너스">조합</Term> 도감 {foundCombos}/{collection.combos.length}
       </h4>
       <ul className="mt-1 grid gap-1">
         {collection.combos.map(({ combo, found }) => (
           <li
             key={combo.id}
-            className={`rounded-lg px-2 py-1 text-xs ${found ? "bg-amber-100 font-bold text-amber-900" : "bg-white text-slate-600 ring-1 ring-slate-200"}`}
+            className={`rounded-lg px-2 py-1 text-[13px] ${found ? "bg-amber-100 font-bold text-amber-900" : "bg-white text-slate-600 ring-1 ring-slate-200"}`}
           >
             {found ? (
               <>
