@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { CityAlbum } from "./CityAlbum";
 import { ENDINGS } from "@/lib/endings";
 import { readHall, type HallRecord } from "@/lib/hallOfFame";
 import { getBrowserStorage } from "@/lib/storage";
@@ -35,10 +36,14 @@ export function HallOfFame() {
                 {" "}· 👥 주민 {r.residents ?? 0}명 · 🐾 이웃 {r.neighbours ?? 0}명
               </p>
             )}
-            <p className="mt-1 text-xs text-slate-500">{r.turns}/{r.length}턴 · {{ elementary: "초등", middle: "중등", university: "심화" }[r.level] ?? r.level} · {new Date(r.date).toLocaleDateString("ko-KR")}</p>
+            {r.album ? <details className="mt-3">
+              <summary className="flex min-h-11 cursor-pointer items-center rounded-xl bg-emerald-50 px-3 text-sm font-bold text-emerald-900">📷 도시 앨범 펼치기</summary>
+              <CityAlbum album={r.album} name={r.name} />
+            </details> : <p className="mt-3 text-[13px] text-slate-500">이전 모험은 도시 모습이 저장되지 않았어요.</p>}
+            <p className="mt-1 text-[13px] text-slate-500">{r.turns}/{r.length}턴 · {{ elementary: "초등", middle: "중등", university: "심화" }[r.level] ?? r.level} · {new Date(r.date).toLocaleDateString("ko-KR")}</p>
           </li>)}
         </ol>}
-      <p className="mt-3 text-xs text-slate-500">기록은 기기 간 공유되지 않으며 브라우저 데이터를 지우면 사라져요.</p>
+      <p className="mt-3 text-[13px] text-slate-500">기록은 기기 간 공유되지 않으며 브라우저 데이터를 지우면 사라져요.</p>
     </section>
   );
 }

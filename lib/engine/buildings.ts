@@ -245,6 +245,10 @@ export const BUILDINGS: Record<BuildingType, BuildingDef> = {
   },
 
   // ===== Decorations (꾸미기): cheap, no upkeep, cheer up nearby homes =====
+  grass: { type: "grass", name: "잔디밭", emoji: "🌱", cost: 5000, buildTurns: 0, upkeep: 0, maxLevel: 1, effects: {}, decor: true, description: "폭신한 잔디로 빈 땅 한 칸을 꾸며요. 옆집이 조금 더 행복해져요." },
+  clover: { type: "clover", name: "클로버 잔디", emoji: "☘️", cost: 8000, buildTurns: 0, upkeep: 0, maxLevel: 1, effects: {}, decor: true, description: "작은 클로버가 자라는 잔디예요. 빈 땅 한 칸에 놓아요." },
+  pinetree: { type: "pinetree", name: "소나무", emoji: "🌲", cost: 18000, buildTurns: 0, upkeep: 0, maxLevel: 1, effects: {}, decor: true, description: "뾰족한 초록 나무예요. 사계절 언제든 심을 수 있어요." },
+  birchtree: { type: "birchtree", name: "자작나무", emoji: "🌳", cost: 18000, buildTurns: 0, upkeep: 0, maxLevel: 1, effects: {}, decor: true, description: "하얀 줄기와 연둣빛 잎이 예쁜 나무예요. 옆집에 그늘을 나눠요." },
   flowerbed: { type: "flowerbed", name: "꽃밭", emoji: "🌷", cost: 15_000, buildTurns: 0, upkeep: 0, maxLevel: 1, effects: {}, decor: true, description: "알록달록 꽃밭이에요. 옆집 주민들이 기분 좋아져요." },
   bench: { type: "bench", name: "벤치", emoji: "🪑", cost: 10_000, buildTurns: 0, upkeep: 0, maxLevel: 1, effects: {}, decor: true, description: "산책하다 쉬어 가는 벤치예요." },
   streetlamp: { type: "streetlamp", name: "가로등", emoji: "💡", cost: 12_000, buildTurns: 0, upkeep: 0, maxLevel: 1, effects: {}, decor: true, description: "밤길을 환하게 밝혀 줘요." },

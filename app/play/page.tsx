@@ -1,5 +1,7 @@
 "use client";
 
+import { CityAlbum } from "@/components/CityAlbum";
+import { makeCityAlbum } from "@/lib/cityAlbum";
 import { ENDINGS, getEndingId } from "@/lib/endings";
 import { saveHall } from "@/lib/hallOfFame";
 import { getBrowserStorage } from "@/lib/storage";
@@ -1015,6 +1017,7 @@ function GameOver({ game, onRestart }: { game: ReturnType<typeof useGameStore.ge
   const won = outcome.isChampion;
   const failed = game.endReason === "insolvent";
   const ending = ENDINGS[getEndingId(game)];
+  const album = makeCityAlbum(game);
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
       <div ref={dialogRef} className="card max-h-[92vh] w-full max-w-lg animate-popin overflow-y-auto p-6 text-center outline-none" tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="game-over-title">
@@ -1037,6 +1040,7 @@ function GameOver({ game, onRestart }: { game: ReturnType<typeof useGameStore.ge
           <p>{ending.story}</p>
           <p className="mt-2 text-sm font-bold">💡 {ending.tip}</p>
         </div>
+        {album && <CityAlbum album={album} name={game.companies.find((c) => c.id === game.playerCompanyId)?.name ?? "우리 회사"} />}
         <p role="status" className="mt-3 text-sm text-slate-500">{saved === null ? "기록을 정리하고 있어요…" : saved ? "🏅 명예의 전당에 저장했어요. 첫 화면에서 다시 볼 수 있어요." : "이 브라우저에서 기록을 저장하지 못했어요."}</p>
         {failed && (
           <div className="mt-4 rounded-xl bg-amber-50 p-4 text-left text-sm leading-relaxed text-amber-950 ring-1 ring-amber-200">

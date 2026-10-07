@@ -159,3 +159,12 @@ export const RESIDENT_ART_TODO: Record<string, string> = {
   jjakjjak: "/assets/residents/jjakjjak.png",
   pinky: "/assets/residents/pinky.png",
 };
+
+// TODO(asset): use CSS and primitive 3D landscaping until final art is ready.
+// These keys are placeholders, not image URLs requested by the UI.
+export const LANDSCAPE_ART_TODO = {
+  grass: "TODO: 잔디밭",
+  clover: "TODO: 클로버 잔디",
+  pinetree: "TODO: 소나무",
+  birchtree: "TODO: 자작나무",
+} as const;

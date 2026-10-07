@@ -17,6 +17,10 @@ const ALL_ASSETS: AssetClass[] = [
 /** Village homes and decorations, open in every level. */
 export const VILLAGE_BUILDINGS: BuildingType[] = [
   "house",
+  "grass",
+  "clover",
+  "pinetree",
+  "birchtree",
   "flowerbed",
   "bench",
   "streetlamp",

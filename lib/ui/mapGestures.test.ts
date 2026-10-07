@@ -1,7 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { constrainMap, INITIAL_MAP_VIEW, MapGesture, zoomMap } from "./mapGestures";
+import { constrainMap, fitReadableMap, readableMapSize, INITIAL_MAP_VIEW, MapGesture, zoomMap } from "./mapGestures";
 
 describe("지도 터치 조작", () => {
+  it("작은 화면에서도 글자와 터치 칸은 줄이지 않고 모든 가장자리로 이동할 수 있다", () => {
+    for (const cells of [5, 8, 12]) {
+      const size = readableMapSize(cells);
+      expect((size - 16 - (cells - 1) * 4) / cells).toBeGreaterThanOrEqual(80);
+      const view = fitReadableMap({ scale: 0.6, x: 0, y: 0 }, 320, 360, size);
+      expect(view.scale).toBe(1);
+      const edge = fitReadableMap({ scale: 1, x: 9999, y: 9999 }, 320, 360, size);
+      expect(edge.x).toBeGreaterThanOrEqual((size - 320) / 2);
+      expect(edge.y).toBeGreaterThanOrEqual((size - 360) / 2);
+    }
+    expect(fitReadableMap({ scale: 0.6, x: 0, y: 0 }, 320, 360).scale).toBe(0.6);
+  });
   it("손가락 흔들림은 탭으로 두고 스와이프는 이동으로 구분한다", () => {
     const gesture = new MapGesture(); gesture.down(1, { x: 0, y: 0 });
     expect(gesture.move(1, { x: 4, y: 3 }, INITIAL_MAP_VIEW)).toEqual(INITIAL_MAP_VIEW);

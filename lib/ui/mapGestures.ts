@@ -4,6 +4,13 @@ export const INITIAL_MAP_VIEW: MapView = { x: 0, y: 0, scale: 1 };
 export const MIN_MAP_SCALE = 0.6;
 export const MAX_MAP_SCALE = 2.5;
 
+/** Full-size labels and 80px plots remain readable even on a narrow phone. */
+export function readableMapSize(cells: number): number { return cells * 88 + 12; }
+export function fitReadableMap(view: MapView, width: number, height: number, contentSize?: number): MapView {
+  const next = contentSize && view.scale < 1 ? zoomMap(view, 1) : view;
+  return constrainMap(next, Math.max(width, contentSize ?? 0), Math.max(height, contentSize ?? 0));
+}
+
 export function zoomMap(view: MapView, scale: number, anchor: Point = { x: 0, y: 0 }): MapView {
   const next = Math.max(MIN_MAP_SCALE, Math.min(MAX_MAP_SCALE, scale));
   const ratio = next / view.scale;

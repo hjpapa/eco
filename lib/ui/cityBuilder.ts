@@ -40,6 +40,10 @@ const ROLE: Record<BuildingType, BuildingRole> = {
   cafeteria: "happy",
   dorm: "home",
   house: "home",
+  grass: "decor",
+  clover: "decor",
+  pinetree: "decor",
+  birchtree: "decor",
   flowerbed: "decor",
   bench: "decor",
   streetlamp: "decor",
@@ -74,6 +78,10 @@ const TAGLINE: Record<BuildingType, string> = {
   cafeteria: "직원이 행복해요",
   dorm: "주민 12명이 사는 집",
   house: "주민 8명이 사는 집",
+  grass: "폭신한 초록 바닥",
+  clover: "작은 클로버 바닥",
+  pinetree: "사계절 초록 나무",
+  birchtree: "하얀 줄기, 연두 그늘",
   flowerbed: "알록달록 꽃밭",
   bench: "쉬어 가는 벤치",
   streetlamp: "밤길을 밝혀요",
@@ -230,4 +238,19 @@ export function buildingWorkReport(
     }
   }
   return labels;
+}
+
+export type DecorCategory = "all" | "ground" | "plants" | "props";
+export const DECOR_CATEGORIES: { id: DecorCategory; label: string }[] = [
+  { id: "all", label: "전체" },
+  { id: "ground", label: "🌱 바닥" },
+  { id: "plants", label: "🌳 식물" },
+  { id: "props", label: "🪑 소품" },
+];
+
+export function decorCategory(type: BuildingType): Exclude<DecorCategory, "all"> | null {
+  if (!BUILDINGS[type].decor) return null;
+  if (type === "grass" || type === "clover") return "ground";
+  if (["flowerbed", "bigtree", "pinetree", "birchtree", "cherrytree"].includes(type)) return "plants";
+  return "props";
 }

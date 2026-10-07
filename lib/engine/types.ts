@@ -107,6 +107,10 @@ export type BuildingType =
   /** A home for village residents (the village layer, see village.ts). */
   | "house"
   // Decorations (꾸미기): cheap, no upkeep, only cheer up nearby homes.
+  | "grass"
+  | "clover"
+  | "pinetree"
+  | "birchtree"
   | "flowerbed"
   | "bench"
   | "streetlamp"

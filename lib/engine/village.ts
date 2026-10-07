@@ -43,6 +43,10 @@ export const VILLAGE_ROLES: Record<BuildingType, VillageRole> = {
   clocktower: { jobs: 1, happy: 2, radius: 2 },
   ferris: { jobs: 6, shops: 20, happy: 5, radius: 3 },
   // Decorations only cheer up the homes right next to them.
+  grass: { happy: 1, radius: 1 },
+  clover: { happy: 1, radius: 1 },
+  pinetree: { happy: 2, radius: 1 },
+  birchtree: { happy: 2, radius: 1 },
   flowerbed: { happy: 2, radius: 1 },
   bench: { happy: 1, radius: 1 },
   streetlamp: { happy: 1, radius: 1 },
@@ -58,7 +62,7 @@ export const VILLAGE_ROLES: Record<BuildingType, VillageRole> = {
 };
 
 /** Decorations are not "kinds of building" for the star rating. */
-const DECOR_TYPES = new Set<BuildingType>(["flowerbed", "bench", "streetlamp", "bigtree", "noticeboard", "pond", "carousel", "balloon", "cherrytree", "parasol", "pumpkin", "snowman"]);
+const DECOR_TYPES = new Set<BuildingType>(["grass", "clover", "pinetree", "birchtree", "flowerbed", "bench", "streetlamp", "bigtree", "noticeboard", "pond", "carousel", "balloon", "cherrytree", "parasol", "pumpkin", "snowman"]);
 export function isDecorType(type: BuildingType): boolean {
   return DECOR_TYPES.has(type);
 }
