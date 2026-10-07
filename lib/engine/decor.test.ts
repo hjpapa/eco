@@ -11,7 +11,7 @@ import {
   type BuildingType,
   type GameState,
 } from "./index";
-import { buildBuilding, moveBuilding, MOVE_FEE } from "./actions";
+import { buildBuilding, moveBuilding, sellBuilding, MOVE_FEE } from "./actions";
 import { buildingConstructionCost, cityScore } from "./buildings";
 import { plotHappiness, villageStats } from "./village";
 import { startSeason } from "./seasons";
@@ -189,5 +189,56 @@ describe("도감 스티커", () => {
     expect(migrated.config.enabledBuildings).toContain("snowman");
     expect(advanceTurn(migrated).stickers ?? []).toHaveLength(0);
     expect(migrated.stickers?.length).toBeGreaterThan(0);
+  });
+});
+
+describe("잔디와 나무 꾸미기", () => {
+  const landscape = ["grass", "clover", "pinetree", "birchtree"] as const;
+  it.each(landscape)("%s: 배치·중복 방지·무료 이동·치우기와 환불", (type) => {
+    const game = newGame();
+    const company = player(game);
+    const [a, b] = freePlots(game, 2);
+    const cash = company.cash;
+    const score = cityScore(company.buildings);
+    const variety = villageStats(company.buildings).variety;
+    expect(buildBuilding(game, company, type, a.x, a.y).ok).toBe(true);
+    const placed = company.buildings.find((item) => item.type === type)!;
+    expect(placed.turnsLeft).toBe(0);
+    expect(company.cash).toBe(cash - BUILDINGS[type].cost);
+    expect(buildBuilding(game, company, type, a.x, a.y).ok).toBe(false);
+    expect(company.cash).toBe(cash - BUILDINGS[type].cost);
+    expect(cityScore(company.buildings)).toBe(score);
+    expect(villageStats(company.buildings).variety).toBe(variety);
+    expect(plotHappiness(company.buildings, b.x, b.y)).toBeGreaterThan(
+      plotHappiness(company.buildings.filter((item) => item.id !== placed.id), b.x, b.y));
+    expect(moveBuilding(game, company, placed.id, b.x, b.y).ok).toBe(true);
+    expect(company.cash).toBe(cash - BUILDINGS[type].cost);
+    expect(sellBuilding(game, company, placed.id).ok).toBe(true);
+    expect(company.cash).toBe(cash - BUILDINGS[type].cost / 2);
+    expect(company.buildings.some((item) => item.id === placed.id)).toBe(false);
+  });
+
+  it("예전 저장에 새 소품이 열리고 기존 도시·돈은 유지된다", () => {
+    const old = JSON.parse(JSON.stringify(newGame())) as GameState;
+    old.config.enabledBuildings = old.config.enabledBuildings.filter(
+      (type) => !landscape.some((item) => item === type));
+    const before = JSON.stringify(player(old));
+    const migrated = migrateGameState(JSON.parse(JSON.stringify(old)))!;
+    for (const type of landscape) expect(migrated.config.enabledBuildings).toContain(type);
+    expect(JSON.stringify(player(migrated))).toBe(before);
+    expect(migrateGameState(JSON.parse(JSON.stringify(migrated)))).toEqual(migrated);
+  });
+
+  it("새 소품이 있는 저장을 다시 불러와도 같은 seed의 턴 결과가 같다", () => {
+    const game = newGame(41);
+    const plots = freePlots(game, 4);
+    landscape.forEach((type, i) => expect(buildBuilding(game, player(game), type, plots[i].x, plots[i].y).ok).toBe(true));
+    const loaded = migrateGameState(JSON.parse(JSON.stringify(game)))!;
+    expect(player(loaded).buildings).toEqual(player(game).buildings);
+    expect(advanceTurn(loaded)).toEqual(advanceTurn(game));
+    expect(loaded.companies).toEqual(game.companies);
+    expect(loaded.macro).toEqual(game.macro);
+    expect(loaded.rng).toEqual(game.rng);
+    expect(loaded.decorLog).toEqual(game.decorLog);
   });
 });

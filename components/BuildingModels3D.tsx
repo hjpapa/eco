@@ -376,6 +376,10 @@ const HEIGHT: Record<BuildingType, (level: number) => number> = {
   clocktower: (l) => 0.7 + l * 0.25,
   ferris: (l) => 0.5 + l * 0.1,
   house: () => 0.36,
+  grass: () => 0.06,
+  clover: () => 0.08,
+  pinetree: () => 0.6,
+  birchtree: () => 0.6,
   flowerbed: () => 0.1,
   bench: () => 0.14,
   streetlamp: () => 0.52,
@@ -1213,6 +1217,36 @@ function DecorPad({ glow }: { glow: boolean }) {
 
 const FLOWER_COLORS = ["#f472b6", "#facc15", "#ef4444", "#a78bfa", "#fb923c", "#f9a8d4"];
 
+function GrassPatch({ glow }: ModelProps) {
+  return <group>
+    <Block size={[0.88, 0.035, 0.88]} position={[0, 0.035, 0]} color="#83b977" glow={glow} />
+    {[-0.28, 0, 0.28].map((z) => <Block key={z} size={[0.86, 0.004, 0.13]} position={[0, 0.055, z]} color="#91c384" />)}
+  </group>;
+}
+
+function CloverPatch(props: ModelProps) {
+  return <group>
+    <GrassPatch {...props} />
+    {[[0.2, 0.2], [-0.2, -0.2], [0.18, -0.23]].map(([x, z], i) => <group key={i} position={[x, 0.065, z]} scale={[1, 0.2, 1]}>
+      {[[-0.035, 0], [0.035, 0], [0, 0.05]].map(([dx, dz], j) => <Ball key={j} r={0.055} position={[dx, 0, dz]} color="#4e975b" />)}
+    </group>)}
+  </group>;
+}
+
+function PineDecor(props: ModelProps) {
+  return <group><GrassPatch {...props} /><PineTree position={[0, 0.055, 0]} scale={1.9} /></group>;
+}
+
+function BirchDecor(props: ModelProps) {
+  return <group>
+    <GrassPatch {...props} />
+    <Cyl r={0.028} h={0.38} position={[0, 0.24, 0]} color="#f1eee1" segments={8} />
+    {[0.13, 0.23, 0.32].map((y) => <Block key={y} size={[0.036, 0.012, 0.058]} position={[0, y, 0]} color="#777568" />)}
+    <Ball r={0.15} position={[0, 0.48, 0]} color="#9cc87e" />
+    <Ball r={0.1} position={[0.1, 0.4, 0.02]} color="#80b76b" />
+  </group>;
+}
+
 function Flowerbed({ glow }: ModelProps) {
   return (
     <group>
@@ -1418,6 +1452,10 @@ const MODELS: Record<BuildingType, (props: ModelProps) => React.ReactElement> = 
   clocktower: ClockTower,
   ferris: ThemePark,
   house: House,
+  grass: GrassPatch,
+  clover: CloverPatch,
+  pinetree: PineDecor,
+  birchtree: BirchDecor,
   flowerbed: Flowerbed,
   bench: BenchDecor,
   streetlamp: Streetlamp,

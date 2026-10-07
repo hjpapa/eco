@@ -949,8 +949,6 @@ function themeLabel(theme: string): string {
   return map[theme] ?? theme;
 }
 
-let eventCounter = 0;
-
 /**
  * Balance helper: keep positive vs negative events roughly even over time.
  * Counts recent positives/negatives and strongly up/down-weights to correct an
@@ -976,6 +974,9 @@ function toneBalanceFactor(state: GameState, tone: EventTone): number {
  * state.news). Number of events scales with level event intensity.
  */
 export function generateEvents(state: GameState): NewsItem[] {
+  // Derive IDs from this save, not other games played in the same process.
+  const existingIds = new Set(state.news.map((item) => item.id));
+  let eventCounter = 0;
   const ctx: EventCtx = { state, rng: state.rng };
   const intensity = state.config.eventIntensity;
   const enabled = new Set(state.config.enabledEventLayers);
@@ -1021,6 +1022,7 @@ export function generateEvents(state: GameState): NewsItem[] {
     }
     if (!result) continue;
 
+    while (existingIds.has(`ev-${state.turn}-${eventCounter}`)) eventCounter += 1;
     const news: NewsItem = {
       id: `ev-${state.turn}-${eventCounter++}`,
       turn: state.turn,

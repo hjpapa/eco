@@ -69,6 +69,8 @@ export interface NewGameInput {
 
 interface GameStore {
   game: GameState | null;
+  buildUndo: { before: GameState; type: BuildingType; cost: number } | null;
+  undoBuild: () => void;
   lastSummary: TurnSummary | null;
   toast: { text: string; tone: "good" | "bad" | "info" } | null;
 
@@ -139,13 +141,14 @@ function afterAction(game: GameState, toast: { text: string; tone: "good" | "bad
 
 export const useGameStore = create<GameStore>((set, get) => ({
   game: null,
+  buildUndo: null,
   lastSummary: null,
   toast: null,
 
   newGame: (input) => {
     const game = createGame(input);
     persist(game);
-    set({ game, lastSummary: null, toast: null });
+    set({ buildUndo: null, game, lastSummary: null, toast: null });
   },
 
   loadSave: () => {
@@ -157,7 +160,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     // dialog. Record that fact outside the game save before persisting its
     // normal campaign migration.
     if (loaded.legacyCampaign) markLearningIntroSeen(loaded.game.createdAt);
-    set({ game: loaded.game, lastSummary: null });
+    set({ buildUndo: null, game: loaded.game, lastSummary: null });
     return true;
   },
 
@@ -169,6 +172,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   clearSave: () => {
     const storage = getBrowserStorage();
     if (storage) clearGameSaves(storage);
+    set({ buildUndo: null });
   },
 
   acknowledgeLearningIntro: () => {
@@ -184,7 +188,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     persist(game);
     if ((game.status as string) === "ended") playSfx("win");
     else playSfx("turn");
-    set({ game: { ...game }, lastSummary: summary });
+    set({ buildUndo: null, game: { ...game }, lastSummary: summary });
   },
 
   setDecisions: (partial) => {
@@ -198,7 +202,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
     Object.assign(company.decisions, allowed);
     persist(game);
-    set({ game: { ...game } });
+    set({ buildUndo: null, game: { ...game } });
   },
 
   build: (type, x, y) => {
@@ -207,13 +211,23 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const p = player(game);
     let cell: { x: number; y: number } | null = x != null && y != null ? { x, y } : emptyCell(p, game.config.mapSize);
     if (!cell) return showToast(set, "빈 땅이 없어요.", "bad");
+    const before = structuredClone(game);
+    const cashBefore = p.cash;
     const res = buildBuilding(game, p, type, cell.x, cell.y);
     if (!res.ok) return showToast(set, res.error ?? "건설 실패", "bad");
     playSfx("build");
     haptic(20);
     const toast = afterAction(game, { text: res.message ?? "건설 완료!", tone: "good" });
     persist(game);
-    set({ game: { ...game }, toast });
+    set({ buildUndo: { before, type, cost: cashBefore - p.cash }, game: { ...game }, toast });
+  },
+
+  undoBuild: () => {
+    const undo = get().buildUndo;
+    if (!undo) return;
+    const game = structuredClone(undo.before);
+    persist(game);
+    set({ buildUndo: null, game, toast: { text: `배치를 되돌렸어요 · ${formatMoney(undo.cost)}원 전액 돌려받음`, tone: "info" } });
   },
 
   upgrade: (buildingId) => {
@@ -225,7 +239,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     haptic(20);
     const toast = afterAction(game, { text: res.message ?? "업그레이드 완료!", tone: "good" });
     persist(game);
-    set({ game: { ...game }, toast });
+    set({ buildUndo: null, game: { ...game }, toast });
   },
 
   move: (buildingId, x, y) => {
@@ -237,7 +251,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     haptic(15);
     const toast = afterAction(game, { text: res.message ?? "옮겼어요!", tone: "good" });
     persist(game);
-    set({ game: { ...game }, toast });
+    set({ buildUndo: null, game: { ...game }, toast });
   },
 
   demolish: (buildingId) => {
@@ -247,7 +261,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (!res.ok) return showToast(set, res.error ?? "매각 실패", "bad");
     playSfx("click");
     persist(game);
-    set({ game: { ...game }, toast: { text: `건물을 팔았어요 · ${formatMoney(res.refund ?? 0)}원 돌려받음`, tone: "info" } });
+    set({ buildUndo: null, game: { ...game }, toast: { text: `건물을 팔았어요 · ${formatMoney(res.refund ?? 0)}원 돌려받음`, tone: "info" } });
   },
 
   companyAction: (actionId) => {
@@ -258,7 +272,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     playSfx("click");
     const toast = afterAction(game, { text: res.message ?? "실행 완료!", tone: "good" });
     persist(game);
-    set({ game: { ...game }, toast });
+    set({ buildUndo: null, game: { ...game }, toast });
   },
 
   proposeDeal: (targetCompanyId, dealId) => {
@@ -269,7 +283,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const succeeded = !res.message?.includes("결렬");
     playSfx(succeeded ? "hire" : "click");
     persist(game);
-    set({ game: { ...game }, toast: { text: res.message ?? "교류 성사!", tone: succeeded ? "good" : "info" } });
+    set({ buildUndo: null, game: { ...game }, toast: { text: res.message ?? "교류 성사!", tone: succeeded ? "good" : "info" } });
   },
 
   hire: (characterId, overrideSalary, loyaltyBonus) => {
@@ -280,7 +294,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     playSfx("hire");
     persist(game);
     const msg = overrideSalary ? "⭐ 전설 인재와 계약했어요!" : "🎉 인재를 뽑았어요!";
-    set({ game: { ...game }, toast: { text: msg, tone: "good" } });
+    set({ buildUndo: null, game: { ...game }, toast: { text: msg, tone: "good" } });
   },
 
   fire: (characterId) => {
@@ -290,7 +304,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (!res.ok) return showToast(set, res.error ?? "해고 실패", "bad");
     playSfx("click");
     persist(game);
-    set({ game: { ...game }, toast: { text: "👋 인재를 내보냈어요", tone: "info" } });
+    set({ buildUndo: null, game: { ...game }, toast: { text: "👋 인재를 내보냈어요", tone: "info" } });
   },
 
   poach: (targetCompanyId, characterId, overrideSalary, loyaltyBonus) => {
@@ -300,7 +314,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (!res.ok) return showToast(set, res.error ?? "스카우트 실패", "bad");
     playSfx("hire");
     persist(game);
-    set({ game: { ...game }, toast: { text: res.message ?? "스카우트 성공!", tone: "good" } });
+    set({ buildUndo: null, game: { ...game }, toast: { text: res.message ?? "스카우트 성공!", tone: "good" } });
   },
 
   negotiateSalary: (characterId, newSalary, miniGameBonus) => {
@@ -310,7 +324,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (!res.ok) return showToast(set, res.error ?? "실패", "bad");
     playSfx("click");
     persist(game);
-    set({ game: { ...game }, toast: { text: res.message ?? "💝 급여를 올렸어요!", tone: "good" } });
+    set({ buildUndo: null, game: { ...game }, toast: { text: res.message ?? "💝 급여를 올렸어요!", tone: "good" } });
   },
 
   tradeStock: (companyId, shares, side) => {
@@ -331,7 +345,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const updated = { ...game, companies };
     const toast = afterAction(updated, { text, tone: "good" });
     persist(updated);
-    set({ game: updated, toast });
+    set({ buildUndo: null, game: updated, toast });
     return true;
   },
 
@@ -347,7 +361,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const updated = { ...game, companies };
     const toast = afterAction(updated, { text: side === "buy" ? `매수 완료 · 잔고 ${formatMoney(p.cash)}` : "매도 완료", tone: "good" });
     persist(updated);
-    set({ game: updated, toast });
+    set({ buildUndo: null, game: updated, toast });
     return true;
   },
 
@@ -359,7 +373,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (!res.ok) return showToast(set, res.error ?? "실패", "bad");
     playSfx("click");
     persist(game);
-    set({ game: { ...game }, toast: { text: side === "borrow" ? "💳 돈을 빌렸어요" : "✅ 빚을 갚았어요", tone: "good" } });
+    set({ buildUndo: null, game: { ...game }, toast: { text: side === "borrow" ? "💳 돈을 빌렸어요" : "✅ 빚을 갚았어요", tone: "good" } });
   },
 
   setProductPrice: (index, price) => {
@@ -369,7 +383,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (!p.productPrices) p.productPrices = [];
     p.productPrices[index] = Math.max(0, price);
     persist(game);
-    set({ game: { ...game } });
+    set({ buildUndo: null, game: { ...game } });
   },
 
   toggleProduct: (index) => {
@@ -379,7 +393,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (!p.productEnabled) p.productEnabled = [true, false, false, false];
     p.productEnabled = p.productEnabled.map((v, i) => (i === index ? !v : v));
     persist(game);
-    set({ game: { ...game } });
+    set({ buildUndo: null, game: { ...game } });
   },
 
   acceptQuest: (questId) => {
@@ -389,7 +403,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (!res.ok) return showToast(set, res.error ?? "실패", "bad");
     playSfx("hire");
     persist(game);
-    set({ game: { ...game }, toast: { text: res.message ?? "주문을 받았어요!", tone: "good" } });
+    set({ buildUndo: null, game: { ...game }, toast: { text: res.message ?? "주문을 받았어요!", tone: "good" } });
   },
 
   declineQuest: (questId) => {
@@ -399,7 +413,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (!res.ok) return showToast(set, res.error ?? "실패", "bad");
     playSfx("click");
     persist(game);
-    set({ game: { ...game }, toast: { text: res.message ?? "거절했어요.", tone: "info" } });
+    set({ buildUndo: null, game: { ...game }, toast: { text: res.message ?? "거절했어요.", tone: "info" } });
   },
 
   claimQuest: (questId) => {
@@ -410,7 +424,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     playSfx("sell");
     const toast = afterAction(game, { text: res.message ?? "보상 받기 완료!", tone: "good" });
     persist(game);
-    set({ game: { ...game }, toast });
+    set({ buildUndo: null, game: { ...game }, toast });
   },
 
   chooseDilemma: (optionIndex) => {
@@ -421,7 +435,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     playSfx("click");
     const toast = afterAction(game, { text: res.message ?? "결정했어요!", tone: "good" });
     persist(game);
-    set({ game: { ...game }, toast });
+    set({ buildUndo: null, game: { ...game }, toast });
   },
 
   planForOrder: () => {
@@ -431,7 +445,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const { plan } = planWithOrder(game, company);
     company.decisions.productionTarget = plan;
     persist(game);
-    set({ game: { ...game }, toast: { text: `생산 계획을 ${plan.toLocaleString()}개로 맞췄어요`, tone: "info" } });
+    set({ buildUndo: null, game: { ...game }, toast: { text: `생산 계획을 ${plan.toLocaleString()}개로 맞췄어요`, tone: "info" } });
   },
 
   dismissToast: () => set({ toast: null }),

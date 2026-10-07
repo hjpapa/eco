@@ -26,6 +26,9 @@ import {
 import { formatMoney, formatNum, withJosa } from "@/lib/format";
 import { BUILDING_IMG } from "@/lib/assetMap";
 import {
+  DECOR_CATEGORIES,
+  decorCategory,
+  type DecorCategory,
   BUILDING_ROLE_LABELS,
   buildingEffectChips,
   buildingRole,
@@ -54,6 +57,13 @@ type PaletteFilter = "all" | BuildingRole;
 const FILTERS: PaletteFilter[] = ["all", "money", "smart", "happy", "home", "decor", "landmark"];
 
 export function BuildingIcon({ type, size = "h-12 w-12" }: { type: BuildingType; size?: string }) {
+  if (type === "grass" || type === "clover" || type === "pinetree" || type === "birchtree") {
+    return <span aria-hidden className={`${size} relative flex shrink-0 items-center justify-center overflow-hidden rounded-lg text-3xl`}
+      style={{ background: "repeating-linear-gradient(0deg, #83b977 0px, #83b977 8px, #91c384 8px, #91c384 16px)" }}>
+      {type === "grass" ? <span className="text-xl text-green-800">⌁</span> : BUILDINGS[type].emoji}
+      {type === "birchtree" && <span className="absolute bottom-1 h-3 w-1 rounded bg-stone-100" />}
+    </span>;
+  }
   const src = BUILDING_IMG[type];
   return src ? (
     <img src={src} alt="" className={`${size} shrink-0 object-contain`} draggable={false} />
@@ -107,12 +117,14 @@ export function ConstructionPanel({
   const villageOpen = isFeatureUnlocked(game, "village");
   const safetyLine = cashSafetyLine(company);
   const [filter, setFilter] = useState<PaletteFilter>(initialFilter ?? "all");
+  const [decorFilter, setDecorFilter] = useState<DecorCategory>("all");
   const [showLocked, setShowLocked] = useState(false);
   // Homes and decorations wait for the 🏘️ village lesson in guided games.
   const enabled = BUILDING_LIST.filter((b) => game.config.enabledBuildings.includes(b.type) && (villageOpen || !VILLAGE_BUILDINGS.includes(b.type)));
   // Open buildings first, then the ones a bigger city will unlock.
   const types = enabled
     .filter((b) => (filter === "all" || buildingRole(b.type) === filter) && (showLocked || isBuildingTypeUnlocked(company, b.type)))
+    .filter((b) => filter !== "decor" || decorFilter === "all" || decorCategory(b.type) === decorFilter)
     .sort((a, b) => {
       const lockA = isBuildingTypeUnlocked(company, a.type) ? 0 : a.unlockCityScore ?? 0;
       const lockB = isBuildingTypeUnlocked(company, b.type) ? 0 : b.unlockCityScore ?? 0;
@@ -168,6 +180,16 @@ export function ConstructionPanel({
             </button>
           ))}
         </div>
+        {filter === "decor" && <div className="mb-2 flex flex-wrap gap-2" role="group" aria-label="꾸미기 종류 고르기">
+          {DECOR_CATEGORIES.map((category) => <button key={category.id} type="button" aria-pressed={decorFilter === category.id}
+            onClick={() => setDecorFilter(category.id)}
+            className={`min-h-11 min-w-11 rounded-xl px-3 text-[13px] font-bold ${decorFilter === category.id ? "bg-emerald-700 text-white" : "bg-emerald-50 text-emerald-900"}`}>
+            {category.label}
+          </button>)}
+        </div>}
+        {filter === "decor" && <p className="mb-2 rounded-xl bg-emerald-50 p-3 text-[13px] leading-relaxed text-emerald-900">
+          잔디·꽃·나무로 빈 땅 한 칸을 꾸며요. 소품을 고르고 빈 땅을 눌러요. 유지비와 옮기기 비용은 없어요.
+        </p>}
         <div className="grid grid-cols-2 gap-2">
           {types.map((def) => {
             const cost = buildingConstructionCost(company, def.type);

@@ -74,6 +74,8 @@ export function CompanyWorkspace({
   /** Changes after each turn's popups close; triggers the building pop-ups. */
   workReportKey?: number;
 }) {
+  const buildUndo = useGameStore((s) => s.buildUndo);
+  const undoBuild = useGameStore((s) => s.undoBuild);
   const lastSummary = useGameStore((s) => s.lastSummary);
   const workReport = workReportKey
     ? { key: workReportKey, labels: buildingWorkReport(company, lastSummary?.playerResult?.unitsProduced ?? 0) }
@@ -471,6 +473,13 @@ export function CompanyWorkspace({
                   onCancel={() => setPending(null)}
                 />
               )}
+              {buildUndo && <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-sky-50 p-3 text-[13px] text-sky-950" role="status">
+                <div><p className="font-bold">{BUILDINGS[buildUndo.type].name} 배치 완료 · 전액 돌려받을 수 있어요</p>
+                  <p>다음 턴이나 다른 경영 행동 전까지 되돌릴 수 있어요.</p></div>
+                <button type="button" className="btn-ghost !min-h-11" onClick={() => {
+                  undoBuild(); setSelectedId(null); setPendingState(null); setConfirmCell(null); setMoving(null); setCelebration(null);
+                }}>↩ 마지막 배치 되돌리기</button>
+              </div>}
               <div className="relative">
                 {flat ? (
                   flatMap
