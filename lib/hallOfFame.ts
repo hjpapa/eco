@@ -1,3 +1,4 @@
+import { makeCityAlbum, readCityAlbum, type CityAlbum } from "./cityAlbum";
 import { getCampaignOutcome, villageStats, type GameState } from "./engine";
 import { ENDINGS, getEndingId, type EndingId } from "./endings";
 import type { KeyValueStorage } from "./storage";
@@ -7,6 +8,7 @@ export interface HallRecord {
   id: string; name: string; ending: EndingId; rank: number; wealth: number;
   turns: number; length: number; level: string; date: number;
   /** Village at the end (missing on records from before the village). */
+  album?: CityAlbum;
   stars?: number; residents?: number; neighbours?: number;
 }
 export function readHall(storage: KeyValueStorage | null): HallRecord[] {
@@ -15,7 +17,7 @@ export function readHall(storage: KeyValueStorage | null): HallRecord[] {
     if (!Array.isArray(data)) return [];
     return data.filter((r): r is HallRecord => !!r && typeof r.id === "string" && typeof r.name === "string"
       && Object.hasOwn(ENDINGS, r.ending) && [r.rank, r.wealth, r.turns, r.length, r.date].every(Number.isFinite)
-      && r.rank > 0 && r.turns >= 0 && r.length > 0 && typeof r.level === "string").slice(0, 30);
+      && r.rank > 0 && r.turns >= 0 && r.length > 0 && typeof r.level === "string").slice(0, 30).map((r) => ({ ...r, album: readCityAlbum(r.album), stars: Number.isInteger(r.stars) && r.stars! >= 1 && r.stars! <= 5 ? r.stars : undefined }));
   } catch { return []; }
 }
 export function saveHall(storage: KeyValueStorage | null, game: GameState): boolean {
@@ -24,6 +26,7 @@ export function saveHall(storage: KeyValueStorage | null, game: GameState): bool
   const record: HallRecord = {
     id: `${game.createdAt}:${game.seed}:${game.playerCompanyId}`,
     name: game.companies.find((c) => c.id === game.playerCompanyId)?.name ?? "우리 회사",
+    album: makeCityAlbum(game),
     ending: getEndingId(game), rank: outcome.finalRank, wealth: outcome.finalNetWorth,
     turns: game.turn, length: game.maxTurns, level: game.level, date: game.updatedAt,
   };
